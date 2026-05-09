@@ -10,6 +10,7 @@ datasource db {
   provider = "postgresql"
 }
 
+<<<<<<< HEAD
 // ============================================
 // EVENTOS Y JOBS (Sistema Event-Driven)
 // ============================================
@@ -26,6 +27,181 @@ model Event {
   @@index([type])
   @@index([jobId])
   @@index([createdAt])
+=======
+model User {
+  id                String           @id @default(uuid())
+  email             String           @unique
+  name              String?
+  image             String?
+  passwordHash      String?
+  role              UserRole         @default(CLIENT)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  emailVerified     DateTime?
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+  accounts          Account[]
+  businessesCreated Business[]       @relation("BusinessCreator")
+  memberships       BusinessMember[]
+  planningOrders    PlanningOrder[]
+  sessions          Session[]
+}
+
+model Business {
+  id               String              @id @default(uuid())
+  name             String
+  description      String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  goals            String?
+  valueProposition String?
+  type             BusinessType        @default(EMPRESA)
+  imageUrl         String?
+  status           BusinessStatus      @default(ACTIVE)
+  createdById      String?
+  createdBy        User?               @relation("BusinessCreator", fields: [createdById], references: [id])
+  baseConfig       BusinessBaseConfig?
+  members          BusinessMember[]
+  planningOrders   PlanningOrder[]
+  products         Product[]
+}
+
+model BusinessMember {
+  id         String     @id @default(uuid())
+  userId     String
+  businessId String
+  role       MemberRole @default(VIEWER)
+  createdAt  DateTime   @default(now())
+  business   Business   @relation(fields: [businessId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([userId, businessId])
+}
+
+model BusinessBaseConfig {
+  id                      String              @id @default(uuid())
+  businessId              String              @unique
+  yearsInMarket           Int?
+  country                 String?
+  city                    String?
+  coverageArea            CoverageArea?
+  brandTone               BrandTone?
+  brandPersonality        String?
+  brandLanguageLevel      BrandLanguageLevel?
+  allowedEmojis           Boolean             @default(true)
+  forbiddenWords          String?
+  targetGender            TargetGender?
+  mainPainPoint           String?
+  mainDesire              String?
+  mainObjection           String?
+  buyingMotivation        String?
+  mainProducts            String?
+  averageTicket           AverageTicket?
+  purchaseFrequency       PurchaseFrequency?
+  activeChannels          String?
+  visualStyle             VisualStyle?
+  brandColors             String?
+  competitors             Json?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  targetAudienceAgeRanges String[]
+  targetAudienceAllAges   Boolean             @default(false)
+  business                Business            @relation(fields: [businessId], references: [id])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PlanningOrder {
+  id                  String            @id @default(uuid())
+  businessId          String
+  createdByUserId     String
+  status              PlanningStatus    @default(ORDER_CREATED)
+  startDate           DateTime          @db.Date
+  endDate             DateTime          @db.Date
+  objective           PlanningObjective @default(AUMENTAR_VENTAS)
+  priorityProductIds  String[]
+  additionalFocus     String?
+  frequencyBase       Float             @default(1.0)
+  channelRules        Json
+  productionNotes     String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  assetSource         AssetSource       @default(MIXED)
+  references          String?
+  contentPillars      ContentPillar[]
+  contentStrategy     ContentStrategy?
+  emotionalTone       EmotionalTone?
+  excludedDates       DateTime[]        @db.Date
+  name                String?
+  callToAction        String?
+  campaignAudience    String?
+  keywords            String[]
+  visualStyleOverride String?
+  offerDetail         String?
+  primaryChannel      String?
+  focusOnBuyerPains   Boolean           @default(true)
+  contentIdeas        ContentIdea[]
+  business            Business          @relation(fields: [businessId], references: [id])
+  creator             User              @relation(fields: [createdByUserId], references: [id])
+}
+
+model ContentIdea {
+  id              String        @id @default(uuid())
+  planningOrderId String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  planningOrder   PlanningOrder @relation(fields: [planningOrderId], references: [id])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  businessId  String
+  name        String
+  description String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  business    Business @relation(fields: [businessId], references: [id])
+}
+
+enum BusinessType {
+  MARCA_PERSONAL
+  EMPRESA
+  ECOMMERCE
+  AGENCIA
+>>>>>>> afb51be (update)
 }
 
 model Job {
@@ -122,6 +298,7 @@ model AuditLog {
   @@index([createdAt])
 }
 
+<<<<<<< HEAD
 // ============================================
 // NEGOCIO Y MARCA
 // ============================================
@@ -583,4 +760,96 @@ model User {
   role      String   @default("USER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+=======
+enum BrandLanguageLevel {
+  SIMPLE
+  MEDIO
+  AVANZADO
+}
+
+enum TargetGender {
+  HOMBRE
+  MUJER
+  MIXTO
+}
+
+enum AverageTicket {
+  BAJO
+  MEDIO
+  ALTO
+}
+
+enum PurchaseFrequency {
+  OCASIONAL
+  RECURRENTE
+}
+
+enum VisualStyle {
+  MINIMALISTA
+  MODERNO
+  ELEGANTE
+  COLORIDO
+  OSCURO
+}
+
+enum PlanningObjective {
+  AUMENTAR_VENTAS
+  GENERAR_AWARENESS
+  LANZAMIENTO_PRODUCTO
+  FIDELIZACION_COMUNIDAD
+  TRAFICO_WEB
+  EDUCACION_TUTORIALES
+  OTRO
+}
+
+enum AssetSource {
+  CLIENT_PROVIDED
+  AI_GENERATED
+  MIXED
+}
+
+enum PlanningStatus {
+  DRAFT
+  ORDER_CREATED
+  IDEAS_GENERATED
+  IDEAS_APPROVED
+  COMPLETED
+  CANCELLED
+  DELETED
+}
+
+enum ChannelFormat {
+  VIDEO
+  STATIC
+  CAROUSEL
+  STORY
+}
+
+enum ContentStrategy {
+  PROBLEM_SOLUTION
+  SOCIAL_PROOF
+  EDUCATIONAL
+  BEHIND_SCENES
+  ENTERTAINMENT
+  URGENCY_SCARCITY
+}
+
+enum EmotionalTone {
+  INSPIRATIONAL
+  URGENT
+  EDUCATIONAL
+  PLAYFUL
+  AUTHORITATIVE
+  EMPATHETIC
+}
+
+enum ContentPillar {
+  QUALITY
+  INNOVATION
+  SUSTAINABILITY
+  COMMUNITY
+  EDUCATION
+  PROMOTION
+  STORYTELLING
+>>>>>>> afb51be (update)
 }

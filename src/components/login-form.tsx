@@ -48,15 +48,7 @@ export function LoginForm({
                 />
               </Field>
               <Field>
-                <div className="flex items-center">
                   <FieldLabel htmlFor="password">Contraseña</FieldLabel>
-                  <a
-                    href="#"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </a>
-                </div>
                 <Input id="password" name="password" type="password" required />
               </Field>
               
@@ -68,9 +60,7 @@ export function LoginForm({
                 <Button type="submit" disabled={isPending}>
                   {isPending ? "Iniciando..." : "Iniciar sesión"}
                 </Button>
-                <Button variant="outline" type="button">
-                  Entrar con Google
-                </Button>
+
                 <div className="text-center text-sm">
                   ¿No tienes una cuenta?{" "}
                   <Link href="/register" className="underline underline-offset-4">

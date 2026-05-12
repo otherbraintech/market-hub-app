@@ -6,25 +6,50 @@ import { businessSchema } from "@/lib/schemas/business";
 import { z } from "zod";
 import { slugify } from "@/lib/utils";
 
+import { analyzeBusiness } from "@/lib/ai/business-analyzer";
+
 export async function createBusiness(data: z.infer<typeof businessSchema>) {
   try {
     const validated = businessSchema.parse(data);
     const slug = slugify(validated.name);
 
-    await prisma.business.create({
+    const business = await prisma.business.create({
       data: {
         ...validated,
         slug,
-        // TODO: Asignar usuario cuando tengamos auth completa vinculada a business
       },
     });
 
     revalidatePath("/business");
-    return { success: true, message: "Negocio creado exitosamente" };
+    return { success: true, message: "Negocio creado exitosamente", data: business };
   } catch (error) {
     return { success: false, error: "Error al crear el negocio" };
   }
 }
+
+export async function createBusinessWithAI(data: { name: string; description: string; website?: string }) {
+  try {
+    // 1. Analizar con IA
+    const analysis = await analyzeBusiness(data.name, data.description, data.website);
+    
+    // 2. Preparar datos completos
+    const fullData = {
+      name: data.name,
+      description: data.description,
+      website: data.website || "",
+      industry: analysis.industry,
+      brandVoice: analysis.brandVoice,
+      targetAudience: analysis.targetAudience,
+    };
+
+    // 3. Crear el negocio
+    return await createBusiness(fullData as any);
+  } catch (error) {
+    console.error("AI Creation Error:", error);
+    return { success: false, error: "Error al generar datos con IA" };
+  }
+}
+
 
 export async function updateBusiness(id: string, data: z.infer<typeof businessSchema>) {
   try {

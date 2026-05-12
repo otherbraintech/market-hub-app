@@ -2,20 +2,24 @@
 
 import * as React from "react"
 import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
+  LayoutDashboard,
+  Building2,
+  Lightbulb,
+  Package,
+  Target,
+  Calendar,
+  Image as ImageIcon,
+  Share2,
+  BarChart3,
+  Settings,
+  LogOut,
+  Zap,
+  Moon,
+  Sun
 } from "lucide-react"
+import { useTheme } from "next-themes"
 
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
 import {
@@ -23,153 +27,110 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { Business } from "@prisma/client"
+import { logout } from "@/app/(auth)/login/actions"
 
-// This is sample data.
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
-  ],
-  navMain: [
-    {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  businesses: Business[]
+  selectedId?: string
+  session?: any
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ businesses, selectedId, session, ...props }: AppSidebarProps) {
+  // Map businesses to teams format for TeamSwitcher
+  const teams = businesses.map(b => ({
+    name: b.name,
+    logo: Building2,
+    plan: b.industry || "General",
+    id: b.id
+  }))
+
+  const navMain = [
+    {
+      title: "Principal",
+      url: "#",
+      icon: LayoutDashboard,
+      isActive: true,
+      items: [
+        { title: "Dashboard", url: "/dashboard" },
+        { title: "Negocios", url: "/business" },
+        { title: "Estrategias", url: "/strategies" },
+        { title: "Productos", url: "/products" },
+        { title: "Campañas", url: "/campaigns" },
+      ],
+    },
+    {
+      title: "Contenido & Social",
+      url: "#",
+      icon: Share2,
+      items: [
+        { title: "Calendario", url: "/calendar" },
+        { title: "Media", url: "/media" },
+        { title: "Publicación", url: "/publishing" },
+        { title: "Métricas", url: "/metrics" },
+        { title: "Jobs IA", url: "/jobs" },
+      ],
+    },
+  ]
+
+  const user = {
+    name: session?.user?.name || session?.user?.username || "Usuario",
+    email: session?.user?.username || "Administrador",
+    avatar: "/avatars/user.jpg",
+  }
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <div className="flex items-center gap-2 px-2 py-2 mb-2">
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg">
+            <Zap className="size-5" />
+          </div>
+          <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate font-black text-lg tracking-tight">MarketHub</span>
+            <span className="truncate text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Intelligence OS</span>
+          </div>
+        </div>
+        <TeamSwitcher teams={teams} selectedId={selectedId} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavMain items={navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <ThemeToggle />
+        <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
+  )
+}
+
+function ThemeToggle() {
+  const { setTheme, theme } = useTheme()
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          tooltip={theme === "dark" ? "Modo Claro" : "Modo Oscuro"}
+        >
+          <div className="relative flex items-center gap-2">
+            <div className="flex items-center justify-center">
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            </div>
+            <span className="truncate">
+              {theme === "dark" ? "Modo Claro" : "Modo Oscuro"}
+            </span>
+          </div>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
   )
 }

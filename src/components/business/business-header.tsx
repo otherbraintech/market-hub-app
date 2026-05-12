@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Business } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Building2, Pencil, Plus } from "lucide-react";
@@ -28,6 +28,11 @@ interface BusinessHeaderProps {
 
 export function BusinessHeader({ business }: BusinessHeaderProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   return (
     <div className="border-b bg-card px-8 py-6">
@@ -62,36 +67,38 @@ export function BusinessHeader({ business }: BusinessHeaderProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Editar Negocio
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Editar {business.name}</DialogTitle>
-                        <DialogDescription>
-                            Actualiza la información y configuración estratégica de tu negocio.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <BusinessForm 
-                        defaultValues={{
-                            ...business,
-                            description: business.description || "",
-                            industry: business.industry || "",
-                            website: business.website || "",
-                            brandVoice: (business.brandVoice as any) || { tone: [], personality: [], values: [] },
-                            targetAudience: (business.targetAudience as any) || { demographics: "", psychographics: "" }
-                        }}
-                        onSuccess={() => {
-                            setIsEditDialogOpen(false);
-                            window.location.reload();
-                        }}
-                    />
-                </DialogContent>
-            </Dialog>
+            {isMounted && (
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                  <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar Negocio
+                      </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                          <DialogTitle>Editar {business.name}</DialogTitle>
+                          <DialogDescription>
+                              Actualiza la información y configuración estratégica de tu negocio.
+                          </DialogDescription>
+                      </DialogHeader>
+                      <BusinessForm 
+                          defaultValues={{
+                              ...business,
+                              description: business.description || "",
+                              industry: business.industry || "",
+                              website: business.website || "",
+                              brandVoice: (business.brandVoice as any) || { tone: [], personality: [], values: [] },
+                              targetAudience: (business.targetAudience as any) || { demographics: "", psychographics: "" }
+                          }}
+                          onSuccess={() => {
+                              setIsEditDialogOpen(false);
+                              window.location.reload();
+                          }}
+                      />
+                  </DialogContent>
+              </Dialog>
+            )}
 
              <Button size="sm" asChild>
                 <Link href="/campaigns">

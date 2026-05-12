@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { businessSchema, BusinessFormValues } from "@/lib/schemas/business";
-import { createBusiness, updateBusiness } from "@/actions/business";
+import { createBusiness, updateBusiness, createBusinessWithAI } from "@/actions/business";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, Sparkles } from "lucide-react";
 
 interface BusinessFormProps {
   defaultValues?: BusinessFormValues & { id?: string };
@@ -35,6 +35,7 @@ interface BusinessFormProps {
 
 export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
   const [loading, setLoading] = useState(false);
+  const [useAI, setUseAI] = useState(!defaultValues?.id);
   const isEditing = !!defaultValues?.id;
 
   const form = useForm<BusinessFormValues>({
@@ -62,6 +63,12 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
       let result;
       if (isEditing && defaultValues?.id) {
         result = await updateBusiness(defaultValues.id, data);
+      } else if (useAI) {
+        result = await createBusinessWithAI({
+          name: data.name,
+          description: data.description,
+          website: data.website || "",
+        });
       } else {
         result = await createBusiness(data);
       }
@@ -97,12 +104,36 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
     <TooltipProvider>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {!isEditing && (
+          <div className="flex items-center justify-between mb-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="flex flex-col">
+              <span className="text-sm font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Creación con IA
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Generaremos industria, voz y audiencia automáticamente.
+              </span>
+            </div>
+            <Button 
+              type="button" 
+              variant={useAI ? "default" : "outline"} 
+              size="sm"
+              onClick={() => setUseAI(!useAI)}
+            >
+              {useAI ? "Activado" : "Usar IA"}
+            </Button>
+          </div>
+        )}
+
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="basic">Básico</TabsTrigger>
-            <TabsTrigger value="brand">Voz de Marca</TabsTrigger>
-            <TabsTrigger value="audience">Audiencia</TabsTrigger>
-          </TabsList>
+          {!useAI && (
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="basic">Básico</TabsTrigger>
+              <TabsTrigger value="brand">Voz de Marca</TabsTrigger>
+              <TabsTrigger value="audience">Audiencia</TabsTrigger>
+            </TabsList>
+          )}
 
           <TabsContent value="basic" className="space-y-4 py-4">
             <FormField
@@ -119,35 +150,53 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
               )}
             />
             
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="industry"
-                render={({ field }) => (
-                  <FormItem>
-                    <LabelHelp label="Industria" help="El sector al que pertenece tu negocio (ej. Retail, SaaS, Salud)." />
-                    <FormControl>
-                      <Input placeholder="Ej. Tecnología, Retail..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {!useAI && (
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="industry"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Industria" help="El sector al que pertenece tu negocio (ej. Retail, SaaS, Salud)." />
+                      <FormControl>
+                        <Input placeholder="Ej. Tecnología, Retail..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <FormField
+                  control={form.control}
+                  name="website"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Sitio Web" help="La dirección URL principal de tu negocio." />
+                      <FormControl>
+                        <Input placeholder="https://..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+
+            {useAI && (
               <FormField
                 control={form.control}
                 name="website"
                 render={({ field }) => (
                   <FormItem>
-                    <LabelHelp label="Sitio Web" help="La dirección URL principal de tu negocio." />
+                    <LabelHelp label="Sitio Web (Opcional)" help="La IA extraerá información de aquí si la proporcionas." />
                     <FormControl>
-                      <Input placeholder="https://..." {...field} />
+                      <Input placeholder="https://mi-negocio.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
+            )}
 
             <FormField
               control={form.control}
@@ -168,102 +217,116 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
             />
           </TabsContent>
 
-          <TabsContent value="brand" className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="brandVoice.tone"
-              render={({ field }) => (
-                <FormItem>
-                  <LabelHelp label="Tono de Marca" help="Cómo se 'escucha' tu marca (ej. Alegre, Formal, Informativo)." />
-                  <FormControl>
-                    <Input 
-                      placeholder="Ej. Profesional, Cercano, Disruptivo (separado por comas)" 
-                      value={Array.isArray(field.value) ? field.value.join(", ") : ""}
-                      onChange={(e) => field.onChange(e.target.value.split(",").map(s => s.trim()))}
-                    />
-                  </FormControl>
-                  <FormDescription>Define cómo suena el negocio.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="brandVoice.personality"
-              render={({ field }) => (
-                <FormItem>
-                  <LabelHelp label="Personalidad" help="Rasgos humanos de tu marca (ej. Innovadora, Confiable, Rebelde)." />
-                  <FormControl>
-                    <Input 
-                      placeholder="Ej. Experto, Amigable, Innovador" 
-                      value={Array.isArray(field.value) ? field.value.join(", ") : ""}
-                      onChange={(e) => field.onChange(e.target.value.split(",").map(s => s.trim()))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="brandVoice.values"
-              render={({ field }) => (
-                <FormItem>
-                  <LabelHelp label="Valores Principales" help="Los principios éticos o filosofías que guían a tu negocio." />
-                  <FormControl>
-                    <Input 
-                      placeholder="Ej. Integridad, Calidad, Sostenibilidad" 
-                      value={Array.isArray(field.value) ? field.value.join(", ") : ""}
-                      onChange={(e) => field.onChange(e.target.value.split(",").map(s => s.trim()))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
+          {!useAI && (
+            <>
+              <TabsContent value="brand" className="space-y-4 py-4">
+                <FormField
+                  control={form.control}
+                  name="brandVoice.tone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Tono de Marca" help="Cómo se 'escucha' tu marca (ej. Alegre, Formal, Informativo)." />
+                      <FormControl>
+                        <Input 
+                          placeholder="Ej. Profesional, Cercano, Disruptivo (separado por comas)" 
+                          value={Array.isArray(field.value) ? field.value.join(", ") : ""}
+                          onChange={(e) => field.onChange(e.target.value.split(",").map(s => s.trim()))}
+                        />
+                      </FormControl>
+                      <FormDescription>Define cómo suena el negocio.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="brandVoice.personality"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Personalidad" help="Rasgos humanos de tu marca (ej. Innovadora, Confiable, Rebelde)." />
+                      <FormControl>
+                        <Input 
+                          placeholder="Ej. Experto, Amigable, Innovador" 
+                          value={Array.isArray(field.value) ? field.value.join(", ") : ""}
+                          onChange={(e) => field.onChange(e.target.value.split(",").map(s => s.trim()))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="brandVoice.values"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Valores Principales" help="Los principios éticos o filosofías que guían a tu negocio." />
+                      <FormControl>
+                        <Input 
+                          placeholder="Ej. Integridad, Calidad, Sostenibilidad" 
+                          value={Array.isArray(field.value) ? field.value.join(", ") : ""}
+                          onChange={(e) => field.onChange(e.target.value.split(",").map(s => s.trim()))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
 
-          <TabsContent value="audience" className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="targetAudience.demographics"
-              render={({ field }) => (
-                <FormItem>
-                  <LabelHelp label="Demografía General" help="Datos objetivos: Edad, ubicación, género, nivel de ingresos." />
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Edad, ubicación, nivel socioeconómico..." 
-                      className="resize-none h-24"
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="targetAudience.psychographics"
-              render={({ field }) => (
-                <FormItem>
-                  <LabelHelp label="Psicografía y Comportamiento" help="Intereses, valores, estilos de vida y hábitos de compra." />
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Intereses, miedos, motivaciones, canales favoritos..." 
-                      className="resize-none h-24"
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </TabsContent>
+              <TabsContent value="audience" className="space-y-4 py-4">
+                <FormField
+                  control={form.control}
+                  name="targetAudience.demographics"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Demografía General" help="Datos objetivos: Edad, ubicación, género, nivel de ingresos." />
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Edad, ubicación, nivel socioeconómico..." 
+                          className="resize-none h-24"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="targetAudience.psychographics"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Psicografía y Comportamiento" help="Intereses, valores, estilos de vida y hábitos de compra." />
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Intereses, miedos, motivaciones, canales favoritos..." 
+                          className="resize-none h-24"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
 
         <DialogFooter>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Guardando..." : isEditing ? "Actualizar" : "Crear Negocio"}
+          <Button type="submit" disabled={loading} className={useAI ? "w-full" : ""}>
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                {useAI ? "Analizando y creando..." : "Guardando..."}
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                {useAI && !isEditing && <Sparkles className="h-4 w-4" />}
+                {isEditing ? "Actualizar" : useAI ? "Generar con IA y Crear" : "Crear Negocio"}
+              </span>
+            )}
           </Button>
         </DialogFooter>
         </form>

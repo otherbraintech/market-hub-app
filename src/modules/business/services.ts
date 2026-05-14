@@ -32,6 +32,26 @@ export async function createBusiness(
     throw new Error(`Ya existe un negocio con el slug: ${slug}`)
   }
 
+  // Verificar límite por usuario (basado en BDD)
+  if (input.userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { maxBusinesses: true }
+    })
+    
+    if (!user) {
+      throw new Error('Usuario no encontrado.')
+    }
+
+    const businessCount = await prisma.business.count({
+      where: { userId: input.userId }
+    })
+    
+    if (businessCount >= user.maxBusinesses) {
+      throw new Error(`Límite excedido: Solo puedes crear ${user.maxBusinesses} negocio(s) con tu plan actual.`)
+    }
+  }
+
   const business = await prisma.business.create({
     data: {
       name: input.name,
@@ -45,6 +65,10 @@ export async function createBusiness(
       brandFonts: input.brandFonts as Prisma.JsonObject | undefined,
       targetAudience: input.targetAudience as Prisma.JsonObject | undefined,
       settings: input.settings as Prisma.JsonObject | undefined,
+      phoneNumbers: input.phoneNumbers,
+      location: input.location,
+      socialLinks: input.socialLinks as Prisma.JsonObject | undefined,
+      userId: input.userId,
     },
   })
 
@@ -61,7 +85,7 @@ export async function createBusiness(
       entityType: 'Business',
       entityId: business.id,
       action: 'CREATE',
-      changes: input as Prisma.JsonObject,
+      changes: input as any as Prisma.JsonObject,
     },
   })
 
@@ -163,12 +187,20 @@ export async function updateBusiness(
   const business = await prisma.business.update({
     where: { id },
     data: {
-      ...input,
-      brandVoice: input.brandVoice as Prisma.JsonObject | undefined,
-      brandColors: input.brandColors as Prisma.JsonObject | undefined,
-      brandFonts: input.brandFonts as Prisma.JsonObject | undefined,
-      targetAudience: input.targetAudience as Prisma.JsonObject | undefined,
-      settings: input.settings as Prisma.JsonObject | undefined,
+      name: input.name,
+      slug: input.slug,
+      description: input.description,
+      industry: input.industry,
+      website: input.website,
+      logo: input.logo,
+      phoneNumbers: input.phoneNumbers,
+      location: input.location,
+      brandVoice: input.brandVoice as any,
+      brandColors: input.brandColors as any,
+      brandFonts: input.brandFonts as any,
+      targetAudience: input.targetAudience as any,
+      settings: input.settings as any,
+      socialLinks: input.socialLinks as any,
     },
   })
 

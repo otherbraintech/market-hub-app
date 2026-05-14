@@ -16,6 +16,10 @@ Al crear un negocio, se definen los siguientes campos fundamentales:
 -   **Objetivos Generales**: Qué busca lograr el negocio a largo plazo (ej. "Ser referente en el sector de salud").
 -   **Propuesta de Valor**: Qué hace único al negocio y por qué los clientes deberían elegirlo.
 -   **Imagen/Logo**: Identidad visual básica para reconocimiento interno.
+-   **Información Adicional (En vista de detalle)**:
+    -   **Teléfonos de contacto**: Números telefónicos del negocio.
+    -   **Sitio Web de la Competencia**: URL del competidor directo.
+    -   **Redes Sociales de la Competencia**: Enlaces a Facebook, Instagram y TikTok del competidor.
 
 ## Importancia de este Paso
 

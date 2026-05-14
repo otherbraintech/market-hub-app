@@ -10,20 +10,25 @@ import { analyzeBusiness } from "@/lib/ai/business-analyzer";
 
 export async function createBusiness(data: z.infer<typeof businessSchema>) {
   try {
-    const validated = businessSchema.parse(data);
-    const slug = slugify(validated.name);
+    const { getSession } = await import("@/lib/auth");
+    const { createBusiness: createBusinessService } = await import("@/modules/business/services");
+    
+    const session = await getSession();
+    if (!session || !session.userId) {
+      return { success: false, error: "No autorizado" };
+    }
 
-    const business = await prisma.business.create({
-      data: {
-        ...validated,
-        slug,
-      },
-    });
+    const validated = businessSchema.parse(data);
+    const business = await createBusinessService({
+      ...validated,
+      userId: session.userId,
+    } as any);
 
     revalidatePath("/business");
     return { success: true, message: "Negocio creado exitosamente", data: business };
-  } catch (error) {
-    return { success: false, error: "Error al crear el negocio" };
+  } catch (error: any) {
+    console.error("Create Business Error:", error);
+    return { success: false, error: error.message || "Error al crear el negocio" };
   }
 }
 
@@ -53,17 +58,15 @@ export async function createBusinessWithAI(data: { name: string; description: st
 
 export async function updateBusiness(id: string, data: z.infer<typeof businessSchema>) {
   try {
+    const { updateBusiness: updateBusinessService } = await import("@/modules/business/services");
     const validated = businessSchema.parse(data);
     
-    await prisma.business.update({
-      where: { id },
-      data: validated,
-    });
+    await updateBusinessService(id, validated as any);
 
     revalidatePath("/business");
     return { success: true, message: "Negocio actualizado" };
-  } catch (error) {
-    return { success: false, error: "Error al actualizar" };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al actualizar" };
   }
 }
 

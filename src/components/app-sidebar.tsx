@@ -76,6 +76,14 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         { title: "Jobs IA", url: "/jobs" },
       ],
     },
+    {
+      title: "Administración",
+      url: "#",
+      icon: Settings,
+      items: [
+        { title: "Usuarios", url: "/settings/users" },
+      ],
+    },
   ]
 
   const user = {

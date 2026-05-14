@@ -62,6 +62,13 @@ export interface TargetAudience {
   }
 }
 
+// Redes Sociales
+export interface SocialLinks {
+  facebook?: string
+  instagram?: string
+  tiktok?: string
+}
+
 // Configuración del negocio
 export interface BusinessSettings {
   timezone: string
@@ -77,6 +84,8 @@ export interface BusinessSettings {
   }
 }
 
+
+
 // DTOs para crear/actualizar
 export interface CreateBusinessInput {
   name: string
@@ -90,17 +99,22 @@ export interface CreateBusinessInput {
   brandFonts?: BrandFonts
   targetAudience?: TargetAudience
   settings?: BusinessSettings
+  phoneNumbers?: string
+  location?: string
+  socialLinks?: SocialLinks
+  userId?: string
 }
 
 export interface UpdateBusinessInput extends Partial<CreateBusinessInput> {}
 
 // Business con tipos fuertes para JSON
-export interface BusinessWithTypes extends Omit<Business, 'brandVoice' | 'brandColors' | 'brandFonts' | 'targetAudience' | 'settings'> {
+export interface BusinessWithTypes extends Omit<Business, 'brandVoice' | 'brandColors' | 'brandFonts' | 'targetAudience' | 'settings' | 'socialLinks'> {
   brandVoice: BrandVoice | null
   brandColors: BrandColors | null
   brandFonts: BrandFonts | null
   targetAudience: TargetAudience | null
   settings: BusinessSettings | null
+  socialLinks: SocialLinks | null
 }
 
 // Para queries con relaciones

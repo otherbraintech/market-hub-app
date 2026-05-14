@@ -51,9 +51,7 @@ export function BusinessHeader({ business }: BusinessHeaderProps) {
                 {business.industry && <Badge variant="secondary">{business.industry}</Badge>}
             </div>
             
-            <p className="text-muted-foreground mt-1 max-w-xl">
-              {business.description || "Sin descripción definida."}
-            </p>
+            
              {business.website && (
                 <a 
                     href={business.website} 

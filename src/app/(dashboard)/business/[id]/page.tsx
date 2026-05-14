@@ -7,6 +7,7 @@ import { listProductsByBusiness } from "@/modules/products";
 import { listCampaignsByBusiness } from "@/modules/campaigns";
 import { listSocialAccounts } from "@/modules/publishing";
 import { BusinessInfoCard } from "@/components/business/business-info-card";
+import { BusinessExtraInfoCard } from "@/components/business/business-extra-info-card";
 
 export default async function BusinessDetailPage({ 
   params,
@@ -24,7 +25,8 @@ export default async function BusinessDetailPage({
           campaigns: true,
           socialAccounts: true,
         }
-      }
+      },
+      competitors: true
     }
   });
 
@@ -51,6 +53,11 @@ export default async function BusinessDetailPage({
   const activeStrategy = await prisma.marketingStrategy.findFirst({
     where: { businessId: business.id, isActive: true },
     select: { id: true }
+  });
+
+  const userLimit = await prisma.user.findUnique({
+    where: { id: business.userId || '' },
+    select: { maxCompetitors: true }
   });
 
   const { products } = productsData;
@@ -109,31 +116,14 @@ export default async function BusinessDetailPage({
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-           <Card className="card-shadow">
-              <CardHeader>
-                 <CardTitle className="text-lg">Próximo Contenido</CardTitle>
-              </CardHeader>
-              <CardContent>
-                 {contents.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground italic text-sm border-dashed border rounded-lg">
-                       No hay contenido programado aún.
-                    </div>
-                 ) : (
-                    <div className="space-y-4">
-                       {contents.slice(0, 3).map(content => (
-                          <div key={content.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/30">
-                             <div className="h-2 w-2 rounded-full bg-primary" />
-                             <div className="flex-1 overflow-hidden">
-                                <p className="text-sm font-bold truncate">{content.title}</p>
-                                <p className="text-[10px] text-muted-foreground uppercase">{content.channel} · {content.campaign?.name}</p>
-                             </div>
-                             <Badge variant="outline" className="text-[10px]">{content.status}</Badge>
-                          </div>
-                       ))}
-                    </div>
-                 )}
-              </CardContent>
-           </Card>
+            <BusinessExtraInfoCard 
+              businessId={business.id}
+              initialPhoneNumbers={business.phoneNumbers}
+              initialLocation={business.location}
+              initialSocialLinks={business.socialLinks as any}
+              initialCompetitors={business.competitors as any}
+              maxCompetitors={userLimit?.maxCompetitors || 1}
+            />
            <BusinessInfoCard business={business} />
         </div>
       </div>

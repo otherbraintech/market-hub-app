@@ -142,6 +142,9 @@ export function BusinessList({ businesses }: BusinessListProps) {
                 description: editingBusiness.description || "",
                 industry: editingBusiness.industry || "",
                 website: editingBusiness.website || "",
+                phoneNumbers: editingBusiness.phoneNumbers || "",
+                location: editingBusiness.location || "",
+                socialLinks: (editingBusiness.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
                 brandVoice: (editingBusiness.brandVoice as any) || { tone: [], personality: [], values: [] },
                 targetAudience: (editingBusiness.targetAudience as any) || { demographics: "", psychographics: "" }
               }} 

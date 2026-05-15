@@ -21,6 +21,17 @@ export const businessSchema = z.object({
     demographics: "",
     psychographics: "",
   }),
+  phoneNumbers: z.string().optional().default(""),
+  location: z.string().optional().default(""),
+  socialLinks: z.object({
+    facebook: z.string().url("URL inválida").optional().or(z.literal("")),
+    instagram: z.string().url("URL inválida").optional().or(z.literal("")),
+    tiktok: z.string().url("URL inválida").optional().or(z.literal("")),
+  }).default({
+    facebook: "",
+    instagram: "",
+    tiktok: "",
+  }),
 });
 
 export type BusinessFormValues = z.infer<typeof businessSchema>;

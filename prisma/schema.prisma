@@ -616,3 +616,23 @@ model Competitor {
 
   @@index([businessId])
 }
+
+// ============================================
+// ANALISIS E INFORMES
+// ============================================
+
+model AnalysisReport {
+  id          String   @id @default(cuid())
+  type        String   // "MY_BUSINESS" | "COMPETITOR"
+  entityId    String   // businessId o competitorId
+  url         String
+  status      String   // "PENDING", "PROCESSING", "COMPLETED", "ERROR"
+  data        Json?    // el informe completo
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  completedAt DateTime?
+  
+  @@index([type, entityId])
+  @@index([status])
+}

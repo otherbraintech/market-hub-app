@@ -32,7 +32,14 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
   }
 }
 
-export async function createBusinessWithAI(data: { name: string; description: string; website?: string }) {
+export async function createBusinessWithAI(data: { 
+  name: string; 
+  description: string; 
+  website?: string;
+  phoneNumbers?: string;
+  location?: string;
+  socialLinks?: any;
+}) {
   try {
     // 1. Analizar con IA
     const analysis = await analyzeBusiness(data.name, data.description, data.website);
@@ -45,6 +52,9 @@ export async function createBusinessWithAI(data: { name: string; description: st
       industry: analysis.industry,
       brandVoice: analysis.brandVoice,
       targetAudience: analysis.targetAudience,
+      phoneNumbers: data.phoneNumbers || "",
+      location: data.location || "",
+      socialLinks: data.socialLinks || { facebook: "", instagram: "", tiktok: "" },
     };
 
     // 3. Crear el negocio

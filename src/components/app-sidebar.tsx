@@ -59,6 +59,8 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
       items: [
         { title: "Dashboard", url: "/dashboard" },
         { title: "Negocios", url: "/business" },
+        { title: "Mi Negocio IA", url: "/business/analysis" },
+        { title: "Competencia IA", url: "/competitors/analysis" },
         { title: "Estrategias", url: "/strategies" },
         { title: "Productos", url: "/products" },
         { title: "Campañas", url: "/campaigns" },

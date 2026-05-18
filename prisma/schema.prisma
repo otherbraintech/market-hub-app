@@ -624,6 +624,7 @@ model Competitor {
 model AnalysisReport {
   id          String   @id @default(cuid())
   type        String   // "MY_BUSINESS" | "COMPETITOR"
+  channel     String   @default("WEBSITE") // "WEBSITE", "FACEBOOK", "INSTAGRAM", "TIKTOK"
   entityId    String   // businessId o competitorId
   url         String
   status      String   // "PENDING", "PROCESSING", "COMPLETED", "ERROR"
@@ -633,6 +634,6 @@ model AnalysisReport {
   updatedAt   DateTime @updatedAt
   completedAt DateTime?
   
-  @@index([type, entityId])
+  @@index([type, entityId, channel])
   @@index([status])
 }

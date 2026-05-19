@@ -6,6 +6,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
     const entityId = searchParams.get("entityId");
+    const channel = searchParams.get("channel");
 
     if (!type || !entityId) {
       return NextResponse.json(
@@ -14,11 +15,17 @@ export async function GET(request: Request) {
       );
     }
 
+    const whereClause: any = {
+      type,
+      entityId,
+    };
+
+    if (channel) {
+      whereClause.channel = channel;
+    }
+
     const report = await prisma.analysisReport.findFirst({
-      where: {
-        type,
-        entityId,
-      },
+      where: whereClause,
       orderBy: {
         createdAt: "desc",
       },

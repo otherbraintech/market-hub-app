@@ -15,28 +15,40 @@ export default async function CompetitorsAnalysisPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Fetch latest analysis for competitors
+  // Fetch all analysis reports for competitors
   const competitorsWithReports = await Promise.all(
     competitors.map(async (comp) => {
-      const report = await prisma.analysisReport.findFirst({
+      const reportsRaw = await prisma.analysisReport.findMany({
         where: { entityId: comp.id, type: "COMPETITOR" },
         orderBy: { createdAt: "desc" },
       });
-      return { ...comp, report };
+      const reportsByChannel: Record<string, any> = {};
+      for (const rep of reportsRaw) {
+        if (!reportsByChannel[rep.channel]) {
+          reportsByChannel[rep.channel] = rep;
+        }
+      }
+      return { ...comp, reportsByChannel };
     })
   );
 
-  // Fetch my business latest analysis
-  const myAnalysis = await prisma.analysisReport.findFirst({
-    where: { entityId: businessId, type: "MY_BUSINESS", status: "COMPLETED" },
+  // Fetch my business analysis reports for all channels
+  const myAnalysesRaw = await prisma.analysisReport.findMany({
+    where: { entityId: businessId, type: "MY_BUSINESS" },
     orderBy: { createdAt: "desc" },
   });
+  const myAnalysesByChannel: Record<string, any> = {};
+  for (const rep of myAnalysesRaw) {
+    if (!myAnalysesByChannel[rep.channel]) {
+      myAnalysesByChannel[rep.channel] = rep;
+    }
+  }
 
   return (
     <CompetitorsAnalysisClient 
       businessId={businessId}
       initialCompetitors={competitorsWithReports}
-      myAnalysis={myAnalysis}
+      myAnalysesByChannel={myAnalysesByChannel}
     />
   );
 }

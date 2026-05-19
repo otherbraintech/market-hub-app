@@ -8,6 +8,10 @@ import { listCampaignsByBusiness } from "@/modules/campaigns";
 import { listSocialAccounts } from "@/modules/publishing";
 import { BusinessInfoCard } from "@/components/business/business-info-card";
 import { BusinessExtraInfoCard } from "@/components/business/business-extra-info-card";
+import { ScrapingReportDialog } from "@/components/business/scraping-report-dialog";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Users } from "lucide-react";
 
 export default async function BusinessDetailPage({ 
   params,
@@ -49,6 +53,12 @@ export default async function BusinessDetailPage({
     })
   ]);
 
+  // Fetch latest analysis report for this business
+  const myAnalysis = await prisma.analysisReport.findFirst({
+    where: { entityId: business.id, type: "MY_BUSINESS", status: "COMPLETED" },
+    orderBy: { createdAt: 'desc' }
+  });
+
   // Fetch active strategy for AI generation
   const activeStrategy = await prisma.marketingStrategy.findFirst({
     where: { businessId: business.id, isActive: true },
@@ -72,9 +82,22 @@ export default async function BusinessDetailPage({
       <BusinessHeader business={business} />
       
       <div className="flex-1 p-8 pt-6 space-y-8 max-w-[1200px]">
-        <div>
-           <h2 className="text-3xl font-black tracking-tight mb-2">Resumen de Negocio</h2>
-           <p className="text-muted-foreground">Estado actual y métricas generales de {business.name}.</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+             <h2 className="text-3xl font-black tracking-tight mb-2">Resumen de Negocio</h2>
+             <p className="text-muted-foreground">Estado actual y métricas generales de {business.name}.</p>
+          </div>
+          <div className="flex gap-3">
+             {myAnalysis && (
+               <ScrapingReportDialog data={myAnalysis.data as any} />
+             )}
+             <Button asChild variant="outline" className="gap-2">
+               <Link href="/competitors/analysis" className="flex items-center gap-2">
+                 <Users className="h-4 w-4 text-blue-500" />
+                 Ver Competencia
+               </Link>
+             </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">

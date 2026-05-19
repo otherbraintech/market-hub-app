@@ -637,3 +637,5 @@ model AnalysisReport {
   @@index([type, entityId, channel])
   @@index([status])
 }
+
+

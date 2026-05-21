@@ -39,16 +39,73 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
 
   const getFlatRecommendations = (reportData: any) => {
     if (!reportData) return [];
-    const recs = reportData.strategic_recommendations;
-    if (!recs) return reportData.recommendations || [];
-    if (Array.isArray(recs)) return recs;
-    return [
-      ...(recs.branding_recommendations || []),
-      ...(recs.marketing_recommendations || []),
-      ...(recs.seo_recommendations || []),
-      ...(recs.ux_recommendations || []),
-      ...(recs.conversion_recommendations || []),
-    ];
+    
+    if (Array.isArray(reportData.strategic_recommendations)) return reportData.strategic_recommendations;
+    if (Array.isArray(reportData.recommendations)) return reportData.recommendations;
+    
+    const recs = reportData.strategic_recommendations || {};
+    
+    const brandingRecs = recs.branding_recommendations || [];
+    const marketingRecs = recs.marketing_recommendations || [];
+    const seoRecs = recs.seo_recommendations || [];
+    const uxRecs = recs.ux_recommendations || [];
+    const convRecs = recs.conversion_recommendations || [];
+    
+    if (brandingRecs.length > 0 || marketingRecs.length > 0 || seoRecs.length > 0 || uxRecs.length > 0 || convRecs.length > 0) {
+      return [
+        ...brandingRecs,
+        ...marketingRecs,
+        ...seoRecs,
+        ...uxRecs,
+        ...convRecs,
+      ];
+    }
+    
+    const isNewestStructure = !!reportData.brand_identity || !!reportData.business_insights || !!reportData.website_analysis;
+    if (isNewestStructure) {
+      const bInsights = reportData.business_insights || {};
+      const dQuality = reportData.data_quality || {};
+      const mainWeaknesses = bInsights.main_weaknesses || [];
+      const missingInfo = dQuality.missing_information || [];
+      
+      const weaknessesStr = mainWeaknesses.join(" ").toLowerCase();
+      const missingStr = missingInfo.join(" ").toLowerCase();
+      const arr = [];
+      
+      if (weaknessesStr.includes("branding") || weaknessesStr.includes("marca") || missingStr.includes("social")) {
+        arr.push("Fortalecer tu identidad de marca local con storytelling enfocado en cercanía e historia comunitaria.");
+      } else {
+        arr.push("Destacar tu propuesta de valor diferenciada (ej. envíos rápidos, ingredientes premium) frente a su posicionamiento estándar.");
+      }
+      
+      if (weaknessesStr.includes("contacto") || missingStr.includes("contacto")) {
+        arr.push("Implementar campañas de generación de prospectos dirigidas a WhatsApp o formularios de contacto de respuesta inmediata.");
+      } else {
+        arr.push("Promocionar dinámicamente tus productos en la zona de influencia geográfica donde el competidor tiene mayor tracción.");
+      }
+      
+      if (weaknessesStr.includes("seo") || missingStr.includes("seo") || missingStr.includes("metadatos")) {
+        arr.push("Optimizar tus etiquetas meta (Title, Description) con geolocalización clara (ej: 'Tortas en Santa Cruz').");
+      } else {
+        arr.push("Crear contenido de blog apuntando a las intenciones de búsqueda informativas que ellos están desaprovechando.");
+      }
+      
+      if (weaknessesStr.includes("producto") || missingStr.includes("producto")) {
+        arr.push("Diseñar un catálogo digital intuitivo con fotos en alta resolución e información detallada de cada producto.");
+      } else {
+        arr.push("Asegurar una velocidad de carga móvil impecable y navegación fluida para capturar el tráfico móvil frustrado de la competencia.");
+      }
+      
+      if (weaknessesStr.includes("carrito") || weaknessesStr.includes("checkout") || weaknessesStr.includes("commerce")) {
+        arr.push("Habilitar un flujo de checkout simple o pedidos vía WhatsApp en 2 clics para superar su falta de e-commerce.");
+      } else {
+        arr.push("Implementar pop-ups de salida con ofertas exclusivas o descuentos de primera compra para aumentar la tasa de conversión.");
+      }
+      
+      return arr;
+    }
+    
+    return [];
   };
 
   const handleRequestAnalysis = async (compId: string, channel: string, url: string) => {
@@ -143,7 +200,7 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {cards.length === 0 ? (
               <Card className="col-span-full">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-xl mt-6">
@@ -160,36 +217,65 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                 const isPending = report?.status === "PENDING" || report?.status === "PROCESSING";
                 const isRequesting = requestingIdChannel === `${card.competitorId}_${card.channel}`;
                 const ChannelIcon = card.icon;
+                const isCompleted = report?.status === "COMPLETED" && report?.data;
+
+                // Channel accent colors
+                const accentMap: Record<string, { bar: string; iconBg: string; iconText: string }> = {
+                  WEBSITE: { bar: "bg-gradient-to-r from-blue-500 to-cyan-400", iconBg: "bg-blue-500/10", iconText: "text-blue-600" },
+                  FACEBOOK: { bar: "bg-gradient-to-r from-blue-600 to-blue-400", iconBg: "bg-blue-600/10", iconText: "text-blue-700" },
+                  INSTAGRAM: { bar: "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400", iconBg: "bg-pink-500/10", iconText: "text-pink-600" },
+                  TIKTOK: { bar: "bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500 dark:from-white dark:via-gray-300 dark:to-gray-500", iconBg: "bg-gray-900/10 dark:bg-white/10", iconText: "text-gray-900 dark:text-white" },
+                };
+                const accent = accentMap[card.channel] || accentMap.WEBSITE;
 
                 return (
-                  <Card key={idx} className="flex flex-col border border-muted/50 hover:border-primary/20 transition-all shadow-sm">
-                    <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1 max-w-[70%]">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-xs uppercase text-muted-foreground tracking-wider">{card.competitorName}</span>
+                  <Card
+                    key={idx}
+                    className="group flex flex-col overflow-hidden border border-border/60 hover:border-primary/30 transition-all duration-300 shadow-sm hover:shadow-md"
+                  >
+                    {/* Colored accent bar */}
+                    <div className={`h-1 w-full ${accent.bar} shrink-0`} />
+
+                    {/* Header */}
+                    <CardHeader className="pb-2 pt-4 px-5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`flex items-center justify-center h-10 w-10 rounded-xl ${accent.iconBg} shrink-0 transition-transform duration-300 group-hover:scale-105`}>
+                            <ChannelIcon className={`h-5 w-5 ${accent.iconText}`} />
                           </div>
-                          <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <ChannelIcon className={`h-5 w-5 ${card.color}`} />
-                            {card.label}
-                          </CardTitle>
-                          <CardDescription className="truncate text-xs text-blue-500 mt-1">
-                            <a href={card.url} target="_blank" rel="noreferrer" className="hover:underline">
-                              {card.url}
-                            </a>
-                          </CardDescription>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 leading-none mb-1">
+                              {card.competitorName}
+                            </p>
+                            <CardTitle className="text-base font-bold leading-tight">
+                              {card.label}
+                            </CardTitle>
+                          </div>
                         </div>
                         {report && <StatusBadge status={report.status} />}
                       </div>
+                      <a
+                        href={card.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-blue-500 hover:text-blue-600 hover:underline truncate block mt-2 transition-colors"
+                        title={card.url}
+                      >
+                        {card.url}
+                      </a>
                     </CardHeader>
-                    <CardContent className="flex-1 text-sm py-4">
+
+                    {/* Content */}
+                    <CardContent className="flex-1 px-5 py-3">
                       {!report ? (
-                        <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
-                          <Sparkles className="h-8 w-8 text-muted-foreground/30 mb-2" />
-                          <p className="text-xs">Aún no hay análisis para este canal.</p>
-                          <p className="text-[10px] text-muted-foreground/60 mt-1">Solicita un nuevo análisis para comenzar.</p>
+                        <div className="flex flex-col items-center justify-center py-10 text-center">
+                          <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                            <Sparkles className="h-5 w-5 text-muted-foreground/40" />
+                          </div>
+                          <p className="text-xs font-medium text-muted-foreground">Aún no hay análisis para este canal.</p>
+                          <p className="text-[10px] text-muted-foreground/50 mt-1">Solicita un nuevo análisis para comenzar.</p>
                         </div>
-                      ) : report.status === "COMPLETED" && report.data ? (() => {
+                      ) : isCompleted ? (() => {
                         const positioning = report.data.brand_identity?.market_positioning || report.data.competitor_overview?.market_positioning || report.data.market_positioning || report.data.metaDescription || "Sin descripción disponible.";
                         const rawStrengths = report.data.business_insights?.main_strengths || report.data.ux_analysis?.ux_strengths || report.data.competitive_insights?.main_strengths || report.data.strengths || report.data.products || [];
                         const strengths = Array.isArray(rawStrengths) ? rawStrengths : [rawStrengths];
@@ -198,30 +284,67 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                         const weaknesses = Array.isArray(rawWeaknesses) ? rawWeaknesses : [rawWeaknesses];
 
                         return (
-                          <div className="space-y-4">
-                            <div className="line-clamp-2 text-muted-foreground text-xs italic font-medium leading-relaxed bg-blue-500/5 p-2 rounded border border-blue-500/10">
-                              "{positioning}"
+                          <div className="space-y-3">
+                            {/* Positioning quote */}
+                            <div
+                              className="relative bg-muted/30 dark:bg-muted/20 rounded-lg px-3 py-2.5 border border-border/50"
+                              title={positioning}
+                            >
+                              <span className="absolute -top-1.5 left-2.5 text-lg leading-none text-muted-foreground/30 font-serif">"</span>
+                              <p className="text-[11px] text-muted-foreground italic leading-relaxed line-clamp-2 pl-2">
+                                {positioning}
+                              </p>
                             </div>
+
+                            {/* Strengths */}
                             {strengths.length > 0 && (
                               <div>
-                                <span className="font-bold text-[11px] uppercase tracking-wider text-emerald-600 block mb-0.5">
-                                  Fortalezas Clave:
-                                </span>
-                                <ul className="list-disc pl-4 text-xs text-muted-foreground space-y-0.5 font-medium">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                  <span className="font-bold text-[10px] uppercase tracking-widest text-emerald-600">
+                                    Fortalezas
+                                  </span>
+                                  <span className="text-[9px] text-muted-foreground/50 font-medium">
+                                    ({strengths.length})
+                                  </span>
+                                </div>
+                                <ul className="space-y-1 pl-0.5">
                                   {strengths.slice(0, 3).map((p: string, i: number) => (
-                                    <li key={i}>{p}</li>
+                                    <li
+                                      key={i}
+                                      className="flex items-start gap-1.5 text-[11px] text-muted-foreground leading-snug"
+                                      title={p}
+                                    >
+                                      <ChevronRight className="h-3 w-3 text-emerald-500/60 shrink-0 mt-0.5" />
+                                      <span className="line-clamp-1">{p}</span>
+                                    </li>
                                   ))}
                                 </ul>
                               </div>
                             )}
+
+                            {/* Weaknesses */}
                             {weaknesses.length > 0 && (
                               <div>
-                                <span className="font-bold text-[11px] uppercase tracking-wider text-orange-600 block mb-0.5">
-                                  Debilidades del Competidor:
-                                </span>
-                                <ul className="list-disc pl-4 text-xs text-muted-foreground space-y-0.5 font-medium">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0" />
+                                  <span className="font-bold text-[10px] uppercase tracking-widest text-orange-600">
+                                    Debilidades
+                                  </span>
+                                  <span className="text-[9px] text-muted-foreground/50 font-medium">
+                                    ({weaknesses.length})
+                                  </span>
+                                </div>
+                                <ul className="space-y-1 pl-0.5">
                                   {weaknesses.slice(0, 2).map((p: string, i: number) => (
-                                    <li key={i}>{p}</li>
+                                    <li
+                                      key={i}
+                                      className="flex items-start gap-1.5 text-[11px] text-muted-foreground leading-snug"
+                                      title={p}
+                                    >
+                                      <ChevronRight className="h-3 w-3 text-orange-500/60 shrink-0 mt-0.5" />
+                                      <span className="line-clamp-1">{p}</span>
+                                    </li>
                                   ))}
                                 </ul>
                               </div>
@@ -229,22 +352,28 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                           </div>
                         );
                       })() : report.status === "ERROR" ? (
-                        <div className="text-xs text-red-500 bg-red-500/5 p-3 rounded-lg border border-red-500/10">
-                          {report.error || "Ocurrió un error inesperado al analizar este canal."}
+                        <div className="flex items-start gap-2.5 text-xs text-red-600 dark:text-red-400 bg-red-500/5 p-3 rounded-lg border border-red-500/10">
+                          <div className="h-5 w-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="text-[10px] font-bold">!</span>
+                          </div>
+                          <p className="leading-relaxed">{report.error || "Ocurrió un error inesperado al analizar este canal."}</p>
                         </div>
                       ) : (
-                        <div className="text-xs text-muted-foreground text-center py-8 flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center justify-center py-10 gap-2">
                           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                          Análisis en progreso...
+                          <span className="text-xs text-muted-foreground font-medium">Análisis en progreso...</span>
                         </div>
                       )}
                     </CardContent>
-                    <CardFooter className="pt-4 border-t bg-muted/5 flex gap-2">
-                      {report && report.status === "COMPLETED" && report.data && (
+
+                    {/* Footer */}
+                    <CardFooter className="px-5 py-3 border-t border-border/40 bg-muted/20 dark:bg-muted/10 flex gap-2 mt-auto">
+                      {isCompleted && (
                         <Button
                           onClick={() => setSelectedReport(report)}
                           variant="secondary"
-                          className="flex-1 gap-1.5 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 font-semibold"
+                          size="sm"
+                          className="flex-1 gap-1.5 text-xs bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 border border-blue-500/20 font-semibold h-8"
                         >
                           <FileText className="h-3.5 w-3.5" />
                           Ver informe
@@ -254,7 +383,8 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                         onClick={() => handleRequestAnalysis(card.competitorId, card.channel, card.url)}
                         disabled={isPending || isRequesting}
                         variant="outline"
-                        className={report && report.status === "COMPLETED" ? "flex-1 gap-1.5 text-xs" : "w-full gap-2 text-xs"}
+                        size="sm"
+                        className={`gap-1.5 text-xs h-8 ${isCompleted ? "flex-1" : "w-full"}`}
                       >
                         {isRequesting || isPending ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />

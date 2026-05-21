@@ -32,7 +32,131 @@ interface ReportData {
   strategic_recommendations: string[];
 }
 
-export function ScrapingReportDialog({ data }: { data: ReportData }) {
+function normalizeReportData(data: any): ReportData {
+  if (!data) {
+    return {
+      strengths: [],
+      weaknesses: [],
+      seo_signals: [],
+      opportunities: [],
+      emotional_tone: [],
+      target_audience: [],
+      ux_observations: [],
+      confidence_score: 0,
+      brand_personality: [],
+      marketing_tactics: [],
+      market_positioning: "Sin posicionamiento especificado",
+      strategic_recommendations: []
+    };
+  }
+
+  // Verificar si es la estructura nueva
+  const isNewestStructure = !!data.brand_identity || !!data.business_insights || !!data.website_analysis;
+  
+  if (isNewestStructure) {
+    const bIdentity = data.brand_identity || {};
+    const wAnalysis = data.website_analysis || {};
+    const mSignals = data.marketing_signals || {};
+    const bInsights = data.business_insights || {};
+    const dQuality = data.data_quality || {};
+    
+    // Obtener debilidades y vacíos de información para generar recomendaciones si no existen
+    const mainWeaknesses = bInsights.main_weaknesses || [];
+    const missingInfo = dQuality.missing_information || [];
+    
+    // Generar recomendaciones dinámicas similares a client-page.tsx
+    const generatedRecommendations: string[] = [];
+    const weaknessesStr = mainWeaknesses.join(" ").toLowerCase();
+    const missingStr = missingInfo.join(" ").toLowerCase();
+    
+    // Branding recs
+    if (weaknessesStr.includes("branding") || weaknessesStr.includes("marca") || missingStr.includes("social")) {
+      generatedRecommendations.push("Fortalecer tu identidad de marca con storytelling enfocado en tu valor y diferenciación.");
+    } else {
+      generatedRecommendations.push("Definir una propuesta de valor única y posicionamiento estratégico frente a competidores locales.");
+    }
+    
+    // Marketing/Contacto recs
+    if (weaknessesStr.includes("contacto") || missingStr.includes("contacto") || weaknessesStr.includes("teléfono") || weaknessesStr.includes("email")) {
+      generatedRecommendations.push("Configurar botones de contacto directos como WhatsApp en tu página para mejorar la captación.");
+    } else {
+      generatedRecommendations.push("Implementar promociones de temporada y darlas a conocer en canales digitales locales.");
+    }
+    
+    // SEO recs
+    if (weaknessesStr.includes("seo") || missingStr.includes("metadatos") || missingStr.includes("títulos")) {
+      generatedRecommendations.push("Optimizar títulos y metadatos de tu sitio web para búsquedas locales relevantes.");
+    } else {
+      generatedRecommendations.push("Optimizar imágenes y velocidad de carga móvil para aumentar tu indexación orgánica.");
+    }
+    
+    // UX recs
+    if (weaknessesStr.includes("producto") || weaknessesStr.includes("catálogo")) {
+      generatedRecommendations.push("Estructurar un catálogo digital detallado y visualmente atractivo de todos tus productos.");
+    } else {
+      generatedRecommendations.push("Asegurar una velocidad de carga y navegación fluidas en dispositivos móviles.");
+    }
+    
+    // Conversion recs
+    if (weaknessesStr.includes("carrito") || weaknessesStr.includes("checkout") || weaknessesStr.includes("commerce")) {
+      generatedRecommendations.push("Integrar un botón rápido de pedidos vía WhatsApp para automatizar las conversiones de compra.");
+    } else {
+      generatedRecommendations.push("Crear llamadas a la acción (CTAs) claras y persuasivas en toda la página.");
+    }
+
+    const recs = data.strategic_recommendations || {};
+    const brandingRecs = recs.branding_recommendations || [];
+    const marketingRecs = recs.marketing_recommendations || [];
+    const seoRecs = recs.seo_recommendations || [];
+    const uxRecs = recs.ux_recommendations || [];
+    const convRecs = recs.conversion_recommendations || [];
+    
+    const finalRecs = [
+      ...(brandingRecs.length > 0 ? brandingRecs : [generatedRecommendations[0]]),
+      ...(marketingRecs.length > 0 ? marketingRecs : [generatedRecommendations[1]]),
+      ...(seoRecs.length > 0 ? seoRecs : [generatedRecommendations[2]]),
+      ...(uxRecs.length > 0 ? uxRecs : [generatedRecommendations[3]]),
+      ...(convRecs.length > 0 ? convRecs : [generatedRecommendations[4]])
+    ];
+
+    return {
+      strengths: Array.isArray(bInsights.main_strengths) ? bInsights.main_strengths : [],
+      weaknesses: Array.isArray(bInsights.main_weaknesses) ? bInsights.main_weaknesses : [],
+      seo_signals: Array.isArray(mSignals.seo_signals) ? mSignals.seo_signals : [],
+      opportunities: Array.isArray(bInsights.differentiators) ? bInsights.differentiators : [],
+      emotional_tone: Array.isArray(bIdentity.emotional_tone) ? bIdentity.emotional_tone : [],
+      target_audience: Array.isArray(bIdentity.target_audience) ? bIdentity.target_audience : [],
+      ux_observations: Array.isArray(wAnalysis.ux_observations) ? wAnalysis.ux_observations : [],
+      confidence_score: typeof dQuality.confidence_score === "number" ? dQuality.confidence_score : 0.5,
+      brand_personality: Array.isArray(bIdentity.brand_personality) ? bIdentity.brand_personality : [],
+      marketing_tactics: Array.isArray(mSignals.marketing_tactics) ? mSignals.marketing_tactics : [],
+      market_positioning: bIdentity.market_positioning || "Sin posicionamiento especificado",
+      strategic_recommendations: finalRecs
+    };
+  }
+
+  // Estructura clásica
+  return {
+    strengths: Array.isArray(data.strengths) ? data.strengths : (Array.isArray(data.products) ? data.products : []),
+    weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : (Array.isArray(data.promotions) ? data.promotions : []),
+    seo_signals: Array.isArray(data.seo_signals) ? data.seo_signals : [],
+    opportunities: Array.isArray(data.opportunities) ? data.opportunities : [],
+    emotional_tone: Array.isArray(data.emotional_tone) ? data.emotional_tone : [],
+    target_audience: Array.isArray(data.target_audience) ? data.target_audience : [],
+    ux_observations: Array.isArray(data.ux_observations) ? data.ux_observations : [],
+    confidence_score: typeof data.confidence_score === "number" ? data.confidence_score : 0.5,
+    brand_personality: Array.isArray(data.brand_personality) ? data.brand_personality : [],
+    marketing_tactics: Array.isArray(data.marketing_tactics) ? data.marketing_tactics : [],
+    market_positioning: data.market_positioning || data.title || "Sin posicionamiento especificado",
+    strategic_recommendations: Array.isArray(data.strategic_recommendations) 
+      ? data.strategic_recommendations 
+      : (Array.isArray(data.recommendations) ? data.recommendations : [])
+  };
+}
+
+export function ScrapingReportDialog({ data: rawData }: { data: any }) {
+  const data = normalizeReportData(rawData);
+
   return (
     <Dialog>
       <DialogTrigger asChild>

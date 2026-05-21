@@ -32,16 +32,95 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
 
   const getFlatRecommendations = (reportData: any) => {
     if (!reportData) return [];
-    const recs = reportData.strategic_recommendations;
-    if (!recs) return reportData.recommendations || [];
-    if (Array.isArray(recs)) return recs;
-    return [
-      ...(recs.branding_recommendations || []),
-      ...(recs.marketing_recommendations || []),
-      ...(recs.seo_recommendations || []),
-      ...(recs.ux_recommendations || []),
-      ...(recs.conversion_recommendations || []),
-    ];
+    
+    if (Array.isArray(reportData.strategic_recommendations)) return reportData.strategic_recommendations;
+    if (Array.isArray(reportData.recommendations)) return reportData.recommendations;
+    
+    const recs = reportData.strategic_recommendations || {};
+    
+    const brandingRecs = recs.branding_recommendations || [];
+    const marketingRecs = recs.marketing_recommendations || [];
+    const seoRecs = recs.seo_recommendations || [];
+    const uxRecs = recs.ux_recommendations || [];
+    const convRecs = recs.conversion_recommendations || [];
+    
+    if (brandingRecs.length > 0 || marketingRecs.length > 0 || seoRecs.length > 0 || uxRecs.length > 0 || convRecs.length > 0) {
+      return [
+        ...brandingRecs,
+        ...marketingRecs,
+        ...seoRecs,
+        ...uxRecs,
+        ...convRecs,
+      ];
+    }
+    
+    const isNewestStructure = !!reportData.brand_identity || !!reportData.business_insights || !!reportData.website_analysis;
+    if (isNewestStructure) {
+      const bInsights = reportData.business_insights || {};
+      const dQuality = reportData.data_quality || {};
+      const mainWeaknesses = bInsights.main_weaknesses || [];
+      const missingInfo = dQuality.missing_information || [];
+      
+      const weaknessesStr = mainWeaknesses.join(" ").toLowerCase();
+      const missingStr = missingInfo.join(" ").toLowerCase();
+      const arr = [];
+      
+      // Branding
+      if (weaknessesStr.includes("branding") || weaknessesStr.includes("marca") || missingStr.includes("social")) {
+        arr.push("Fortalecer tu identidad de marca con storytelling enfocado en tu valor y diferenciación.");
+      }
+      if (missingStr.includes("redes") || weaknessesStr.includes("redes")) {
+        arr.push("Crear y vincular perfiles de redes sociales activos para consolidar la confianza de los clientes.");
+      }
+      if (arr.length === 0) {
+        arr.push("Definir una propuesta de valor única y posicionamiento estratégico frente a competidores locales.");
+      }
+      
+      // Marketing
+      if (weaknessesStr.includes("contacto") || missingStr.includes("contacto")) {
+        arr.push("Configurar botones de contacto directos como WhatsApp en tu página para mejorar la captación.");
+      }
+      if (weaknessesStr.includes("seo") || weaknessesStr.includes("seo")) {
+        arr.push("Comenzar con campañas de búsqueda pagada en tu ciudad para aparecer ante clientes potenciales.");
+      }
+      if (arr.length <= 1) {
+        arr.push("Implementar promociones de temporada y darlas a conocer en canales digitales locales.");
+      }
+      
+      // SEO
+      if (weaknessesStr.includes("seo") || weaknessesStr.includes("seo") || missingStr.includes("metadatos")) {
+        arr.push("Optimizar títulos y metadatos de tu sitio web para búsquedas locales relevantes.");
+        arr.push("Hacer un listado de keywords prioritarias para pastelería y chocolates en tu región.");
+      } else {
+        arr.push("Optimizar imágenes y velocidad de carga móvil para aumentar tu indexación orgánica.");
+      }
+      
+      // UX
+      if (weaknessesStr.includes("producto") || missingStr.includes("producto")) {
+        arr.push("Estructurar un catálogo digital detallado y visualmente atractivo de todos tus pasteles y productos.");
+      }
+      if (weaknessesStr.includes("contacto") || missingStr.includes("contacto")) {
+        arr.push("Hacer que los datos de contacto y la ubicación de tiendas sean sumamente fáciles de encontrar.");
+      }
+      if (arr.length <= 4) {
+        arr.push("Asegurar una velocidad de carga y navegación fluidas en dispositivos móviles.");
+      }
+      
+      // Conversion
+      if (weaknessesStr.includes("carrito") || weaknessesStr.includes("checkout") || weaknessesStr.includes("commerce")) {
+        arr.push("Integrar un botón rápido de pedidos vía WhatsApp para automatizar las conversiones de compra.");
+      }
+      if (weaknessesStr.includes("fidelización") || weaknessesStr.includes("loyalty")) {
+        arr.push("Considerar un programa básico de lealtad (ej: tarjetas de fidelización) para fomentar la retención.");
+      }
+      if (arr.length <= 5) {
+        arr.push("Crear llamadas a la acción (CTAs) claras y persuasivas en toda la página.");
+      }
+      
+      return arr;
+    }
+    
+    return [];
   };
 
   let facebookUrl = "";

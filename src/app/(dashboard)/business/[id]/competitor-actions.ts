@@ -12,6 +12,9 @@ export async function upsertCompetitorAction(
     facebook?: string
     instagram?: string
     tiktok?: string
+    linkedin?: string
+    youtube?: string
+    seoGoogle?: string
   }
 ) {
   try {

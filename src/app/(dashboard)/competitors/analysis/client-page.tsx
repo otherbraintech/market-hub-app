@@ -9,7 +9,7 @@ import {
   Sparkles, Globe, Loader2, Plus, Facebook, Instagram, ChevronRight, FileText,
   Users, ThumbsUp, MessageSquare, Activity, Flame, MapPin, Award, ShieldCheck,
   Megaphone, Zap, Eye, Compass, Briefcase, TrendingUp, Heart, Target,
-  AlertCircle, Star
+  AlertCircle, Star, Linkedin, Youtube, Search
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -62,6 +62,33 @@ const getPlatformTheme = (channel: string) => {
       text: "text-slate-900 dark:text-slate-100",
       iconBg: "bg-slate-900/10 dark:bg-white/10",
       accent: "slate"
+    };
+  }
+  if (c === "LINKEDIN") {
+    return {
+      gradient: "from-blue-700/10 via-blue-600/5 to-blue-500/5 dark:from-blue-950/20 dark:via-blue-900/10 dark:to-blue-950/10",
+      border: "border-blue-700/20 dark:border-blue-700/10",
+      text: "text-blue-700 dark:text-blue-400",
+      iconBg: "bg-blue-700/10",
+      accent: "blue"
+    };
+  }
+  if (c === "YOUTUBE") {
+    return {
+      gradient: "from-red-600/10 via-red-500/5 to-red-400/5 dark:from-red-950/20 dark:via-red-900/10 dark:to-red-950/10",
+      border: "border-red-600/20 dark:border-red-600/10",
+      text: "text-red-600 dark:text-red-400",
+      iconBg: "bg-red-600/10",
+      accent: "red"
+    };
+  }
+  if (c === "SEO_GOOGLE") {
+    return {
+      gradient: "from-green-600/10 via-green-500/5 to-emerald-500/5 dark:from-green-950/20 dark:via-green-900/10 dark:to-emerald-950/10",
+      border: "border-green-600/20 dark:border-green-600/10",
+      text: "text-green-600 dark:text-green-400",
+      iconBg: "bg-green-600/10",
+      accent: "green"
     };
   }
   return {
@@ -210,6 +237,9 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
       { key: "facebook", name: "FACEBOOK", label: "Facebook", icon: Facebook, color: "text-blue-600", url: comp.facebook },
       { key: "instagram", name: "INSTAGRAM", label: "Instagram", icon: Instagram, color: "text-pink-500", url: comp.instagram },
       { key: "tiktok", name: "TIKTOK", label: "TikTok", icon: TikTokIcon, color: "text-black dark:text-white", url: comp.tiktok },
+      { key: "linkedin", name: "LINKEDIN", label: "LinkedIn", icon: Linkedin, color: "text-blue-700", url: comp.linkedin },
+      { key: "youtube", name: "YOUTUBE", label: "YouTube", icon: Youtube, color: "text-red-600", url: comp.youtube },
+      { key: "seoGoogle", name: "SEO_GOOGLE", label: "SEO Google", icon: Search, color: "text-green-600", url: comp.seoGoogle },
     ];
 
     channelConfigs.forEach((chConfig) => {
@@ -288,6 +318,9 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                   FACEBOOK: { bar: "bg-gradient-to-r from-blue-600 to-blue-400", iconBg: "bg-blue-600/10", iconText: "text-blue-700" },
                   INSTAGRAM: { bar: "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400", iconBg: "bg-pink-500/10", iconText: "text-pink-600" },
                   TIKTOK: { bar: "bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500 dark:from-white dark:via-gray-300 dark:to-gray-500", iconBg: "bg-gray-900/10 dark:bg-white/10", iconText: "text-gray-900 dark:text-white" },
+                  LINKEDIN: { bar: "bg-gradient-to-r from-blue-700 to-blue-500", iconBg: "bg-blue-700/10", iconText: "text-blue-800" },
+                  YOUTUBE: { bar: "bg-gradient-to-r from-red-600 to-red-400", iconBg: "bg-red-600/10", iconText: "text-red-700" },
+                  SEO_GOOGLE: { bar: "bg-gradient-to-r from-green-600 to-emerald-400", iconBg: "bg-green-600/10", iconText: "text-green-700" },
                 };
                 const accent = accentMap[card.channel] || accentMap.WEBSITE;
 
@@ -339,13 +372,20 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                           <p className="text-[10px] text-muted-foreground/50 mt-1">Solicita un nuevo análisis para comenzar.</p>
                         </div>
                       ) : isCompleted ? (() => {
-                        const dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
+                        let dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
+                        
+                        // Handle new array structure with output field
+                        if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
+                          dataObj = dataObj[0].output;
+                        }
+                        
                         const socialPresence = dataObj.facebook_presence || dataObj.instagram_presence || dataObj.tiktok_presence || {};
                         const branding = dataObj.branding_analysis || {};
                         const bizSignals = dataObj.business_intelligence || dataObj.business_signals || {};
                         const compObs = dataObj.competitive_observations || {};
                         const communityAnalysis = dataObj.community_analysis || {};
                         const reputationAnalysis = dataObj.reputation_analysis || {};
+                        const engagement = dataObj.engagement_analysis || {};
 
                         // Facebook-specific data extraction
                         const audienceMetrics = socialPresence.audience_metrics || {};
@@ -387,9 +427,41 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
 
                         // Check if this is Facebook with the new structure
                         const isFacebookNewStructure = card.channel === "FACEBOOK" && (socialPresence.brand_name || socialPresence.audience_metrics);
+                        
+                        // Check if this is Instagram with the new structure
+                        const isInstagramNewStructure = card.channel === "INSTAGRAM" && (socialPresence.brand_name || socialPresence.audience_size);
+                        
+                        // Instagram-specific data extraction
+                        const instaAudienceSize = socialPresence.audience_size || {};
+                        const instaFollowers = formatSocialMetric(instaAudienceSize.followers) || 
+                                               (engagement.social_proof_signals?.[0]?.match(/[\d.]+[KkMm]?/)?.[0] || 'N/D');
+                        const instaPosts = formatSocialMetric(instaAudienceSize.posts_count) || 'N/D';
+                        const instaFollowing = formatSocialMetric(instaAudienceSize.following) || 'N/D';
+                        const visibilityIndicators = compObs.visibility_indicators || [];
+                        const instaVisibility = visibilityIndicators.join(', ') || 'No disponible';
 
                         return (
                           <div className="space-y-3">
+                            {/* Instagram-specific metrics */}
+                            {isInstagramNewStructure && (
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div className="bg-pink-50/50 dark:bg-pink-950/20 rounded-lg p-2 border border-pink-100 dark:border-pink-900/30">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Users className="h-3 w-3 text-pink-600" />
+                                    <span className="text-[9px] font-semibold text-pink-700 dark:text-pink-400 uppercase">Seguidores</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-pink-900 dark:text-pink-100">{instaFollowers}</p>
+                                </div>
+                                <div className="bg-purple-50/50 dark:bg-purple-950/20 rounded-lg p-2 border border-purple-100 dark:border-purple-900/30">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <FileText className="h-3 w-3 text-purple-600" />
+                                    <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-400 uppercase">Publicaciones</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-purple-900 dark:text-purple-100">{instaPosts}</p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Facebook-specific metrics */}
                             {isFacebookNewStructure && (
                               <div className="grid grid-cols-2 gap-2 mb-3">
@@ -434,6 +506,17 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                                 {positioning}
                               </p>
                             </div>
+
+                            {/* Instagram-specific visibility indicators */}
+                            {isInstagramNewStructure && instaVisibility && (
+                              <div className="flex items-start gap-2 bg-pink-50/50 dark:bg-pink-950/20 rounded-lg px-3 py-2 border border-pink-100 dark:border-pink-900/30">
+                                <Eye className="h-4 w-4 text-pink-600 shrink-0 mt-0.5" />
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-semibold text-pink-700 dark:text-pink-400 uppercase">Visibilidad</p>
+                                  <p className="text-xs text-pink-900 dark:text-pink-100 line-clamp-2">{instaVisibility}</p>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Facebook-specific recommendation percentage */}
                             {isFacebookNewStructure && recommendationPercentage && (

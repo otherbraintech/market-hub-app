@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { updateBusinessExtraInfo } from "@/app/(dashboard)/business/[id]/actions"
 import { upsertCompetitorAction, deleteCompetitorAction } from "@/app/(dashboard)/business/[id]/competitor-actions"
 import { toast } from "sonner"
-import { Facebook, Instagram, Globe, Phone, Save, Loader2, Users, Plus, Trash2, MapPin, Pencil, X } from "lucide-react"
+import { Facebook, Instagram, Globe, Phone, Save, Loader2, Users, Plus, Trash2, MapPin, Pencil, X, Linkedin, Youtube, Search } from "lucide-react"
 import { SocialLinks } from '@/modules/business/types'
 
 interface Competitor {
@@ -18,6 +19,9 @@ interface Competitor {
   facebook: string | null
   instagram: string | null
   tiktok: string | null
+  linkedin: string | null
+  youtube: string | null
+  seoGoogle: string | null
 }
 
 interface BusinessExtraInfoCardProps {
@@ -47,8 +51,9 @@ export function BusinessExtraInfoCard({
   
   // States for Competitors
   const [editingCompIndex, setEditingCompIndex] = useState<number | null>(null)
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Record<number, string[]>>({})
   const [competitors, setCompetitors] = useState<Partial<Competitor>[]>(
-    initialCompetitors.length > 0 ? initialCompetitors : [{ id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '' }]
+    initialCompetitors.length > 0 ? initialCompetitors : [{ id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' }]
   )
 
   const handleSaveContact = async () => {
@@ -81,7 +86,10 @@ export function BusinessExtraInfoCard({
         website: comp.website || undefined,
         facebook: comp.facebook || undefined,
         instagram: comp.instagram || undefined,
-        tiktok: comp.tiktok || undefined
+        tiktok: comp.tiktok || undefined,
+        linkedin: comp.linkedin || undefined,
+        youtube: comp.youtube || undefined,
+        seoGoogle: comp.seoGoogle || undefined
       })
       if (result.success) {
         toast.success('Competidor guardado')
@@ -121,13 +129,38 @@ export function BusinessExtraInfoCard({
         return
     }
     const newIdx = competitors.length
-    setCompetitors(prev => [...prev, { id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '' }])
+    setCompetitors(prev => [...prev, { id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' }])
+    setSelectedPlatforms(prev => ({ ...prev, [newIdx]: ['website'] }))
     setEditingCompIndex(newIdx)
   }
 
   const updateCompField = (index: number, field: keyof Competitor, value: string) => {
     setCompetitors(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c))
   }
+
+  const togglePlatform = (index: number, platform: string) => {
+    setSelectedPlatforms(prev => {
+      const current = prev[index] || ['website']
+      if (current.includes(platform)) {
+        if (current.length > 1) {
+          return { ...prev, [index]: current.filter(p => p !== platform) }
+        }
+        return prev
+      } else {
+        return { ...prev, [index]: [...current, platform] }
+      }
+    })
+  }
+
+  const platforms = [
+    { key: 'website', label: 'Sitio Web', icon: Globe },
+    { key: 'facebook', label: 'Facebook', icon: Facebook },
+    { key: 'instagram', label: 'Instagram', icon: Instagram },
+    { key: 'tiktok', label: 'TikTok', icon: TikTokIcon },
+    { key: 'linkedin', label: 'LinkedIn', icon: Linkedin },
+    { key: 'youtube', label: 'YouTube', icon: Youtube },
+    { key: 'seoGoogle', label: 'SEO Google', icon: Search },
+  ]
 
   return (
     <Card className="card-shadow overflow-hidden border-none">
@@ -285,37 +318,82 @@ export function BusinessExtraInfoCard({
                         className={`h-8 text-xs ${!isEditing ? 'bg-transparent border-transparent px-0' : 'bg-background'}`}
                       />
                     </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Sitio Web</Label>
-                      <Input 
-                        placeholder="https://..." 
-                        value={comp.website || ''}
-                        onChange={(e) => updateCompField(idx, 'website', e.target.value)}
-                        disabled={!isEditing}
-                        className={`h-8 text-xs ${!isEditing ? 'bg-transparent border-transparent px-0 truncate' : 'bg-background'}`}
-                      />
-                    </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 mt-3">
-                    {['facebook', 'instagram', 'tiktok'].map((net) => (
-                      <div key={net} className="grid gap-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
-                          {net === 'facebook' && <Facebook className="h-2.5 w-2.5" />}
-                          {net === 'instagram' && <Instagram className="h-2.5 w-2.5" />}
-                          {net === 'tiktok' && <TikTokIcon className="h-2.5 w-2.5" />}
-                          {net}
-                        </Label>
-                        <Input 
-                          placeholder="-" 
-                          value={(comp as any)[net] || ''}
-                          onChange={(e) => updateCompField(idx, net as any, e.target.value)}
-                          disabled={!isEditing}
-                          className={`h-8 text-[11px] ${!isEditing ? 'bg-transparent border-transparent px-0 truncate' : 'bg-background px-2'}`}
-                        />
+                  {isEditing && (
+                    <>
+                      <div className="mt-4">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-2 block">Seleccionar plataformas a escrapear</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {platforms.map((platform) => {
+                            const PlatformIcon = platform.icon
+                            const isSelected = (selectedPlatforms[idx] || ['website']).includes(platform.key)
+                            return (
+                              <button
+                                key={platform.key}
+                                type="button"
+                                onClick={() => togglePlatform(idx, platform.key)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${
+                                  isSelected 
+                                    ? 'bg-orange-50 border-orange-300 text-orange-700' 
+                                    : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50'
+                                }`}
+                              >
+                                <PlatformIcon className="h-3 w-3" />
+                                {platform.label}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="mt-4 space-y-3">
+                        {(selectedPlatforms[idx] || ['website']).map((platformKey) => {
+                          const platform = platforms.find(p => p.key === platformKey)
+                          if (!platform) return null
+                          const PlatformIcon = platform.icon
+                          return (
+                            <div key={platform.key} className="grid gap-1.5">
+                              <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                                <PlatformIcon className="h-2.5 w-2.5" />
+                                {platform.label}
+                              </Label>
+                              <Input 
+                                placeholder="https://..." 
+                                value={(comp as any)[platform.key] || ''}
+                                onChange={(e) => updateCompField(idx, platform.key as keyof Competitor, e.target.value)}
+                                className="h-8 text-xs bg-background"
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {!isEditing && (
+                    <div className="mt-3 space-y-2">
+                      {platforms.map((platform) => {
+                        const PlatformIcon = platform.icon
+                        const url = (comp as any)[platform.key]
+                        if (!url) return null
+                        return (
+                          <div key={platform.key} className="flex items-center gap-2 text-xs">
+                            <PlatformIcon className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-muted-foreground">{platform.label}:</span>
+                            <a 
+                              href={url} 
+                              target="_blank" 
+                              rel="noreferrer"
+                              className="text-blue-500 hover:underline truncate"
+                            >
+                              {url}
+                            </a>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )
             })}

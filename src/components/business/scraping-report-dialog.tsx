@@ -4,7 +4,7 @@ import React from 'react';
 import { 
   CheckCircle2, XCircle, Lightbulb, Target, 
   Smile, Compass, BarChart3, Search, 
-  TrendingUp, Users, Brain, Sparkles 
+  TrendingUp, Users, Brain, Sparkles, Instagram, AlertCircle 
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +47,40 @@ function normalizeReportData(data: any): ReportData {
       marketing_tactics: [],
       market_positioning: "Sin posicionamiento especificado",
       strategic_recommendations: []
+    };
+  }
+
+  // Handle new array structure with output field
+  let processedData = data;
+  if (Array.isArray(data) && data.length > 0 && data[0].output) {
+    processedData = data[0].output;
+  }
+
+  // Verificar si es estructura de Instagram
+  const isInstagramStructure = !!processedData.instagram_presence || !!processedData.engagement_analysis || !!processedData.content_analysis;
+  
+  if (isInstagramStructure) {
+    const instaPresence = processedData.instagram_presence || {};
+    const branding = processedData.branding_analysis || {};
+    const content = processedData.content_analysis || {};
+    const engagement = processedData.engagement_analysis || {};
+    const compObs = processedData.competitive_observations || {};
+    const bizSignals = processedData.business_signals || {};
+    const dQuality = processedData.data_quality || {};
+
+    return {
+      strengths: Array.isArray(compObs.main_strengths) ? compObs.main_strengths : [],
+      weaknesses: Array.isArray(compObs.main_weaknesses) ? compObs.main_weaknesses : [],
+      seo_signals: Array.isArray(instaPresence.local_presence_signals) ? instaPresence.local_presence_signals : [],
+      opportunities: Array.isArray(compObs.differentiators) ? compObs.differentiators : [],
+      emotional_tone: Array.isArray(branding.emotional_tone) ? branding.emotional_tone : [],
+      target_audience: Array.isArray(content.audience_interaction_signals) ? content.audience_interaction_signals : [],
+      ux_observations: Array.isArray(instaPresence.profile_maturity_indicators) ? instaPresence.profile_maturity_indicators : [],
+      confidence_score: typeof dQuality.confidence_score === "number" ? dQuality.confidence_score : 0.5,
+      brand_personality: Array.isArray(branding.brand_personality) ? branding.brand_personality : [],
+      marketing_tactics: Array.isArray(bizSignals.commercial_signals) ? bizSignals.commercial_signals : [],
+      market_positioning: branding.brand_positioning_indicators?.[0] || instaPresence.brand_summary || "Instagram activo con presencia digital",
+      strategic_recommendations: Array.isArray(compObs.main_strengths) ? compObs.main_strengths.slice(0, 5) : []
     };
   }
 
@@ -155,7 +189,14 @@ function normalizeReportData(data: any): ReportData {
 }
 
 export function ScrapingReportDialog({ data: rawData }: { data: any }) {
+  // Handle new array structure with output field
+  let processedRawData = rawData;
+  if (Array.isArray(rawData) && rawData.length > 0 && rawData[0].output) {
+    processedRawData = rawData[0].output;
+  }
+
   const data = normalizeReportData(rawData);
+  const isInstagramStructure = !!processedRawData?.instagram_presence || !!processedRawData?.engagement_analysis || !!processedRawData?.content_analysis;
 
   return (
     <Dialog>
@@ -172,9 +213,11 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
             <div>
               <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-violet-500" />
-                Análisis de Inteligencia de Marca
+                {isInstagramStructure ? 'Análisis de Instagram' : 'Análisis de Inteligencia de Marca'}
               </DialogTitle>
-              <p className="text-slate-500 text-sm mt-1">Informe generado por IA a partir del scraping del sitio web.</p>
+              <p className="text-slate-500 text-sm mt-1">
+                {isInstagramStructure ? 'Informe generado por IA a partir del scraping de Instagram.' : 'Informe generado por IA a partir del scraping del sitio web.'}
+              </p>
             </div>
             
             {/* Score de Confianza */}
@@ -195,6 +238,249 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           
+          {/* Instagram-specific metrics */}
+          {isInstagramStructure && (
+            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-pink-600 uppercase tracking-wider flex items-center gap-2">
+                  <Instagram className="h-4 w-4" />
+                  Métricas de Instagram
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-lg p-3 border border-pink-100">
+                    <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
+                    <p className="text-lg font-bold text-slate-700">{processedRawData?.engagement_analysis?.social_proof_signals?.[0] || processedRawData?.instagram_presence?.audience_size?.followers || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <span className="text-xs text-slate-400 block mb-1">Publicaciones</span>
+                    <p className="text-lg font-bold text-slate-700">{processedRawData?.instagram_presence?.audience_size?.posts_count || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-pink-100">
+                    <span className="text-xs text-slate-400 block mb-1">Siguiendo</span>
+                    <p className="text-lg font-bold text-slate-700">{processedRawData?.instagram_presence?.audience_size?.following || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <span className="text-xs text-slate-400 block mb-1">Username</span>
+                    <p className="text-sm font-bold text-slate-700 truncate">{processedRawData?.instagram_presence?.username || processedRawData?.instagram_presence?.brand_name || 'N/A'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Instagram content analysis */}
+          {isInstagramStructure && processedRawData?.content_analysis && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-purple-700 uppercase tracking-wider flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Análisis de Contenido
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Temas de Contenido</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {processedRawData.content_analysis.content_themes?.map((item: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="bg-purple-50 text-purple-700 hover:bg-purple-100 border-none px-2.5 py-0.5 text-xs">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Formatos</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {processedRawData.content_analysis.content_formats?.map((item: string, i: number) => (
+                      <Badge key={i} variant="outline" className="border-purple-200 text-purple-600 px-2.5 py-0.5 text-xs">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                {processedRawData.content_analysis.top_hashtags && (
+                  <div>
+                    <span className="text-xs text-slate-400 block mb-1.5">Top Hashtags</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {processedRawData.content_analysis.top_hashtags?.map((item: string, i: number) => (
+                        <Badge key={i} variant="outline" className="border-pink-200 text-pink-600 px-2.5 py-0.5 text-xs">
+                          #{item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {processedRawData.content_analysis.posting_behavior && (
+                  <div>
+                    <span className="text-xs text-slate-400 block mb-1.5">Comportamiento de Publicación</span>
+                    <ul className="space-y-1">
+                      {processedRawData.content_analysis.posting_behavior?.map((item: string, i: number) => (
+                        <li key={i} className="text-xs text-slate-600 flex gap-2">
+                          <span className="text-purple-500">•</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Instagram engagement analysis */}
+          {isInstagramStructure && processedRawData?.engagement_analysis && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-pink-700 uppercase tracking-wider flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Análisis de Engagement
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Señales de Prueba Social</span>
+                  <ul className="space-y-1">
+                    {processedRawData.engagement_analysis.social_proof_signals?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-pink-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Indicadores de Reputación</span>
+                  <ul className="space-y-1">
+                    {processedRawData.engagement_analysis.reputation_indicators?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-purple-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Indicadores de Comunidad</span>
+                  <ul className="space-y-1">
+                    {processedRawData.engagement_analysis.community_activity_signals?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-purple-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Indicadores de Lealtad de Audiencia</span>
+                  <ul className="space-y-1">
+                    {processedRawData.engagement_analysis.audience_loyalty_indicators?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-purple-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Instagram business signals */}
+          {isInstagramStructure && processedRawData?.business_signals && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-blue-700 uppercase tracking-wider flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Señales de Negocio
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Señales de Confianza</span>
+                  <ul className="space-y-1">
+                    {processedRawData.business_signals.trust_signals?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-blue-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Señales Comerciales</span>
+                  <ul className="space-y-1">
+                    {processedRawData.business_signals.commercial_signals?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-blue-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Señales de Conversión</span>
+                  <ul className="space-y-1">
+                    {processedRawData.business_signals.conversion_signals?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-blue-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Instagram profile maturity */}
+          {isInstagramStructure && processedRawData?.instagram_presence?.profile_maturity_indicators && (
+            <Card className="border-none shadow-sm bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-amber-700 uppercase tracking-wider flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Indicadores de Madurez del Perfil
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1">
+                  {processedRawData.instagram_presence.profile_maturity_indicators?.map((item: string, i: number) => (
+                    <li key={i} className="text-xs text-slate-600 flex gap-2">
+                      <span className="text-amber-500">•</span> {item}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Instagram data quality */}
+          {isInstagramStructure && processedRawData?.data_quality && (
+            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-slate-50 via-white to-white border-l-4 border-l-slate-400">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Calidad de los Datos y Limitaciones
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Información Faltante</span>
+                  <ul className="space-y-1">
+                    {processedRawData.data_quality.missing_information?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-slate-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-400 block mb-1.5">Limitaciones del Análisis</span>
+                  <ul className="space-y-1">
+                    {processedRawData.data_quality.analysis_limitations?.map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-600 flex gap-2">
+                        <span className="text-slate-500">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* 1. POSICIONAMIENTO Y PERSONALIDAD */}
           <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
             <CardHeader className="pb-2">

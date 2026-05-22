@@ -9,7 +9,7 @@ import {
   Sparkles, Globe, Loader2, Plus, Facebook, Instagram, ChevronRight, FileText,
   Users, ThumbsUp, MessageSquare, Activity, Flame, MapPin, Award, ShieldCheck,
   Megaphone, Zap, Eye, Compass, Briefcase, TrendingUp, Heart, Target,
-  AlertCircle
+  AlertCircle, Star
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -342,12 +342,24 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                         const dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
                         const socialPresence = dataObj.facebook_presence || dataObj.instagram_presence || dataObj.tiktok_presence || {};
                         const branding = dataObj.branding_analysis || {};
-                        const bizSignals = dataObj.business_signals || {};
+                        const bizSignals = dataObj.business_intelligence || dataObj.business_signals || {};
                         const compObs = dataObj.competitive_observations || {};
+                        const communityAnalysis = dataObj.community_analysis || {};
+                        const reputationAnalysis = dataObj.reputation_analysis || {};
+
+                        // Facebook-specific data extraction
+                        const audienceMetrics = socialPresence.audience_metrics || {};
+                        const likes = formatSocialMetric(audienceMetrics.likes);
+                        const followers = formatSocialMetric(audienceMetrics.followers);
+                        const talkingAbout = formatSocialMetric(audienceMetrics.talking_about_count);
+                        const totalReviews = formatSocialMetric(reputationAnalysis.total_reviews);
+                        const recommendationPercentage = reputationAnalysis.recommendation_percentage;
+                        const businessCategory = socialPresence.business_category;
+                        const brandName = socialPresence.brand_name;
 
                         const positioning = socialPresence.brand_summary
                           || (branding.brand_positioning_indicators && branding.brand_positioning_indicators.length > 0 ? branding.brand_positioning_indicators[0] : null)
-                          || (socialPresence.business_category ? `${card.label} de categoría ${socialPresence.business_category}` : null)
+                          || (businessCategory ? `${card.label} de categoría ${businessCategory}` : null)
                           || (bizSignals.platform_usage_maturity && bizSignals.platform_usage_maturity.length > 0 ? bizSignals.platform_usage_maturity[0] : null)
                           || dataObj.brand_identity?.market_positioning
                           || dataObj.competitor_overview?.market_positioning
@@ -373,8 +385,45 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                           || [];
                         const weaknesses = Array.isArray(rawWeaknesses) ? rawWeaknesses : [rawWeaknesses];
 
+                        // Check if this is Facebook with the new structure
+                        const isFacebookNewStructure = card.channel === "FACEBOOK" && (socialPresence.brand_name || socialPresence.audience_metrics);
+
                         return (
                           <div className="space-y-3">
+                            {/* Facebook-specific metrics */}
+                            {isFacebookNewStructure && (
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-lg p-2 border border-blue-100 dark:border-blue-900/30">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <ThumbsUp className="h-3 w-3 text-blue-600" />
+                                    <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-400 uppercase">Likes</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-blue-900 dark:text-blue-100">{likes}</p>
+                                </div>
+                                <div className="bg-purple-50/50 dark:bg-purple-950/20 rounded-lg p-2 border border-purple-100 dark:border-purple-900/30">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Users className="h-3 w-3 text-purple-600" />
+                                    <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-400 uppercase">Seguidores</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-purple-900 dark:text-purple-100">{followers}</p>
+                                </div>
+                                <div className="bg-green-50/50 dark:bg-green-950/20 rounded-lg p-2 border border-green-100 dark:border-green-900/30">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <MessageSquare className="h-3 w-3 text-green-600" />
+                                    <span className="text-[9px] font-semibold text-green-700 dark:text-green-400 uppercase">Hablan</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-green-900 dark:text-green-100">{talkingAbout}</p>
+                                </div>
+                                <div className="bg-orange-50/50 dark:bg-orange-950/20 rounded-lg p-2 border border-orange-100 dark:border-orange-900/30">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Star className="h-3 w-3 text-orange-600" />
+                                    <span className="text-[9px] font-semibold text-orange-700 dark:text-orange-400 uppercase">Reseñas</span>
+                                  </div>
+                                  <p className="text-sm font-bold text-orange-900 dark:text-orange-100">{totalReviews}</p>
+                                </div>
+                              </div>
+                            )}
+
                             {/* Positioning quote */}
                             <div
                               className="relative bg-muted/30 dark:bg-muted/20 rounded-lg px-3 py-2.5 border border-border/50"
@@ -385,6 +434,17 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                                 {positioning}
                               </p>
                             </div>
+
+                            {/* Facebook-specific recommendation percentage */}
+                            {isFacebookNewStructure && recommendationPercentage && (
+                              <div className="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-2 border border-emerald-100 dark:border-emerald-900/30">
+                                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                                <div>
+                                  <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase">Recomendación</p>
+                                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{recommendationPercentage}%</p>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Strengths */}
                             {strengths.length > 0 && (
@@ -883,13 +943,13 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                   const confidenceScore = dQualityObj.confidence_score ?? dataObj.confidence_score;
 
                   return (
-                    <div className="space-y-6">
-                      {/* CABECERA SOCIAL PREMIUM */}
-                      <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} ${theme.border} p-6 rounded-2xl border shadow-sm`}>
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="space-y-4">
+                      {/* CABECERA SIMPLE */}
+                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-5 rounded-xl border shadow-sm`}>
+                        <div className="flex items-start justify-between gap-4">
                           <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-2xl font-black tracking-tight text-foreground">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-xl font-bold text-foreground">
                                 {socialPresence.brand_name || "Nombre del Canal"}
                               </h3>
                               {socialPresence.business_category && (
@@ -898,612 +958,191 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground font-medium max-w-2xl leading-relaxed whitespace-pre-line">
+                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
                               {(socialPresence.brand_summary || "Sin resumen disponible.").replace(/\n/g, " • ")}
                             </p>
                           </div>
-                          <div className="flex flex-col items-start md:items-end gap-1.5 shrink-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Alcance:</span>
-                              <Badge variant="secondary" className="text-[10px] font-bold">
-                                {socialPresence.market_scope || "Local / Regional"}
+                          {confidenceScore != null && confidenceScore > 0 && (
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Confianza IA</span>
+                              <Badge className="text-xs font-bold bg-green-500 text-white border-none py-0.5 px-2">
+                                {(confidenceScore * 100).toFixed(0)}%
                               </Badge>
                             </div>
-                            {confidenceScore != null && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Confianza IA:</span>
-                                <Badge className="text-[10px] font-bold bg-green-500 text-white border-none py-0.5 px-2">
-                                  {(confidenceScore * 100).toFixed(0)}%
-                                </Badge>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* PANEL DE MÉTRICAS SOCIALES PREMIUM */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {/* 1. SEGUIDORES */}
-                        <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} ${theme.border} p-5 rounded-2xl border shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Seguidores</span>
-                            <div className={`p-2 rounded-xl ${theme.iconBg} ${theme.text}`}>
-                              <Users className="h-4 w-4" />
-                            </div>
-                          </div>
-                          <div className="mt-3">
-                            <span className="text-3xl font-black tracking-tight text-foreground font-sans leading-none block mb-1">
-                              {formatSocialMetric(socialPresence.audience_metrics?.followers ?? socialPresence.audience_size?.followers)}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/80 font-medium">
-                              Comunidad en la red
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 2. ME GUSTA */}
-                        <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} ${theme.border} p-5 rounded-2xl border shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Me gusta (Likes)</span>
-                            <div className={`p-2 rounded-xl ${theme.iconBg} ${theme.text}`}>
-                              <ThumbsUp className="h-4 w-4" />
-                            </div>
-                          </div>
-                          <div className="mt-3">
-                            <span className="text-3xl font-black tracking-tight text-foreground font-sans leading-none block mb-1">
-                              {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/80 font-medium">
-                              Aprobación de marca
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 3. ACTIVOS (SEMANAL) */}
-                        <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} ${theme.border} p-5 rounded-2xl border shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Activos (Semanal)</span>
-                            <div className={`p-2 rounded-xl ${theme.iconBg} ${theme.text}`}>
-                              <Activity className="h-4 w-4" />
-                            </div>
-                          </div>
-                          <div className="mt-3">
-                            <span className="text-3xl font-black tracking-tight text-foreground font-sans leading-none block mb-1">
-                              {formatSocialMetric(socialPresence.audience_metrics?.talking_about_count ?? socialPresence.audience_size?.talking_about)}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/80 font-medium">
-                              Hablando de esto
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* 4. ENGAGEMENT */}
-                        <div className={`relative overflow-hidden bg-gradient-to-br ${theme.gradient} ${theme.border} p-5 rounded-2xl border shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-300`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Engagement</span>
-                            <div className="p-2 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                              <Flame className="h-4 w-4" />
-                            </div>
-                          </div>
-                          <div className="mt-3">
-                            <span className="text-2xl font-black tracking-tight text-orange-600 dark:text-orange-400 leading-none block mb-1">
-                              {engagement.engagement_level || communityAnalysis.community_size_category || "Medio"}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground/80 font-medium">
-                              {reputationAnalysis.total_reviews != null
-                                ? `Reseñas: ${formatSocialMetric(reputationAnalysis.total_reviews)}`
-                                : socialPresence.audience_metrics?.reviews_count != null
-                                  ? `Reseñas: ${formatSocialMetric(socialPresence.audience_metrics.reviews_count)}`
-                                  : "Nivel de engagement"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* PESTAÑAS DETALLADAS PREMIUM PARA REDES SOCIALES */}
-                      <Tabs defaultValue="presence" className="w-full space-y-4">
-                        <TabsList className="grid grid-cols-3 lg:grid-cols-6 h-auto p-1 bg-muted/60 rounded-xl">
-                          <TabsTrigger value="presence" className="text-xs py-2 gap-1.5"><MapPin className="h-3.5 w-3.5 shrink-0" /> Madurez</TabsTrigger>
-                          <TabsTrigger value="branding" className="text-xs py-2 gap-1.5"><Sparkles className="h-3.5 w-3.5 shrink-0" /> Branding</TabsTrigger>
-                          <TabsTrigger value="engagement" className="text-xs py-2 gap-1.5"><Heart className="h-3.5 w-3.5 shrink-0" /> Comunidad</TabsTrigger>
-                          <TabsTrigger value="business" className="text-xs py-2 gap-1.5"><Briefcase className="h-3.5 w-3.5 shrink-0" /> Negocio</TabsTrigger>
-                          <TabsTrigger value="competitive" className="text-xs py-2 gap-1.5"><Target className="h-3.5 w-3.5 shrink-0" /> Competitividad</TabsTrigger>
-                          <TabsTrigger value="recs" className="text-xs py-2 gap-1.5"><Zap className="h-3.5 w-3.5 shrink-0" /> Plan IA</TabsTrigger>
-                        </TabsList>
-
-                        {/* PESTAÑA 1: PRESENCIA Y MADUREZ */}
-                        <TabsContent value="presence" className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2">
-                                <MapPin className="h-4 w-4" /> Señales de Presencia Local
-                              </h4>
-                              <ul className="space-y-2">
-                                {socialPresence.local_presence_signals && socialPresence.local_presence_signals.length > 0 ? (
-                                  socialPresence.local_presence_signals.map((p: string, i: number) => (
-                                    <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
-                                      <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                      <span>{p}</span>
-                                    </li>
-                                  ))
-                                ) : (
-                                  <li className="text-xs text-muted-foreground italic">No se detectaron señales explícitas de ubicación física.</li>
-                                )}
-                              </ul>
-                            </Card>
-
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2">
-                                <Award className="h-4 w-4" /> Madurez de Marca en la Red
-                              </h4>
-                              <ul className="space-y-2">
-                                {socialPresence.brand_maturity_indicators && socialPresence.brand_maturity_indicators.length > 0 ? (
-                                  socialPresence.brand_maturity_indicators.map((p: string, i: number) => (
-                                    <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
-                                      <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                                      <span>{p}</span>
-                                    </li>
-                                  ))
-                                ) : (
-                                  <li className="text-xs text-muted-foreground italic">No se detectaron indicadores históricos explícitos.</li>
-                                )}
-                              </ul>
-                            </Card>
-                          </div>
-                        </TabsContent>
-
-                        {/* PESTAÑA 2: BRANDING E IDENTIDAD */}
-                        <TabsContent value="branding" className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-purple-600 flex items-center gap-2">
-                                <Sparkles className="h-4 w-4" /> Personalidad y Tono Emocional
-                              </h4>
-                              <div className="space-y-3">
-                                {branding.brand_personality && branding.brand_personality.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1.5">Personalidad</span>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {branding.brand_personality.map((p: string, i: number) => (
-                                        <Badge key={i} variant="outline" className="text-[10px] font-bold border-purple-500/20 bg-purple-500/5 text-purple-600 dark:text-purple-400">
-                                          {p}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                {branding.emotional_tone && branding.emotional_tone.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1.5">Tono Emocional</span>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {branding.emotional_tone.map((p: string, i: number) => (
-                                        <Badge key={i} variant="outline" className="text-[10px] font-bold border-pink-500/20 bg-pink-500/5 text-pink-600 dark:text-pink-400">
-                                          {p}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
-
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-purple-600 flex items-center gap-2">
-                                <Compass className="h-4 w-4" /> Estilo de Comunicación y Visuales
-                              </h4>
-                              <div className="grid grid-cols-1 gap-3">
-                                {branding.communication_style && branding.communication_style.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Estilo de Comunicación</span>
-                                    <ul className="space-y-1">
-                                      {branding.communication_style.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-normal">
-                                          <ChevronRight className="h-3 w-3 text-purple-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {branding.visual_branding_signals && branding.visual_branding_signals.length > 0 && (
-                                  <div className="pt-2 border-t border-muted/20">
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Señales Visuales detectadas</span>
-                                    <ul className="space-y-1">
-                                      {branding.visual_branding_signals.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-normal">
-                                          <ChevronRight className="h-3 w-3 text-purple-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
-
-                            {branding.brand_positioning_indicators && branding.brand_positioning_indicators.length > 0 && (
-                              <Card className="p-5 border border-muted/50 shadow-sm space-y-2 col-span-1 md:col-span-2 bg-purple-500/5">
-                                <h4 className="font-bold text-xs uppercase tracking-wider text-purple-600">Indicadores de Posicionamiento</h4>
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                  {branding.brand_positioning_indicators.join(" • ")}
-                                </p>
-                              </Card>
-                            )}
-                          </div>
-                        </TabsContent>
-
-                        {/* PESTAÑA 3: ENGAGEMENT Y COMUNIDAD */}
-                        <TabsContent value="engagement" className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-pink-600 flex items-center gap-2">
-                                <Heart className="h-4 w-4" /> Actividad y Prueba Social
-                              </h4>
-                              <div className="space-y-3">
-                                {engagement.social_proof_signals && engagement.social_proof_signals.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Señales de Prueba Social</span>
-                                    <ul className="space-y-1">
-                                      {engagement.social_proof_signals.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-pink-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {engagement.community_activity_signals && engagement.community_activity_signals.length > 0 && (
-                                  <div className="pt-2 border-t border-muted/20">
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Actividad de la Comunidad</span>
-                                    <ul className="space-y-1">
-                                      {engagement.community_activity_signals.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-pink-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
-
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-pink-600 flex items-center gap-2">
-                                <ShieldCheck className="h-4 w-4" /> Reputación y Lealtad
-                              </h4>
-                              <div className="space-y-3">
-                                {engagement.reputation_indicators && engagement.reputation_indicators.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Indicadores de Reputación</span>
-                                    <ul className="space-y-1">
-                                      {engagement.reputation_indicators.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-pink-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {engagement.audience_loyalty_indicators && engagement.audience_loyalty_indicators.length > 0 && (
-                                  <div className="pt-2 border-t border-muted/20">
-                                    <span className="text-[10px] uppercase font-bold tracking-wider text-pink-600 block mb-1">Fidelización y Lealtad</span>
-                                    <ul className="space-y-1">
-                                      {engagement.audience_loyalty_indicators.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-pink-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
-                          </div>
-                        </TabsContent>
-
-                        {/* PESTAÑA 4: SEÑALES DE NEGOCIO */}
-                        <TabsContent value="business" className="space-y-4">
-                          {/* Indicadores de Inteligencia de Negocio y Reputación */}
-                          {(bizSignals.website_present !== undefined || bizSignals.advertising_active !== undefined || bizSignals.phone_contact_available !== undefined || reputationAnalysis.reputation_summary) && (
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3 bg-teal-500/5">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2">
-                                <Briefcase className="h-4 w-4" /> Inteligencia Comercial y Reputación (Facebook)
-                              </h4>
-                              <div className="flex flex-wrap gap-2.5">
-                                {reputationAnalysis.reputation_summary && (
-                                  <Badge variant="outline" className="text-xs font-bold border-teal-500/20 bg-teal-500/10 text-teal-700 dark:text-teal-400 py-1 px-3">
-                                    Reputación: {reputationAnalysis.reputation_summary}
-                                  </Badge>
-                                )}
-                                {reputationAnalysis.recommendation_percentage != null && (
-                                  <Badge variant="outline" className="text-xs font-bold border-green-500/20 bg-green-500/10 text-green-700 dark:text-green-400 py-1 px-3">
-                                    Recomendado: {reputationAnalysis.recommendation_percentage}%
-                                  </Badge>
-                                )}
-                                {bizSignals.website_present !== undefined && (
-                                  <Badge variant={bizSignals.website_present ? "default" : "secondary"} className={`text-xs font-bold py-1 px-3 ${bizSignals.website_present ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                    Sitio Web: {bizSignals.website_present ? "Detectado" : "No detectado"}
-                                  </Badge>
-                                )}
-                                {bizSignals.advertising_active !== undefined && (
-                                  <Badge variant={bizSignals.advertising_active ? "default" : "secondary"} className={`text-xs font-bold py-1 px-3 ${bizSignals.advertising_active ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                    Campañas Activas: {bizSignals.advertising_active ? "Sí" : "No"}
-                                  </Badge>
-                                )}
-                                {bizSignals.phone_contact_available !== undefined && (
-                                  <Badge variant={bizSignals.phone_contact_available ? "default" : "secondary"} className={`text-xs font-bold py-1 px-3 ${bizSignals.phone_contact_available ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                    Contacto Telefónico: {bizSignals.phone_contact_available ? "Disponible" : "No disponible"}
-                                  </Badge>
-                                )}
-                                {bizSignals.price_range_indicator && (
-                                  <Badge variant="outline" className="text-xs font-bold border-teal-500/20 bg-teal-500/10 text-teal-700 dark:text-teal-400 py-1 px-3">
-                                    Precio: {bizSignals.price_range_indicator}
-                                  </Badge>
-                                )}
-                              </div>
-                            </Card>
                           )}
+                        </div>
+                      </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2">
-                                <Briefcase className="h-4 w-4" /> Confianza y Comercialización
-                              </h4>
-                              <div className="space-y-3">
-                                {bizSignals.trust_signals && bizSignals.trust_signals.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Señales de Confianza Comercial</span>
-                                    <ul className="space-y-1">
-                                      {bizSignals.trust_signals.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-teal-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {bizSignals.commercial_signals && bizSignals.commercial_signals.length > 0 && (
-                                  <div className="pt-2 border-t border-muted/20">
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Indicadores Comerciales</span>
-                                    <ul className="space-y-1">
-                                      {bizSignals.commercial_signals.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-teal-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
+                      {/* MÉTRICAS PRINCIPALES */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Users className={`h-3.5 w-3.5 ${theme.text}`} />
+                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                          </div>
+                          <p className="text-lg font-semibold text-foreground">
+                            {formatSocialMetric(socialPresence.audience_metrics?.followers ?? socialPresence.audience_size?.followers)}
+                          </p>
+                        </div>
+                        <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <ThumbsUp className={`h-3.5 w-3.5 ${theme.text}`} />
+                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Likes</span>
+                          </div>
+                          <p className="text-lg font-semibold text-foreground">
+                            {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
+                          </p>
+                        </div>
+                        <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Activity className={`h-3.5 w-3.5 ${theme.text}`} />
+                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Actividad</span>
+                          </div>
+                          <p className="text-lg font-semibold text-foreground">
+                            {formatSocialMetric(socialPresence.audience_metrics?.talking_about_count ?? socialPresence.audience_size?.talking_about)}
+                          </p>
+                        </div>
+                        <div className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/20 p-3 rounded-lg shadow-sm">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Star className="h-3.5 w-3.5 text-orange-600" />
+                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Reputación</span>
+                          </div>
+                          <p className="text-lg font-semibold text-orange-600">
+                            {reputationAnalysis.recommendation_percentage != null
+                              ? `${reputationAnalysis.recommendation_percentage}%`
+                              : reputationAnalysis.total_reviews != null
+                                ? formatSocialMetric(reputationAnalysis.total_reviews)
+                                : "N/D"}
+                          </p>
+                        </div>
+                      </div>
 
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2">
-                                <Megaphone className="h-4 w-4" /> Marketing y Pauta
-                              </h4>
-                              <div className="space-y-3">
-                                {bizSignals.advertising_signals && bizSignals.advertising_signals.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Actividad Publicitaria (Meta Ads)</span>
-                                    <ul className="space-y-1">
-                                      {bizSignals.advertising_signals.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-teal-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {bizSignals.platform_usage_maturity && bizSignals.platform_usage_maturity.length > 0 && (
-                                  <div className="pt-2 border-t border-muted/20">
-                                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-600 block">Uso de Herramientas de Marketing</span>
-                                    <ul className="space-y-1">
-                                      {bizSignals.platform_usage_maturity.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-teal-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
-
-                            {bizSignals.conversion_signals && bizSignals.conversion_signals.length > 0 && (
-                              <Card className="p-5 border border-muted/50 shadow-sm space-y-2 col-span-1 md:col-span-2 bg-teal-500/5">
-                                <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-1.5">
-                                  <Zap className="h-4 w-4" /> Canales y Elementos de Conversión detectados
-                                </h4>
-                                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                                  {bizSignals.conversion_signals.map((s: string, i: number) => (
-                                    <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-normal">
-                                      <ChevronRight className="h-3.5 w-3.5 text-teal-600 shrink-0 mt-0.5" />
-                                      <span>{s}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </Card>
+                      {/* INFORMACIÓN ORGANIZADA EN SECCIONES */}
+                      <div className="space-y-4">
+                        {/* Sección de Presencia */}
+                        <Card className="p-4 border border-muted/50 shadow-sm">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2 mb-3">
+                            <MapPin className="h-4 w-4" /> Presencia Local
+                          </h4>
+                          <div className="space-y-2">
+                            {socialPresence.local_presence_signals && socialPresence.local_presence_signals.length > 0 ? (
+                              socialPresence.local_presence_signals.map((p: string, i: number) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <ChevronRight className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                                  <span>{p}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No se detectaron señales de ubicación física.</p>
                             )}
                           </div>
-                        </TabsContent>
+                        </Card>
 
-                        {/* PESTAÑA 5: OBSERVACIONES COMPETITIVAS */}
-                        <TabsContent value="competitive" className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-orange-600 flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4" /> Fortalezas y Diferenciadores
-                              </h4>
-                              <div className="space-y-3">
-                                {compObs.main_strengths && compObs.main_strengths.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Fortalezas detectadas</span>
-                                    <ul className="space-y-1">
-                                      {compObs.main_strengths.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {compObs.differentiators && compObs.differentiators.length > 0 && (
-                                  <div className="pt-2 border-t border-muted/20">
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Factores Diferenciadores</span>
-                                    <ul className="space-y-1">
-                                      {compObs.differentiators.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
-
-                            <Card className="p-5 border border-muted/50 shadow-sm space-y-3">
-                              <h4 className="font-bold text-xs uppercase tracking-wider text-orange-600 flex items-center gap-2">
-                                <AlertCircle className="h-4 w-4" /> Debilidades y Visibilidad
-                              </h4>
-                              <div className="space-y-3">
-                                {compObs.main_weaknesses && compObs.main_weaknesses.length > 0 && (
-                                  <div>
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Debilidades y Oportunidades de Mejora</span>
-                                    <ul className="space-y-1">
-                                      {compObs.main_weaknesses.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {compObs.visibility_indicators && compObs.visibility_indicators.length > 0 && (
-                                  <div className="pt-2 border-t border-muted/20">
-                                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Indicadores de Visibilidad</span>
-                                    <ul className="space-y-1">
-                                      {compObs.visibility_indicators.map((s: string, i: number) => (
-                                        <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-relaxed">
-                                          <ChevronRight className="h-3.5 w-3.5 text-orange-500 shrink-0 mt-0.5" />
-                                          <span>{s}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </Card>
-
-                            {compObs.customer_perception_indicators && compObs.customer_perception_indicators.length > 0 && (
-                              <Card className="p-5 border border-muted/50 shadow-sm space-y-2 col-span-1 md:col-span-2 bg-orange-500/5">
-                                <h4 className="font-bold text-xs uppercase tracking-wider text-orange-600 flex items-center gap-1.5">
-                                  <Eye className="h-4 w-4" /> Percepción de Clientes y Comunidad
-                                </h4>
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                  {compObs.customer_perception_indicators.join(" • ")}
-                                </p>
-                              </Card>
+                        {/* Sección de Negocio */}
+                        <Card className="p-4 border border-muted/50 shadow-sm">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2 mb-3">
+                            <Briefcase className="h-4 w-4" /> Inteligencia de Negocio
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {bizSignals.website_present !== undefined && (
+                              <Badge variant={bizSignals.website_present ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.website_present ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Sitio Web: {bizSignals.website_present ? "Detectado" : "No detectado"}
+                              </Badge>
+                            )}
+                            {bizSignals.advertising_active !== undefined && (
+                              <Badge variant={bizSignals.advertising_active ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.advertising_active ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Publicidad: {bizSignals.advertising_active ? "Activa" : "Inactiva"}
+                              </Badge>
+                            )}
+                            {bizSignals.phone_contact_available !== undefined && (
+                              <Badge variant={bizSignals.phone_contact_available ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.phone_contact_available ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Teléfono: {bizSignals.phone_contact_available ? "Disponible" : "No disponible"}
+                              </Badge>
+                            )}
+                            {bizSignals.price_range_indicator && (
+                              <Badge variant="outline" className="text-xs font-bold border-teal-500/20 bg-teal-500/10 text-teal-700">
+                                Precio: {bizSignals.price_range_indicator}
+                              </Badge>
+                            )}
+                            {reputationAnalysis.recommendation_percentage != null && (
+                              <Badge variant="outline" className="text-xs font-bold border-green-500/20 bg-green-500/10 text-green-700">
+                                Recomendación: {reputationAnalysis.recommendation_percentage}%
+                              </Badge>
                             )}
                           </div>
-                        </TabsContent>
+                        </Card>
 
-                        {/* PESTAÑA 6: PLAN DE RECOMENDACIONES IA */}
-                        <TabsContent value="recs" className="space-y-4">
-                          <Card className="p-6 border border-blue-500/10 bg-blue-500/5 shadow-sm space-y-4">
-                            <h4 className="font-bold text-sm text-blue-600 flex items-center gap-2 border-b border-blue-500/10 pb-2">
-                              <Sparkles className="h-4 w-4" /> Recomendaciones Estratégicas de Crecimiento Social
+                        {/* Sección de Fortalezas y Debilidades */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <Card className="p-4 border border-muted/50 shadow-sm">
+                            <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-600 flex items-center gap-2 mb-3">
+                              <TrendingUp className="h-4 w-4" /> Fortalezas
                             </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {/* 1. BRANDING */}
-                              {branding.brand_positioning_indicators && branding.brand_positioning_indicators.length > 0 && (
-                                <div className="space-y-2">
-                                  <h5 className="font-bold text-[10px] uppercase tracking-wider text-purple-600">Estrategia de Marca</h5>
-                                  <ul className="space-y-1.5">
-                                    {branding.brand_positioning_indicators.map((rec: string, i: number) => (
-                                      <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
-                                        <ChevronRight className="h-3.5 w-3.5 text-purple-500 shrink-0 mt-0.5" />
-                                        <span>Fortalecer la comunicación de la marca destacando {rec.toLowerCase()}.</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* 2. MARKETING */}
-                              {bizSignals.advertising_signals && bizSignals.advertising_signals.length > 0 && (
-                                <div className="space-y-2">
-                                  <h5 className="font-bold text-[10px] uppercase tracking-wider text-teal-600">Marketing e Interacción</h5>
-                                  <ul className="space-y-1.5">
-                                    {bizSignals.advertising_signals.map((rec: string, i: number) => (
-                                      <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
-                                        <ChevronRight className="h-3.5 w-3.5 text-teal-500 shrink-0 mt-0.5" />
-                                        <span>{rec}. Considerar campañas dinámicas locales para captar más tráfico.</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* 3. CONVERSIÓN */}
-                              {bizSignals.conversion_signals && bizSignals.conversion_signals.length > 0 && (
-                                <div className="space-y-2">
-                                  <h5 className="font-bold text-[10px] uppercase tracking-wider text-indigo-600">Canales de Conversión</h5>
-                                  <ul className="space-y-1.5">
-                                    {bizSignals.conversion_signals.map((rec: string, i: number) => (
-                                      <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
-                                        <ChevronRight className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
-                                        <span>Vincular y potenciar el {rec.toLowerCase()} como canal de ventas directas.</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-
-                              {/* 4. VISIBILIDAD */}
-                              {compObs.main_weaknesses && compObs.main_weaknesses.length > 0 && (
-                                <div className="space-y-2">
-                                  <h5 className="font-bold text-[10px] uppercase tracking-wider text-rose-600">Acción ante Debilidades</h5>
-                                  <ul className="space-y-1.5">
-                                    {compObs.main_weaknesses.map((rec: string, i: number) => (
-                                      <li key={i} className="flex gap-2 text-xs text-muted-foreground leading-relaxed">
-                                        <ChevronRight className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
-                                        <span>Mitigar la debilidad: {rec.toLowerCase()} mediante tácticas correctivas rápidas.</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
+                            <div className="space-y-2">
+                              {compObs.main_strengths && compObs.main_strengths.length > 0 ? (
+                                compObs.main_strengths.map((s: string, i: number) => (
+                                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                    <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+                                    <span>{s}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No se detectaron fortalezas específicas.</p>
                               )}
                             </div>
                           </Card>
-                        </TabsContent>
-                      </Tabs>
+                          <Card className="p-4 border border-muted/50 shadow-sm">
+                            <h4 className="font-bold text-xs uppercase tracking-wider text-rose-600 flex items-center gap-2 mb-3">
+                              <AlertCircle className="h-4 w-4" /> Debilidades
+                            </h4>
+                            <div className="space-y-2">
+                              {compObs.main_weaknesses && compObs.main_weaknesses.length > 0 ? (
+                                compObs.main_weaknesses.map((s: string, i: number) => (
+                                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                    <ChevronRight className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
+                                    <span>{s}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-muted-foreground italic">No se detectaron debilidades específicas.</p>
+                              )}
+                            </div>
+                          </Card>
+                        </div>
+
+                        {/* Sección de Recomendaciones */}
+                        <Card className="p-4 border border-blue-500/10 bg-blue-500/5 shadow-sm">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-blue-600 flex items-center gap-2 mb-3">
+                            <Sparkles className="h-4 w-4" /> Recomendaciones Clave
+                          </h4>
+                          <div className="space-y-2">
+                            {getFlatRecommendations(dataObj).slice(0, 5).map((rec: string, i: number) => (
+                              <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                <ChevronRight className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
+                                <span>{rec}</span>
+                              </div>
+                            ))}
+                            {getFlatRecommendations(dataObj).length === 0 && (
+                              <p className="text-xs text-muted-foreground italic">No hay recomendaciones disponibles.</p>
+                            )}
+                          </div>
+                        </Card>
+                      </div>
 
                       {/* CALIDAD Y LIMITACIONES */}
                       {dQualityObj && (dQualityObj.missing_information?.length > 0 || dQualityObj.analysis_limitations?.length > 0) && (
-                        <div className="bg-orange-500/5 p-5 rounded-xl border border-orange-500/10 space-y-3">
+                        <div className="bg-orange-500/5 p-4 rounded-xl border border-orange-500/10 space-y-3">
                           <h4 className="font-bold text-xs uppercase tracking-widest text-orange-600 flex items-center gap-2 border-b border-orange-500/10 pb-2">
                             <AlertCircle className="h-4 w-4" /> Calidad de los Datos y Limitaciones
                           </h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {dQualityObj.missing_information && dQualityObj.missing_information.length > 0 && (
                               <div className="space-y-1.5">
-                                <span className="text-[10px] uppercase font-bold tracking-wider text-orange-600 block">Información Faltante en la Red</span>
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-orange-600 block">Información Faltante</span>
                                 <ul className="space-y-1">
                                   {dQualityObj.missing_information.map((p: string, i: number) => (
                                     <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-normal">
-                                      <ChevronRight className="h-3.5 w-3.5 text-orange-500 shrink-0 mt-0.5" />
+                                      <ChevronRight className="h-3 w-3 text-orange-500 shrink-0 mt-0.5" />
                                       <span>{p}</span>
                                     </li>
                                   ))}
@@ -1516,7 +1155,7 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
                                 <ul className="space-y-1">
                                   {dQualityObj.analysis_limitations.map((p: string, i: number) => (
                                     <li key={i} className="flex gap-1.5 text-xs text-muted-foreground leading-normal">
-                                      <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-0.5" />
+                                      <ChevronRight className="h-3 w-3 text-slate-500 shrink-0 mt-0.5" />
                                       <span>{p}</span>
                                     </li>
                                   ))}

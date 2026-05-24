@@ -150,6 +150,10 @@ model Business {
   location       String?
   socialLinks    Json?   // { facebook: string, instagram: string, tiktok: string }
   
+  // Informes generales
+  competitorGeneralReport Json? // informe general de competencia guardado
+  competitorGeneralReportGeneratedAt DateTime?
+  
   // Propiedad
   userId String?
   user   User?   @relation(fields: [userId], references: [id])

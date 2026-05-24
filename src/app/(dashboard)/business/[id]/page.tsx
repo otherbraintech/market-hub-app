@@ -11,7 +11,7 @@ import { BusinessExtraInfoCard } from "@/components/business/business-extra-info
 import { ScrapingReportDialog } from "@/components/business/scraping-report-dialog";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { Users, Target } from "lucide-react";
 
 export default async function BusinessDetailPage({ 
   params,
@@ -92,6 +92,12 @@ export default async function BusinessDetailPage({
                <ScrapingReportDialog data={myAnalysis.data as any} />
              )}
              <Button asChild variant="outline" className="gap-2">
+               <Link href={`/business/${id}/analysis`} className="flex items-center gap-2">
+                 <Target className="h-4 w-4 text-purple-500" />
+                 Análisis de Mi Negocio
+               </Link>
+             </Button>
+             <Button asChild variant="outline" className="gap-2">
                <Link href="/competitors/analysis" className="flex items-center gap-2">
                  <Users className="h-4 w-4 text-blue-500" />
                  Ver Competencia
@@ -145,7 +151,7 @@ export default async function BusinessDetailPage({
               initialLocation={business.location}
               initialSocialLinks={business.socialLinks as any}
               initialCompetitors={business.competitors as any}
-              maxCompetitors={userLimit?.maxCompetitors || 1}
+              maxCompetitors={userLimit?.maxCompetitors ?? 3}
             />
            <BusinessInfoCard business={business} />
         </div>

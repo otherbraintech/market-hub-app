@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -279,9 +280,16 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
             Monitorea y compara los canales digitales de tu competencia.
           </p>
         </div>
-        <Button disabled variant="outline" className="gap-2">
-          <Plus className="h-4 w-4" /> Añadir Competidor
-        </Button>
+        <div className="flex gap-2">
+          <Link href={`/competitors/general-report/${businessId}`}>
+            <Button variant="outline" className="gap-2">
+              <FileText className="h-4 w-4" /> Ver Informe General
+            </Button>
+          </Link>
+          <Button disabled variant="outline" className="gap-2">
+            <Plus className="h-4 w-4" /> Añadir Competidor
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="list" className="space-y-4">
@@ -802,11 +810,20 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
           <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-[calc(85vh-120px)]">
             {selectedReport?.data && (() => {
               // Normalizar: a veces llega como string JSON doblemente serializado
-              const dataObj: any = typeof selectedReport.data === "string" ? JSON.parse(selectedReport.data) : selectedReport.data;
+              let dataObj: any = typeof selectedReport.data === "string" ? JSON.parse(selectedReport.data) : selectedReport.data;
+              
+              // Handle new array structure with output field
+              if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
+                dataObj = dataObj[0].output;
+              }
+              
               const isNewestStructure = !!dataObj.brand_identity || !!dataObj.business_insights;
               const isNewStructure = !!dataObj.competitor_overview;
               // Detectar estructura social (nueva y antigua)
               const isSocialStructure = !!dataObj.facebook_presence || !!dataObj.instagram_presence || !!dataObj.tiktok_presence || !!dataObj.branding_analysis || !!dataObj.business_intelligence || !!dataObj.community_analysis;
+              
+              // Detectar estructura específica de Instagram
+              const isInstagramStructure = !!dataObj.instagram_presence || !!dataObj.engagement_analysis || !!dataObj.content_analysis;
 
               if (isNewestStructure || isNewStructure || isSocialStructure) {
                 let overview: any = {};
@@ -1058,46 +1075,123 @@ export function CompetitorsAnalysisClient({ businessId, initialCompetitors, myAn
 
                       {/* MÉTRICAS PRINCIPALES */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Users className={`h-3.5 w-3.5 ${theme.text}`} />
-                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
-                          </div>
-                          <p className="text-lg font-semibold text-foreground">
-                            {formatSocialMetric(socialPresence.audience_metrics?.followers ?? socialPresence.audience_size?.followers)}
-                          </p>
-                        </div>
-                        <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <ThumbsUp className={`h-3.5 w-3.5 ${theme.text}`} />
-                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Likes</span>
-                          </div>
-                          <p className="text-lg font-semibold text-foreground">
-                            {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
-                          </p>
-                        </div>
-                        <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Activity className={`h-3.5 w-3.5 ${theme.text}`} />
-                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Actividad</span>
-                          </div>
-                          <p className="text-lg font-semibold text-foreground">
-                            {formatSocialMetric(socialPresence.audience_metrics?.talking_about_count ?? socialPresence.audience_size?.talking_about)}
-                          </p>
-                        </div>
-                        <div className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/20 p-3 rounded-lg shadow-sm">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <Star className="h-3.5 w-3.5 text-orange-600" />
-                            <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Reputación</span>
-                          </div>
-                          <p className="text-lg font-semibold text-orange-600">
-                            {reputationAnalysis.recommendation_percentage != null
-                              ? `${reputationAnalysis.recommendation_percentage}%`
-                              : reputationAnalysis.total_reviews != null
-                                ? formatSocialMetric(reputationAnalysis.total_reviews)
-                                : "N/D"}
-                          </p>
-                        </div>
+                        {isInstagramStructure ? (
+                          <>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Users className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {(() => {
+                                  const visibility = dataObj.competitive_observations?.visibility_indicators;
+                                  const socialProof = dataObj.engagement_analysis?.social_proof_signals;
+                                  
+                                  // Debug: show raw data
+                                  if (visibility && visibility.length > 0) {
+                                    console.log('Visibility indicators:', visibility);
+                                  }
+                                  if (socialProof && socialProof.length > 0) {
+                                    console.log('Social proof signals:', socialProof);
+                                  }
+                                  
+                                  // Try to extract followers from visibility_indicators
+                                  if (visibility && Array.isArray(visibility)) {
+                                    for (const indicator of visibility) {
+                                      if (typeof indicator === 'string' && indicator.toLowerCase().includes('seguidor')) {
+                                        const match = indicator.match(/[\d.]+[KkMm]?/);
+                                        if (match) return match[0];
+                                      }
+                                    }
+                                  }
+                                  
+                                  // Try to extract from social_proof_signals
+                                  if (socialProof && Array.isArray(socialProof)) {
+                                    for (const signal of socialProof) {
+                                      if (typeof signal === 'string' && signal.toLowerCase().includes('seguidor')) {
+                                        const match = signal.match(/[\d.]+[KkMm]?/);
+                                        if (match) return match[0];
+                                      }
+                                    }
+                                  }
+                                  
+                                  // Fallback
+                                  return dataObj.instagram_presence?.audience_size?.followers || "N/D";
+                                })()}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <FileText className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Publicaciones</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {socialPresence.audience_size?.posts_count || dataObj.instagram_presence?.audience_size?.posts_count || "N/D"}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Users className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Siguiendo</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {socialPresence.audience_size?.following || dataObj.instagram_presence?.audience_size?.following || "N/D"}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Instagram className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Username</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground truncate">
+                                {socialPresence.username || socialPresence.brand_name || dataObj.instagram_presence?.username || dataObj.instagram_presence?.brand_name || "N/D"}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Users className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.audience_metrics?.followers ?? socialPresence.audience_size?.followers)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <ThumbsUp className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Likes</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Activity className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Actividad</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.audience_metrics?.talking_about_count ?? socialPresence.audience_size?.talking_about)}
+                              </p>
+                            </div>
+                            <div className="bg-gradient-to-br from-orange-500/10 to-orange-500/5 border border-orange-500/20 p-3 rounded-lg shadow-sm">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Star className="h-3.5 w-3.5 text-orange-600" />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Reputación</span>
+                              </div>
+                              <p className="text-lg font-semibold text-orange-600">
+                                {reputationAnalysis.recommendation_percentage != null
+                                  ? `${reputationAnalysis.recommendation_percentage}%`
+                                  : reputationAnalysis.total_reviews != null
+                                    ? formatSocialMetric(reputationAnalysis.total_reviews)
+                                    : "N/D"}
+                              </p>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* INFORMACIÓN ORGANIZADA EN SECCIONES */}

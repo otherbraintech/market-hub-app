@@ -51,7 +51,15 @@ export function BusinessExtraInfoCard({
   
   // States for Competitors
   const [editingCompIndex, setEditingCompIndex] = useState<number | null>(null)
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Record<number, string[]>>({})
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Record<number, string[]>>(() => {
+    const initial: Record<number, string[]> = {}
+    const keys = ['website', 'facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'seoGoogle']
+    initialCompetitors.forEach((comp, idx) => {
+      const active = keys.filter(k => !!(comp as any)[k])
+      initial[idx] = active.length > 0 ? active : ['website']
+    })
+    return initial
+  })
   const [competitors, setCompetitors] = useState<Partial<Competitor>[]>(
     initialCompetitors.length > 0 ? initialCompetitors : [{ id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' }]
   )

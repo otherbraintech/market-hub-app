@@ -1,14 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
     const body = await request.json();
-    const { type, entityId, url, channel } = body;
+    const { channel, url } = body;
+    const businessId = id;
 
-    if (!type || !entityId || !url) {
+    if (!businessId) {
       return NextResponse.json(
-        { error: "Faltan parámetros requeridos: type, entityId, url" },
+        { error: "Falta el parámetro: businessId" },
+        { status: 400 }
+      );
+    }
+
+    if (!url) {
+      return NextResponse.json(
+        { error: "Falta el parámetro: url" },
         { status: 400 }
       );
     }
@@ -16,31 +28,30 @@ export async function POST(request: Request) {
     // Default channel to WEBSITE if not provided
     const reportChannel = channel || "WEBSITE";
 
-    // Fetch competitor info to enrich the webhook payload
-    let competitorName = "";
-    let businessId = "";
-    if (type === "COMPETITOR") {
-      const competitor = await prisma.competitor.findUnique({
-        where: { id: entityId },
-      });
-      if (competitor) {
-        competitorName = competitor.name || "";
-        businessId = competitor.businessId;
-      }
+    // Verify business exists
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Negocio no encontrado" },
+        { status: 404 }
+      );
     }
 
     // Create the PENDING record with the channel
     const report = await prisma.analysisReport.create({
       data: {
-        type,
-        entityId,
+        type: "MY_BUSINESS",
+        entityId: businessId,
         url,
         channel: reportChannel,
         status: "PENDING",
       },
     });
 
-    // Trigger external webhook (n8n) - using scrap-negocio for all analysis types
+    // Trigger external webhook (n8n) for business scraping
     const n8nWebhookUrl = "https://otherbrain-n8n.c1hohn.easypanel.host/webhook/scrap-negocio";
     
     try {
@@ -49,11 +60,11 @@ export async function POST(request: Request) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reportId: report.id,
-          type,
+          type: "MY_BUSINESS",
           channel: reportChannel,
           url,
           businessId,
-          competitorName,
+          businessName: business.name,
           callbackUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhook/callback`,
         }),
       });
@@ -72,7 +83,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ reportId: report.id, status: report.status });
   } catch (error: any) {
-    console.error("CRITICAL ERROR IN REQUEST ROUTE:", error);
+    console.error("CRITICAL ERROR IN BUSINESS SCRAP ROUTE:", error);
     return NextResponse.json(
       { error: "Error interno del servidor", details: error?.message || String(error) }, 
       { status: 500 }

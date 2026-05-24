@@ -113,79 +113,35 @@ const accentMap: Record<string, string> = {
 
 interface BusinessAnalysisClientProps {
   businessId: string;
-  business: any;
-  initialAnalyses: Record<string, any>;
+  businessName: string;
+  business: {
+    id: string;
+    name: string;
+    website: string | null;
+    facebook: string | null;
+    instagram: string | null;
+    tiktok: string | null;
+    linkedin: string | null;
+    youtube: string | null;
+    seoGoogle: string | null;
+  };
+  myAnalysesByChannel: Record<string, any>;
 }
 
-export function BusinessAnalysisClient({ businessId, business, initialAnalyses }: BusinessAnalysisClientProps) {
+export function BusinessAnalysisClient({ businessId, businessName, business, myAnalysesByChannel }: BusinessAnalysisClientProps) {
   const router = useRouter();
-  const [requestingChannel, setRequestingChannel] = useState<string | null>(null);
-
-  const handleRequestAnalysis = async (channel: string, url: string) => {
-    const promise = new Promise(async (resolve, reject) => {
-      try {
-        setRequestingChannel(channel);
-        const res = await fetch(`/api/business/${businessId}/scrap`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            channel,
-            url,
-          }),
-        });
-        if (res.ok) {
-          router.refresh();
-          resolve(true);
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          reject(new Error(errData.details || errData.error || "Error al solicitar el análisis."));
-        }
-      } catch (error: any) {
-        reject(error);
-      } finally {
-        setRequestingChannel(null);
-      }
-    });
-
-    toast.promise(promise, {
-      loading: `Enviando ${channel.toLowerCase()} a analizar a n8n...`,
-      success: `¡Análisis iniciado! El agente de IA de n8n está escaneando en segundo plano.`,
-      error: (err: any) => err.message || "Error al iniciar el análisis en n8n.",
-    });
-  };
+  const [requestingIdChannel, setRequestingIdChannel] = useState<string | null>(null);
 
   // Extract all cards (business channel combination)
   const cards: any[] = [];
-  
-  let facebookUrl = "";
-  let instagramUrl = "";
-  let tiktokUrl = "";
-  let linkedinUrl = "";
-  let youtubeUrl = "";
-  let seoGoogleUrl = "";
-
-  if (business.socialLinks) {
-    try {
-      const links = typeof business.socialLinks === "string" ? JSON.parse(business.socialLinks) : business.socialLinks;
-      facebookUrl = links.facebook || "";
-      instagramUrl = links.instagram || "";
-      tiktokUrl = links.tiktok || "";
-      linkedinUrl = links.linkedin || "";
-      youtubeUrl = links.youtube || "";
-      seoGoogleUrl = links.seoGoogle || "";
-    } catch (e) {
-      console.error("Error parsing social links:", e);
-    }
-  }
-
   const channelConfigs = [
     { key: "website", name: "WEBSITE", label: "Sitio Web", icon: Globe, color: "text-blue-500", url: business.website },
-    { key: "facebook", name: "FACEBOOK", label: "Facebook", icon: Facebook, color: "text-blue-600", url: facebookUrl },
-    { key: "instagram", name: "INSTAGRAM", label: "Instagram", icon: Instagram, color: "text-pink-500", url: instagramUrl },
-    { key: "tiktok", name: "TIKTOK", label: "TikTok", icon: TikTokIcon, color: "text-black dark:text-white", url: tiktokUrl },
-    { key: "linkedin", name: "LINKEDIN", label: "LinkedIn", icon: Linkedin, color: "text-blue-700", url: linkedinUrl },
-    { key: "youtube", name: "YOUTUBE", label: "YouTube", icon: Youtube, color: "text-red-600", url: youtubeUrl },
-    { key: "seoGoogle", name: "SEO_GOOGLE", label: "SEO Google", icon: Search, color: "text-green-600", url: seoGoogleUrl },
+    { key: "facebook", name: "FACEBOOK", label: "Facebook", icon: Facebook, color: "text-blue-600", url: business.facebook },
+    { key: "instagram", name: "INSTAGRAM", label: "Instagram", icon: Instagram, color: "text-pink-500", url: business.instagram },
+    { key: "tiktok", name: "TIKTOK", label: "TikTok", icon: TikTokIcon, color: "text-black dark:text-white", url: business.tiktok },
+    { key: "linkedin", name: "LINKEDIN", label: "LinkedIn", icon: Linkedin, color: "text-blue-700", url: business.linkedin },
+    { key: "youtube", name: "YOUTUBE", label: "YouTube", icon: Youtube, color: "text-red-600", url: business.youtube },
+    { key: "seoGoogle", name: "SEO_GOOGLE", label: "SEO Google", icon: Search, color: "text-green-600", url: business.seoGoogle },
   ];
 
   channelConfigs.forEach((chConfig) => {
@@ -196,12 +152,12 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
         icon: chConfig.icon,
         color: chConfig.color,
         url: chConfig.url,
-        report: initialAnalyses[chConfig.name] || null,
+        report: myAnalysesByChannel[chConfig.name] || null,
       });
     }
   });
 
-  const isAnyRequesting = requestingChannel !== null;
+  const isAnyRequesting = requestingIdChannel !== null;
   const isAnyPending = cards.some((card: any) => card.report?.status === "PENDING" || card.report?.status === "PROCESSING");
   const isAnyAnalyzing = isAnyRequesting || isAnyPending;
 
@@ -220,7 +176,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Análisis de Mi Negocio</h2>
             <p className="text-muted-foreground text-sm">
-              Monitorea y analiza los canales digitales de {business.name}.
+              Monitorea y analiza los canales digitales de {businessName}.
             </p>
           </div>
         </div>
@@ -420,30 +376,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                   )}
                 </CardContent>
 
-                <CardFooter className="pt-0 flex gap-2">
-                  <Button
-                    onClick={() => handleRequestAnalysis(card.channel, card.url)}
-                    disabled={isAnyAnalyzing || requestingChannel === card.channel}
-                    className="flex-1"
-                    variant={isCompleted ? "outline" : "default"}
-                  >
-                    {requestingChannel === card.channel || isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Analizando...
-                      </>
-                    ) : isCompleted ? (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Re-analizar
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Analizar
-                      </>
-                    )}
-                  </Button>
+                <CardFooter className="pt-0">
                   {isCompleted && report && (
                     <ScrapingReportDialog data={dataObj} />
                   )}

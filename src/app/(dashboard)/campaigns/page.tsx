@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Plus, Calendar as CalendarIcon, Users } from "lucide-react";
+import { Target, Plus, Calendar as CalendarIcon, Users, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -132,9 +132,23 @@ export default async function CampaignsPage() {
                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Presupuesto</p>
                      <p className="text-lg font-bold">{campaign.budget ? `$${campaign.budget.toString()}` : "No definido"}</p>
                    </div>
-                   <Link href={`/business/${campaign.businessId}`}>
-                     <Button className="w-full mt-4" variant="outline" size="sm">Ver Campaña</Button>
-                   </Link>
+                   <div className="space-y-2 mt-4">
+                     <Button 
+                       className="w-full" 
+                       variant="default" 
+                       size="sm"
+                       onClick={() => {
+                         // TODO: Implement AI suggestions modal
+                         alert('Función de sugerencias IA próximamente disponible');
+                       }}
+                     >
+                       <Sparkles className="h-4 w-4 mr-2" />
+                       Sugerencias IA
+                     </Button>
+                     <Link href={`/business/${campaign.businessId}`}>
+                       <Button className="w-full" variant="outline" size="sm">Ver Campaña</Button>
+                     </Link>
+                   </div>
                 </div>
               </div>
             </Card>

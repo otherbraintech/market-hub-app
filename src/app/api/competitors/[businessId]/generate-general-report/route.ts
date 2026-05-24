@@ -1,6 +1,66 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+function cleanJsonString(badJson: string): string {
+  let clean = '';
+  let inString = false;
+  let isEscaped = false;
+  
+  for (let i = 0; i < badJson.length; i++) {
+    const char = badJson[i];
+    
+    if (!inString) {
+      if (char === '"') {
+        inString = true;
+        isEscaped = false;
+        clean += char;
+      } else {
+        clean += char;
+      }
+    } else {
+      if (isEscaped) {
+        if (char === '\n') {
+          clean += 'n';
+        } else {
+          clean += char;
+        }
+        isEscaped = false;
+      } else if (char === '\\') {
+        isEscaped = true;
+        clean += char;
+      } else if (char === '"') {
+        let isRealClosing = false;
+        let j = i + 1;
+        while (j < badJson.length && /\s/.test(badJson[j])) {
+          j++;
+        }
+        if (j === badJson.length) {
+          isRealClosing = true;
+        } else {
+          const nextChar = badJson[j];
+          if (nextChar === ',' || nextChar === '}' || nextChar === ']' || nextChar === ':') {
+            isRealClosing = true;
+          }
+        }
+        
+        if (isRealClosing) {
+          inString = false;
+          clean += char;
+        } else {
+          clean += '\\"';
+        }
+      } else if (char === '\n') {
+        clean += '\\n';
+      } else if (char === '\r') {
+        clean += '\\r';
+      } else {
+        clean += char;
+      }
+    }
+  }
+  return clean;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ businessId: string }> }
@@ -93,7 +153,7 @@ export async function POST(
     });
 
     // Generate AI executive summary
-    let executiveSummary = '';
+    let executiveSummary: any = null;
     let competitorAnalyses: any[] = [];
     const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
     
@@ -101,10 +161,10 @@ export async function POST(
       console.error(`❌ ERROR: OPEN_ROUTER_KEY no está definido en el archivo .env o en las variables de entorno.`);
     }
     if (competitorReports.length === 0) {
-      console.error(`❌ ERROR: No hay reportes completados disponibles para que la IA realice el análisis.`);
+      console.warn(`⚠️ ADVERTENCIA: No hay reportes completados disponibles. El análisis se basará en nombres y sitios web.`);
     }
 
-    if (openRouterKey && competitorReports.length > 0) {
+    if (openRouterKey) {
       try {
         // Build a comprehensive prompt for AI with detailed scraped data
         const competitorData = competitors.map(comp => {
@@ -140,27 +200,116 @@ ${reportDetailsText}
 
         const prompt = `Actúa como un Director de Marketing y Consultor de Crecimiento de Negocios (Growth Consultant) de nivel Elite.
 Analiza minuciosamente los datos reales scrapeados de los competidores de la empresa "${business.name}" para generar un Informe de Competencia Estratégica Premium y exhaustivo.
-Este informe es fundamental para el usuario, ya que lo utilizará para crear campañas publicitarias, estructurar su propuesta de valor, encontrar oportunidades de mercado y planificar estrategias de contenido.
+Este informe es fundamental para el usuario, ya que lo utilizará para estructurar su propuesta de valor, encontrar oportunidades de mercado y planificar estrategias de contenido.
+ATENCIÓN: NO generes propuestas de campañas de marketing/publicidad concretas (eso se maneja en otra sección). Concéntrate EXCLUSIVAMENTE en el análisis de la competencia, sus canales, debilidades, posicionamiento, contenidos y conversión.
 
-Debes analizar en detalle lo que cada competidor hace en sus canales (Sitio Web, Instagram, Facebook, etc.) basándote en los datos específicos de sus reportes. No generalices, menciona datos concretos de los competidores si están disponibles en su JSON (ej. si ofrecen programas de lealtad, concursos, tipos de copys, tonos que usan, enfoques de conversión, etc.).
+IMPORTANTE SOBRE LOS CANALES Y DATOS DISPONIBLES:
+- El análisis debe ser independiente de qué canales han sido scrapeados.
+- Si solo hay datos de un único canal (por ejemplo, únicamente el Sitio Web), el informe debe generarse con base en ese canal.
+- Si un canal NO está presente en los datos adjuntos, NO inventes ni alucines información para dicho canal. Concéntrate únicamente en lo que esté disponible.
+- Si no hay datos scrapeados en absoluto para ningún competidor (es decir, el JSON está vacío), genera un análisis estratégico preliminar aproximado basándote únicamente en los nombres de los competidores, sus sitios web y tu conocimiento experto general del sector.
 
-Escribe un informe extenso, rico en texto, sumamente detallado y de nivel profesional. El informe total debe leerse como un análisis exhaustivo y profundo de consultoría de marketing.
+Debes analizar en detalle lo que cada competidor hace en sus canales (Sitio Web, Instagram, Facebook, etc.) basándote en los datos específicos de sus reportes si están disponibles. No generalices, menciona datos concretos de los competidores si están en su JSON.
 
-Por favor, genera este análisis profundo y devuélvelo estructurado exactamente en el siguiente formato JSON:
+Por favor, genera este análisis profundo, estructurado con respuestas concisas y directas (evitando párrafos de texto largos o aburridos) y devuélvelo exactamente en el siguiente formato JSON:
 {
-  "executiveSummary": "# INFORME DE INTELIGENCIA COMPETITIVA Y PLAN DE CAMPAÑAS\\n\\n## 1. Panorama Competitivo Global\\n[Escribe un análisis exhaustivo de al menos 4 párrafos largos sobre el mercado de repostería/pastelería local basándote en la presencia digital de los competidores analizados. Analiza el nivel de digitalización general, la madurez en la creación de marca (branding), el tipo de interacción que logran en redes sociales, y la sofisticación técnica de sus sitios web en comparación con la media del mercado.]\\n\\n## 2. Análisis Detallado de Canales de la Competencia\\n[Escribe al menos 3 párrafos analizando qué canales (Sitio Web, Instagram, Facebook, TikTok) están dominando la competencia y cómo los usan. ¿Qué tácticas de conversión aplican en sus webs? ¿Cómo interactúan con su comunidad en Facebook? ¿Qué frecuencia y tipo de contenido (educativo vs comercial) priorizan en Instagram? Utiliza los datos específicos recopilados en los JSON.]\\n\\n## 3. Matriz de Oportunidades y Gaps en el Mercado\\n[Identifica vacíos críticos y áreas descuidadas en la estrategia de la competencia. ¿Qué dolores del cliente o temas no están resolviendo? ¿Qué canales o formatos están ignorando o usando mal? Define al menos 3 nichos u oportunidades de oro que ${business.name} puede capitalizar de inmediato para posicionarse por encima de ellos. Sé sumamente descriptivo y de tono analítico.]\\n\\n## 4. Estrategia de Ataque y Posicionamiento para ${business.name}\\n[Define la estrategia de posicionamiento diferenciado para ${business.name} para contrastar fuertemente con la competencia. Incluye el ángulo de comunicación recomendado, propuesta de valor diferenciada, y pautas detalladas sobre el tono de comunicación, voz de marca y elementos de storytelling que se deben emplear.]\\n\\n## 5. Propuestas de Campañas de Marketing Concretas (Estrategias de Growth)\\nGenera propuestas de campañas detalladas y listas para ejecutar (mínimo 3 campañas):\\n\\n### Campaña 1: [Nombre de la Campaña]\\n- **Objetivo Estratégico:** [Explicación detallada del objetivo: conversión, tráfico, engagement, leads, etc.]\\n- **Ángulo de Comunicación y Gancho:** [El gancho creativo y gancho emocional/racional exacto para captar la atención.]\\n- **Conceptos de Contenido y Ejemplos de Copys:** [Describe las piezas de contenido recomendadas (ej. carrusel, reel, post) y escribe un ejemplo real de copy publicitario redactado listo para usar.]\\n- **Canales y Plan de Distribución:** [Plan de publicación detallado en los canales correspondientes (Instagram, Meta Ads, etc.).]\\n\\n### Campaña 2: [Nombre de la Campaña]\\n- **Objetivo Estratégico:** ...\\n- **Ángulo de Comunicación y Gancho:** ...\\n- **Conceptos de Contenido y Ejemplos de Copys:** ...\\n- **Canales y Plan de Distribución:** ...\\n\\n### Campaña 3: [Nombre de la Campaña]\\n- **Objetivo Estratégico:** ...\\n- **Ángulo de Comunicación y Gancho:** ...\\n- **Conceptos de Contenido y Ejemplos de Copys:** ...\\n- **Canales y Plan de Distribución:** ...\\n\\n## 6. Estrategia de Contenidos y Guía de Formatos de Alto Rendimiento\\n[Recomendaciones detalladas sobre los pilares de contenido, frecuencias de publicación ideales por canal, y formatos clave (ej. reels interactivos, carruseles educativos de conservación, videos tras bambalinas, etc.) que ${business.name} debe implementar para superar la calidad de contenido de los competidores.]\\n\\n## 7. Tácticas de Conversión, Precios e Incentivos de Venta\\n[Estrategias de pricing, promociones activas, programas de lealtad o lead magnets que se recomiendan para contrarrestar e incentivar a los clientes a elegir a ${business.name} frente a las ofertas de los competidores analizados.]",
+  "executiveSummary": {
+    "panoramaGlobal": {
+      "resumen": "Resumen ejecutivo corto de 2-3 oraciones sobre el panorama competitivo global.",
+      "digitalizacion": "Análisis corto (1-2 oraciones) del nivel de digitalización general del mercado.",
+      "branding": "Análisis corto (1-2 oraciones) sobre branding y posicionamiento digital general.",
+      "interaccion": "Análisis corto (1-2 oraciones) de interacción y engagement general en redes sociales.",
+      "observacionesClave": [
+        "Punto clave de observación 1 (máximo 15 palabras).",
+        "Punto clave de observación 2 (máximo 15 palabras).",
+        "Punto clave de observación 3 (máximo 15 palabras)."
+      ]
+    },
+    "analisisCanales": [
+      {
+        "canal": "Sitio Web | Instagram | Facebook | TikTok | YouTube | SEO",
+        "dominio": "Alto | Medio | Bajo",
+        "tacticasConversion": [
+          "Táctica de conversión detectada 1 (máximo 15 palabras).",
+          "Táctica de conversión detectada 2 (máximo 15 palabras)."
+        ],
+        "enfoqueContenido": "Fórmula/enfoque principal del contenido (ej. 80% educativo, 20% comercial) de forma muy concisa."
+      }
+    ],
+    "oportunidadesGaps": {
+      "necesidadesNoResueltas": "Dolores o vacíos de los clientes no atendidos por competidores (máximo 30 palabras).",
+      "formatosDesatendidos": "Canales o formatos desatendidos o mal ejecutados por competidores (máximo 30 palabras).",
+      "oportunidadesCrecimiento": [
+        {
+          "titulo": "Título de la oportunidad de crecimiento (ej: Videos cortos educativos)",
+          "impacto": "Alto | Medio | Bajo",
+          "accion": "Acción inmediata sugerida para ${business.name} (máximo 20 palabras)."
+        }
+      ]
+    },
+    "estrategiaPosicionamiento": {
+      "propuestaValor": "Propuesta de valor diferenciada sugerida frente a competidores (máximo 30 palabras).",
+      "anguloComunicacion": "Ángulo de comunicación clave recomendado (máximo 20 palabras).",
+      "guiaVozTono": [
+        "Directriz de tono/voz de marca 1 (ej: Amigable pero profesional)",
+        "Directriz de tono/voz de marca 2 (ej: Explicativo y educativo)"
+      ],
+      "pilaresStorytelling": [
+        "Pilar o gancho de storytelling 1 (ej: Origen artesanal de la masa)",
+        "Pilar o gancho de storytelling 2 (ej: El momento del antojo de media tarde)"
+      ]
+    },
+    "estrategiaContenidos": {
+      "pilaresContenido": [
+        "Pilar de contenido recomendado 1 (ej: Recetas e ideas de maridaje)",
+        "Pilar de contenido recomendado 2 (ej: Detrás de cámaras de horneado)"
+      ],
+      "frecuenciaCanal": [
+        "Frecuencia por canal (ej: Instagram: 3 reels/semana)",
+        "Frecuencia por canal (ej: Facebook: 2 posts/semana)"
+      ],
+      "formatosClave": [
+        {
+          "formato": "Formato estrella (ej: Carruseles educativos con tips de conservación)",
+          "descripcion": "Descripción de ejecución concisa (máximo 20 palabras)."
+        }
+      ]
+    },
+    "tacticasConversionPrecios": {
+      "estrategiaPrecios": "Directriz sugerida de precios competitivos y su porqué (máximo 30 palabras).",
+      "incentivosVenta": [
+        "Incentivo de venta recomendado 1 (ej: Envío gratis en primera compra)",
+        "Incentivo de venta recomendado 2 (ej: Regalo de un mini producto en compras mayores a $X)"
+      ]
+    }
+  },
   "competitors": [
     {
       "id": "[ID de cada competidor enviado]",
-      "strategicAnalysis": "### Perfil Estratégico: [Nombre del Competidor]\\n\\n#### Análisis por Canal y Desempeño\\n[Escribe un párrafo largo analizando detalladamente su desempeño en sus canales activos: qué hacen bien en su sitio web, en Instagram o Facebook, y qué volumen de interacción/comunidad tienen basándote en sus métricas y datos de presencia.]\\n\\n#### Debilidades Críticas y Gaps\\n[Escribe un párrafo analizando sus puntos débiles: fallas de consistencia de marca, falta de dinamismo en redes, debilidades en su propuesta de conversión, o ausencia de contenidos clave (ej. educativos, interactivos).]\\n\\n#### Plan Táctico de Contramedida (Cómo Ganarles)\\n[Escribe un plan de acción estratégico paso a paso de 2 párrafos para que ${business.name} le robe cuota de mercado directamente a este competidor, detallando promociones, formatos de contenidos y ganchos de posicionamiento específicos contra él.]"
+      "strategicAnalysis": {
+        "desempenoCanales": [
+          "Observación corta sobre canales 1 (máximo 20 palabras).",
+          "Observación corta sobre canales 2 (máximo 20 palabras)."
+        ],
+        "debilidadesGaps": [
+          "Debilidad o gap identificado 1 (máximo 20 palabras).",
+          "Debilidad o gap identificado 2 (máximo 20 palabras)."
+        ],
+        "planContramedida": [
+          "Acción táctica 1 para ganarle a este competidor (máximo 20 palabras).",
+          "Acción táctica 2 para ganarles a este competidor (máximo 20 palabras)."
+        ]
+      }
     }
   ]
 }
 
 REGLAS CRÍTICAS:
-1. El campo "executiveSummary" y "strategicAnalysis" DEBEN estar en formato Markdown enriquecido con subtítulos (ej. ### y ####), negritas y listas.
-2. Todo el texto debe estar en español, redactado con un tono altamente analítico, profesional, directo y orientado al growth marketing.
-3. No incluyas explicaciones previas ni posteriores, devuelve únicamente el JSON válido. Evita usar placeholders genéricos; personaliza todo para el negocio del cliente (${business.name}) y el contexto de sus competidores.`;
+1. NO incluyas ninguna sección de Campañas de Marketing o Propuestas de Campañas. Eso está estrictamente fuera del alcance de este informe.
+2. Todo el texto de los valores del JSON debe ser en español.
+3. No incluyas explicaciones previas ni posteriores, devuelve únicamente el JSON válido. Evita usar placeholders genéricos; personaliza todo para el negocio del cliente (${business.name}) y el contexto de sus competidores.
+4. En la sección "analisisCanales", incluye ÚNICAMENTE los canales que efectivamente se hayan scrapeado y tengan datos reales en el JSON. Por ejemplo, si solo hay datos del Sitio Web, solo debes incluir un elemento en "analisisCanales" correspondiente a "Sitio Web". No asumas frecuencias ni tácticas de redes sociales si no hay datos de las mismas.
+5. En "estrategiaContenidos.frecuenciaCanal", recomienda frecuencias únicamente para los canales reales analizados. Si no hay datos de redes sociales, sugiere optimizar el sitio web o blog y su frecuencia de publicación.`;
         console.log(`\n======================================================`);
         console.log(`🤖 INICIANDO ANÁLISIS DE IA PARA NEGOCIO: "${business.name}"`);
         console.log(`📊 Competidores detectados: ${competitors.map(c => c.name).join(', ')}`);
@@ -175,7 +324,7 @@ REGLAS CRÍTICAS:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-flash-1.5',
+            model: 'google/gemini-2.0-flash-001',
             messages: [
               { role: 'system', content: 'Eres un consultor senior de marketing digital que entrega reportes y planes estratégicos estructurados en formato JSON.' },
               { role: 'user', content: prompt }
@@ -197,13 +346,26 @@ REGLAS CRÍTICAS:
           
           try {
             let jsonText = content.trim();
-            // Handle markdown wrapper robustly
-            if (jsonText.startsWith('```')) {
+            
+            // Extract the outermost JSON object using regex to ignore code fence wrapping or conversational filler
+            const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              jsonText = jsonMatch[0];
+            } else if (jsonText.startsWith('```')) {
               jsonText = jsonText.replace(/^```(?:json)?\s*/i, '');
               jsonText = jsonText.replace(/\s*```$/, '');
+              jsonText = jsonText.trim();
             }
             
-            const parsed = JSON.parse(jsonText);
+            let parsed;
+            try {
+              parsed = JSON.parse(jsonText);
+            } catch (innerErr) {
+              console.warn("Standard JSON.parse failed on AI response, trying cleanJsonString...", innerErr);
+              const cleaned = cleanJsonString(jsonText);
+              parsed = JSON.parse(cleaned);
+            }
+
             executiveSummary = parsed.executiveSummary || '';
             competitorAnalyses = parsed.competitors || [];
             console.log(`✅ Parseo JSON de IA exitoso! Resumen ejecutivo y perfiles de competidores listos.`);
@@ -269,7 +431,7 @@ REGLAS CRÍTICAS:
           targetAudience: [] as string[],
           valueProposition: [] as string[],
           differentiation: [] as string[],
-          strategicAnalysis: '',
+          strategicAnalysis: '' as any,
         };
         
         // Process each report to extract insights

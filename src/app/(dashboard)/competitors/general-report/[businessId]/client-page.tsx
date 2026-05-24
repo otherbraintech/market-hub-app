@@ -8,11 +8,323 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, RefreshCw, Download, TrendingUp, Users, Globe, Facebook, Instagram as InstagramIcon, Linkedin, Youtube, Search, Sparkles, CheckCircle2, AlertCircle, Target, Lightbulb, DollarSign, Award, Megaphone, Zap, Heart, FileText, Package, Tag, Handshake, Shield, Palette, BookOpen, Video, Star } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+function cleanJsonString(badJson: string): string {
+  let clean = '';
+  let inString = false;
+  let isEscaped = false;
+  
+  for (let i = 0; i < badJson.length; i++) {
+    const char = badJson[i];
+    
+    if (!inString) {
+      if (char === '"') {
+        inString = true;
+        isEscaped = false;
+        clean += char;
+      } else {
+        clean += char;
+      }
+    } else {
+      if (isEscaped) {
+        if (char === '\n') {
+          clean += 'n';
+        } else {
+          clean += char;
+        }
+        isEscaped = false;
+      } else if (char === '\\') {
+        isEscaped = true;
+        clean += char;
+      } else if (char === '"') {
+        let isRealClosing = false;
+        let j = i + 1;
+        while (j < badJson.length && /\s/.test(badJson[j])) {
+          j++;
+        }
+        if (j === badJson.length) {
+          isRealClosing = true;
+        } else {
+          const nextChar = badJson[j];
+          if (nextChar === ',' || nextChar === '}' || nextChar === ']' || nextChar === ':') {
+            isRealClosing = true;
+          }
+        }
+        
+        if (isRealClosing) {
+          inString = false;
+          clean += char;
+        } else {
+          clean += '\\"';
+        }
+      } else if (char === '\n') {
+        clean += '\\n';
+      } else if (char === '\r') {
+        clean += '\\r';
+      } else {
+        clean += char;
+      }
+    }
+  }
+  return clean;
+}
+
+function extractExecutiveSummaryFromBadJson(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) {
+    return text;
+  }
+  
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed.executiveSummary) {
+      return parsed.executiveSummary;
+    }
+  } catch (e) {
+    console.warn("Standard JSON parse failed in extractor, trying regex/manual extraction", e);
+  }
+  
+  try {
+    const cleaned = cleanJsonString(trimmed);
+    const parsed = JSON.parse(cleaned);
+    if (parsed.executiveSummary) {
+      return parsed.executiveSummary;
+    }
+  } catch (e) {
+    console.warn("Cleaned JSON parse failed, trying manual scan...", e);
+  }
+  
+  try {
+    const key = '"executiveSummary"';
+    const keyIdx = trimmed.indexOf(key);
+    if (keyIdx !== -1) {
+      let colonIdx = trimmed.indexOf(':', keyIdx + key.length);
+      if (colonIdx !== -1) {
+        let quoteIdx = trimmed.indexOf('"', colonIdx + 1);
+        if (quoteIdx !== -1) {
+          const valStart = quoteIdx + 1;
+          let valEnd = -1;
+          for (let i = valStart; i < trimmed.length; i++) {
+            if (trimmed[i] === '"') {
+              let backslashes = 0;
+              let j = i - 1;
+              while (j >= valStart && trimmed[j] === '\\') {
+                backslashes++;
+                j--;
+              }
+              if (backslashes % 2 === 0) {
+                let nextChar = '';
+                for (let k = i + 1; k < trimmed.length; k++) {
+                  if (trimmed[k].trim() !== '') {
+                    nextChar = trimmed[k];
+                    break;
+                  }
+                }
+                if (nextChar === ',' || nextChar === '}' || nextChar === '') {
+                  valEnd = i;
+                  break;
+                }
+              }
+            }
+          }
+          
+          let rawVal = '';
+          if (valEnd !== -1) {
+            rawVal = trimmed.substring(valStart, valEnd);
+          } else {
+            rawVal = trimmed.substring(valStart);
+            rawVal = rawVal.replace(/\\?["}\s]*$/, '');
+          }
+          
+          let cleanVal = '';
+          for (let i = 0; i < rawVal.length; i++) {
+            if (rawVal[i] === '\\') {
+              const next = rawVal[i + 1];
+              if (next === 'n') {
+                cleanVal += '\n';
+                i++;
+              } else if (next === '"') {
+                cleanVal += '"';
+                i++;
+              } else if (next === 't') {
+                cleanVal += '\t';
+                i++;
+              } else if (next === 'r') {
+                cleanVal += '\r';
+                i++;
+              } else if (next === '\\') {
+                cleanVal += '\\';
+                i++;
+              } else {
+                cleanVal += '\\';
+              }
+            } else {
+              cleanVal += rawVal[i];
+            }
+          }
+          return cleanVal;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Manual extraction failed:", err);
+  }
+  
+  return text;
+}
+
+function extractCompetitorsFromBadJson(text: string): { id: string, strategicAnalysis: string }[] {
+  const list: { id: string, strategicAnalysis: string }[] = [];
+  try {
+    let searchStart = 0;
+    while (true) {
+      const idKey = '"id"';
+      const idIdx = text.indexOf(idKey, searchStart);
+      if (idIdx === -1) break;
+      
+      let colonIdx = text.indexOf(':', idIdx + idKey.length);
+      if (colonIdx === -1) break;
+      
+      let quoteStart = text.indexOf('"', colonIdx + 1);
+      if (quoteStart === -1) break;
+      
+      let quoteEnd = text.indexOf('"', quoteStart + 1);
+      while (quoteEnd !== -1 && text[quoteEnd - 1] === '\\') {
+        quoteEnd = text.indexOf('"', quoteEnd + 1);
+      }
+      if (quoteEnd === -1) break;
+      
+      const compId = text.substring(quoteStart + 1, quoteEnd);
+      
+      const stratKey = '"strategicAnalysis"';
+      const stratIdx = text.indexOf(stratKey, quoteEnd);
+      if (stratIdx === -1) break;
+      
+      let stratColonIdx = text.indexOf(':', stratIdx + stratKey.length);
+      if (stratColonIdx === -1) break;
+      
+      let stratQuoteStart = text.indexOf('"', stratColonIdx + 1);
+      if (stratQuoteStart === -1) break;
+      
+      let stratQuoteEnd = -1;
+      for (let i = stratQuoteStart + 1; i < text.length; i++) {
+        if (text[i] === '"' && text[i - 1] !== '\\') {
+          let nextChar = '';
+          for (let k = i + 1; k < text.length; k++) {
+            if (text[k].trim() !== '') {
+              nextChar = text[k];
+              break;
+            }
+          }
+          if (nextChar === ',' || nextChar === '}' || nextChar === ']' || nextChar === '') {
+            stratQuoteEnd = i;
+            break;
+          }
+        }
+      }
+      
+      let rawStrat = '';
+      if (stratQuoteEnd !== -1) {
+        rawStrat = text.substring(stratQuoteStart + 1, stratQuoteEnd);
+        searchStart = stratQuoteEnd + 1;
+      } else {
+        rawStrat = text.substring(stratQuoteStart + 1);
+        rawStrat = rawStrat.replace(/\\?["}\]\s]*$/, '');
+        searchStart = text.length;
+      }
+      
+      let cleanStrat = '';
+      for (let i = 0; i < rawStrat.length; i++) {
+        if (rawStrat[i] === '\\') {
+          const next = rawStrat[i + 1];
+          if (next === 'n') {
+            cleanStrat += '\n';
+            i++;
+          } else if (next === '"') {
+            cleanStrat += '"';
+            i++;
+          } else if (next === 't') {
+            cleanStrat += '\t';
+            i++;
+          } else if (next === 'r') {
+            cleanStrat += '\r';
+            i++;
+          } else if (next === '\\') {
+            cleanStrat += '\\';
+            i++;
+          } else {
+            cleanStrat += '\\';
+          }
+        } else {
+          cleanStrat += rawStrat[i];
+        }
+      }
+      
+      list.push({ id: compId, strategicAnalysis: cleanStrat });
+      
+      if (searchStart >= text.length) break;
+    }
+  } catch (err) {
+    console.error("Error extracting competitors manually:", err);
+  }
+  return list;
+}
+
+interface MarkdownBlock {
+  type: 'p' | 'h2' | 'h3' | 'h4' | 'ul' | 'ol' | 'card';
+  content?: string;
+  items?: string[];
+  cardKey?: string;
+  cardValue?: string;
+}
+
+interface StructuredExecutiveSummary {
+  panoramaGlobal?: {
+    resumen: string;
+    digitalizacion: string;
+    branding: string;
+    interaccion: string;
+    observacionesClave: string[];
+  };
+  analisisCanales?: {
+    canal: string;
+    dominio: string;
+    tacticasConversion: string[];
+    enfoqueContenido: string;
+  }[];
+  oportunidadesGaps?: {
+    necesidadesNoResueltas: string;
+    formatosDesatendidos: string;
+    oportunidadesCrecimiento: {
+      titulo: string;
+      impacto: string;
+      accion: string;
+    }[];
+  };
+  estrategiaPosicionamiento?: {
+    propuestaValor: string;
+    anguloComunicacion: string;
+    guiaVozTono: string[];
+    pilaresStorytelling: string[];
+  };
+  estrategiaContenidos?: {
+    pilaresContenido: string[];
+    frecuenciaCanal: string[];
+    formatosClave: {
+      formato: string;
+      descripcion: string;
+    }[];
+  };
+  tacticasConversionPrecios?: {
+    estrategiaPrecios: string;
+    incentivosVenta: string[];
+  };
+}
+
 interface GeneralReportData {
   businessId: string;
   businessName: string;
   generatedAt: string;
-  executiveSummary: string;
+  executiveSummary: any;
   competitors: Array<{
     id: string;
     name: string | null;
@@ -60,7 +372,7 @@ interface GeneralReportData {
       targetAudience: string[];
       valueProposition: string[];
       differentiation: string[];
-      strategicAnalysis?: string;
+      strategicAnalysis?: any;
     };
   }>;
   metadata: {
@@ -84,15 +396,16 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
   const [error, setError] = useState<string | null>(null);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [currentMessageIdx, setCurrentMessageIdx] = useState(0);
+  const [activeSubs, setActiveSubs] = useState<Record<string, string>>({});
 
   const loadingMessages = [
     "Recopilando datos de canales scrapeados...",
-    "Analizando posicionamiento de la competencia...",
+    "Analizando presencia y posicionamiento de la competencia...",
     "Identificando oportunidades y gaps en el mercado...",
-    "Diseñando pautas de tono y voz de marca...",
-    "Generando propuestas de campañas de marketing...",
-    "Redactando ejemplos de copys publicitarios listos para usar...",
-    "Estructurando informe de consultoría premium..."
+    "Diseñando pautas de tono y voz de marca diferenciada...",
+    "Analizando tácticas de conversión de canales de competidores...",
+    "Estructurando matriz de precios y propuesta de valor...",
+    "Generando informe analítico consolidado..."
   ];
 
   useEffect(() => {
@@ -106,82 +419,236 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
     return () => clearInterval(interval);
   }, [generatingReport]);
 
+  // Helper to extract key bold phrases as visual highlights
+  const extractHighlights = (text: string) => {
+    if (!text) return [];
+    const regex = /\*\*(.*?)\*\*/g;
+    const matches: string[] = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const phrase = match[1]?.trim();
+      if (phrase && phrase.length > 8 && phrase.length < 80 && !phrase.includes(':')) {
+        matches.push(phrase);
+      }
+    }
+    return Array.from(new Set(matches)).slice(0, 4);
+  };
+
   // Helper to parse markdown-like text to React elements
-  const parseMarkdown = (text: string) => {
+  const parseMarkdown = (text: string, sectionId?: string) => {
     if (!text) return null;
     
-    // Split into paragraphs / blocks
-    const lines = text.split('\n');
-    let insideList = false;
-    let listType: 'ul' | 'ol' | null = null;
-    const elements: React.JSX.Element[] = [];
-    let currentListItems: React.JSX.Element[] = [];
+    // Style configurations for custom cards
+    const keyCardStyles: Record<string, { icon: any, colorClass: string, bgClass: string, borderClass: string }> = {
+      "objetivo": { icon: Target, colorClass: "text-blue-600 dark:text-blue-400", bgClass: "bg-blue-500/5 dark:bg-blue-950/10", borderClass: "border-l-4 border-l-blue-500 border-blue-100 dark:border-blue-900/30" },
+      "ángulo": { icon: Sparkles, colorClass: "text-amber-600 dark:text-amber-400", bgClass: "bg-amber-500/5 dark:bg-amber-950/10", borderClass: "border-l-4 border-l-amber-500 border-amber-100 dark:border-amber-900/30" },
+      "gancho": { icon: Sparkles, colorClass: "text-amber-600 dark:text-amber-400", bgClass: "bg-amber-500/5 dark:bg-amber-950/10", borderClass: "border-l-4 border-l-amber-500 border-amber-100 dark:border-amber-900/30" },
+      "copys": { icon: FileText, colorClass: "text-purple-600 dark:text-purple-400", bgClass: "bg-purple-500/5 dark:bg-purple-950/10", borderClass: "border-l-4 border-l-purple-500 border-purple-100 dark:border-purple-900/30" },
+      "contenido": { icon: FileText, colorClass: "text-purple-600 dark:text-purple-400", bgClass: "bg-purple-500/5 dark:bg-purple-950/10", borderClass: "border-l-4 border-l-purple-500 border-purple-100 dark:border-purple-900/30" },
+      "canal": { icon: Globe, colorClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-500/5 dark:bg-emerald-950/10", borderClass: "border-l-4 border-l-emerald-500 border-emerald-100 dark:border-emerald-900/30" },
+      "distribución": { icon: Globe, colorClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-500/5 dark:bg-emerald-950/10", borderClass: "border-l-4 border-l-emerald-500 border-emerald-100 dark:border-emerald-900/30" },
+      "conversión": { icon: Zap, colorClass: "text-rose-600 dark:text-rose-400", bgClass: "bg-rose-500/5 dark:bg-rose-950/10", borderClass: "border-l-4 border-l-rose-500 border-rose-100 dark:border-rose-900/30" },
+      "precio": { icon: DollarSign, colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-500/5 dark:bg-indigo-950/10", borderClass: "border-l-4 border-l-indigo-500 border-indigo-100 dark:border-indigo-900/30" },
+      "fidelización": { icon: Heart, colorClass: "text-pink-600 dark:text-pink-400", bgClass: "bg-pink-500/5 dark:bg-pink-950/10", borderClass: "border-l-4 border-l-pink-500 border-pink-100 dark:border-pink-900/30" }
+    };
 
-    const flushList = (key: string | number) => {
-      if (currentListItems.length > 0) {
-        if (listType === 'ul') {
-          elements.push(<ul key={`list-${key}`} className="list-disc pl-5 mb-4 space-y-1">{...currentListItems}</ul>);
-        } else if (listType === 'ol') {
-          elements.push(<ol key={`list-${key}`} className="list-decimal pl-5 mb-4 space-y-1">{...currentListItems}</ol>);
-        }
-        currentListItems = [];
-        insideList = false;
-        listType = null;
+    const getCardStyle = (key: string) => {
+      const k = key.toLowerCase();
+      for (const [pattern, config] of Object.entries(keyCardStyles)) {
+        if (k.includes(pattern)) return config;
       }
+      return { icon: Lightbulb, colorClass: "text-slate-600 dark:text-slate-400", bgClass: "bg-slate-500/5 dark:bg-slate-900/10", borderClass: "border-l-4 border-l-slate-400 border-slate-100 dark:border-slate-800" };
     };
 
     const parseBoldText = (txt: string) => {
       const parts = txt.split(/\*\*(.*?)\*\*/g);
-      return parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="font-bold text-slate-900">{part}</strong> : part);
+      return parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="font-bold text-slate-900 dark:text-white">{part}</strong> : part);
     };
 
-    lines.forEach((line, idx) => {
-      const trimmed = line.trim();
+    const parseMarkdownToBlocks = (txt: string): MarkdownBlock[] => {
+      const lines = txt.split('\n');
+      const blocks: MarkdownBlock[] = [];
       
-      // Headers
-      if (trimmed.startsWith('### ')) {
-        flushList(idx);
-        elements.push(<h4 key={idx} className="text-base font-bold text-slate-800 mt-4 mb-2">{parseBoldText(trimmed.replace('### ', ''))}</h4>);
-      } else if (trimmed.startsWith('## ')) {
-        flushList(idx);
-        elements.push(<h3 key={idx} className="text-lg font-extrabold text-slate-955 mt-6 mb-3 border-b pb-2">{parseBoldText(trimmed.replace('## ', ''))}</h3>);
-      } else if (trimmed.startsWith('# ')) {
-        flushList(idx);
-        elements.push(<h2 key={idx} className="text-xl font-black text-blue-900 mt-8 mb-4">{parseBoldText(trimmed.replace('# ', ''))}</h2>);
-      }
-      // Unordered lists
-      else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        if (insideList && listType !== 'ul') {
-          flushList(idx);
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        
+        if (trimmed.startsWith('### ')) {
+          blocks.push({ type: 'h4', content: trimmed.replace('### ', '') });
+        } else if (trimmed.startsWith('## ')) {
+          blocks.push({ type: 'h3', content: trimmed.replace('## ', '') });
+        } else if (trimmed.startsWith('# ')) {
+          blocks.push({ type: 'h2', content: trimmed.replace('# ', '') });
         }
-        insideList = true;
-        listType = 'ul';
-        const content = trimmed.substring(2);
-        currentListItems.push(<li key={`li-${idx}`} className="text-sm text-slate-700 leading-relaxed">{parseBoldText(content)}</li>);
-      }
-      // Ordered lists
-      else if (/^\d+\.\s/.test(trimmed)) {
-        if (insideList && listType !== 'ol') {
-          flushList(idx);
+        else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          const content = trimmed.substring(2);
+          const cardMatch = content.match(/^\*\*(.*?)\*\*:\s*(.*)$/);
+          if (cardMatch) {
+            blocks.push({ type: 'card', cardKey: cardMatch[1].trim(), cardValue: cardMatch[2].trim() });
+          } else {
+            const lastBlock = blocks[blocks.length - 1];
+            if (lastBlock && lastBlock.type === 'ul') {
+              lastBlock.items!.push(content);
+            } else {
+              blocks.push({ type: 'ul', items: [content] });
+            }
+          }
         }
-        insideList = true;
-        listType = 'ol';
-        const content = trimmed.replace(/^\d+\.\s/, '');
-        currentListItems.push(<li key={`li-${idx}`} className="text-sm text-slate-700 leading-relaxed">{parseBoldText(content)}</li>);
-      }
-      // Empty lines
-      else if (trimmed === '') {
-        flushList(idx);
-      }
-      // Regular paragraphs
-      else {
-        flushList(idx);
-        elements.push(<p key={idx} className="text-sm text-slate-700 leading-relaxed mb-3">{parseBoldText(trimmed)}</p>);
-      }
-    });
+        else if (/^\d+\.\s/.test(trimmed)) {
+          const content = trimmed.replace(/^\d+\.\s/, '');
+          const lastBlock = blocks[blocks.length - 1];
+          if (lastBlock && lastBlock.type === 'ol') {
+            lastBlock.items!.push(content);
+          } else {
+            blocks.push({ type: 'ol', items: [content] });
+          }
+        }
+        else {
+          const cardMatch = trimmed.match(/^\*\*(.*?)\*\*:\s*(.*)$/);
+          if (cardMatch) {
+            blocks.push({ type: 'card', cardKey: cardMatch[1].trim(), cardValue: cardMatch[2].trim() });
+          } else {
+            blocks.push({ type: 'p', content: trimmed });
+          }
+        }
+      });
+      
+      return blocks;
+    };
 
-    flushList('final');
-    return elements;
+    const renderBlocks = (blocks: MarkdownBlock[]) => {
+      const rendered: React.JSX.Element[] = [];
+      let currentGridCards: MarkdownBlock[] = [];
+      
+      const flushGrid = (key: string | number) => {
+        if (currentGridCards.length > 0) {
+          rendered.push(
+            <div key={`grid-${key}`} className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+              {currentGridCards.map((card, cardIdx) => {
+                const style = getCardStyle(card.cardKey || '');
+                const Icon = style.icon;
+                return (
+                  <div key={cardIdx} className={`p-4 rounded-xl border ${style.borderClass} ${style.bgClass} shadow-sm transition-all duration-300 hover:shadow-md flex flex-col justify-between`}>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Icon className={`h-4.5 w-4.5 ${style.colorClass}`} />
+                        <span className={`text-xs font-extrabold uppercase tracking-wider ${style.colorClass}`}>{card.cardKey}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 dark:text-slate-350 leading-relaxed pl-1 whitespace-pre-line">
+                        {parseBoldText(card.cardValue || '')}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+          currentGridCards = [];
+        }
+      };
+      
+      blocks.forEach((block, idx) => {
+        if (block.type === 'card') {
+          currentGridCards.push(block);
+        } else {
+          flushGrid(idx);
+          
+          if (block.type === 'p') {
+            rendered.push(
+              <p key={idx} className="text-sm text-slate-650 dark:text-slate-400 leading-relaxed mb-4 max-w-3xl whitespace-pre-line">
+                {parseBoldText(block.content || '')}
+              </p>
+            );
+          } else if (block.type === 'ul') {
+            rendered.push(
+              <ul key={idx} className="list-disc pl-5 mb-4 space-y-1.5 text-slate-600 dark:text-slate-400">
+                {block.items?.map((item, i) => (
+                  <li key={i} className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{parseBoldText(item)}</li>
+                ))}
+              </ul>
+            );
+          } else if (block.type === 'ol') {
+            rendered.push(
+              <ol key={idx} className="list-decimal pl-5 mb-4 space-y-1.5 text-slate-600 dark:text-slate-400">
+                {block.items?.map((item, i) => (
+                  <li key={i} className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{parseBoldText(item)}</li>
+                ))}
+              </ol>
+            );
+          } else if (block.type === 'h2') {
+            rendered.push(<h2 key={idx} className="text-xl font-black text-blue-900 dark:text-blue-400 mt-8 mb-4">{parseBoldText(block.content || '')}</h2>);
+          } else if (block.type === 'h3') {
+            rendered.push(<h3 key={idx} className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-6 mb-3 border-b pb-2">{parseBoldText(block.content || '')}</h3>);
+          } else if (block.type === 'h4') {
+            rendered.push(<h4 key={idx} className="text-base font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2">{parseBoldText(block.content || '')}</h4>);
+          }
+        }
+      });
+      
+      flushGrid('final');
+      return rendered;
+    };
+
+    const blocks = parseMarkdownToBlocks(text);
+    const hasSubsections = sectionId && blocks.some(b => b.type === 'h4');
+    
+    if (hasSubsections) {
+      const intro: MarkdownBlock[] = [];
+      const subsections: { title: string; blocks: MarkdownBlock[] }[] = [];
+      let currentSub: { title: string; blocks: MarkdownBlock[] } | null = null;
+      
+      blocks.forEach(block => {
+        if (block.type === 'h4') {
+          currentSub = { title: block.content || '', blocks: [] };
+          subsections.push(currentSub);
+        } else {
+          if (currentSub) {
+            currentSub.blocks.push(block);
+          } else {
+            intro.push(block);
+          }
+        }
+      });
+      
+      return (
+        <div className="space-y-6">
+          {intro.length > 0 && (
+            <div className="space-y-3">
+              {renderBlocks(intro)}
+            </div>
+          )}
+          
+          {subsections.length > 0 && (
+            <div className="space-y-6 mt-6">
+              {subsections.map((sub, subIdx) => {
+                let Icon = Megaphone;
+                const lowerTitle = sub.title.toLowerCase();
+                if (lowerTitle.includes('campaña 1') || lowerTitle.includes('campana 1')) Icon = Target;
+                else if (lowerTitle.includes('campaña 2') || lowerTitle.includes('campana 2')) Icon = Heart;
+                else if (lowerTitle.includes('campaña 3') || lowerTitle.includes('campana 3')) Icon = Zap;
+                else if (lowerTitle.includes('perfil')) Icon = Award;
+                
+                return (
+                  <div
+                    key={subIdx}
+                    className="bg-slate-50/50 p-6 rounded-xl border border-slate-150 shadow-sm animate-in fade-in duration-300"
+                  >
+                    <div className="flex items-center gap-2 mb-4 pb-2 border-b">
+                      <Icon className="h-5 w-5 text-blue-600" />
+                      <h4 className="text-base font-extrabold text-slate-900">
+                        {sub.title}
+                      </h4>
+                    </div>
+                    {renderBlocks(sub.blocks)}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return renderBlocks(blocks);
   };
 
   useEffect(() => {
@@ -200,14 +667,71 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
       
       const rawData = await response.json();
       
-      // Clean up executive summary if it has markdown code blocks
+      // Clean up executive summary if it has markdown code blocks or is JSON
       if (rawData && rawData.executiveSummary) {
-        let text = rawData.executiveSummary.trim();
-        if (text.startsWith('```')) {
-          text = text.replace(/^```(?:json)?\s*/i, '');
-          text = text.replace(/\s*```$/, '');
+        let text = rawData.executiveSummary;
+        
+        if (typeof text === 'string') {
+          let textTrimmed = text.trim();
+          
+          // Handle markdown code block wrappers
+          if (textTrimmed.startsWith('```')) {
+            textTrimmed = textTrimmed.replace(/^```(?:json)?\s*/i, '');
+            textTrimmed = textTrimmed.replace(/\s*```$/, '');
+            textTrimmed = textTrimmed.trim();
+          }
+          
+          if (textTrimmed.startsWith('{')) {
+            try {
+              const parsed = JSON.parse(textTrimmed);
+              if (parsed.executiveSummary) {
+                rawData.executiveSummary = parsed.executiveSummary;
+              } else {
+                rawData.executiveSummary = parsed;
+              }
+              
+              if (parsed.competitors && Array.isArray(rawData.competitors) && Array.isArray(rawData.competitors)) {
+                rawData.competitors = rawData.competitors.map((comp: any) => {
+                  const matched = parsed.competitors.find((c: any) => c.id === comp.id);
+                  if (matched && matched.strategicAnalysis) {
+                    return {
+                      ...comp,
+                      insights: {
+                        ...comp.insights,
+                        strategicAnalysis: matched.strategicAnalysis
+                      }
+                    };
+                  }
+                  return comp;
+                });
+              }
+            } catch (e) {
+              console.warn("JSON parsing failed in fetchReport, falling back to legacy manual extraction", e);
+              // Legacy manual parsing fallback if AI returned bad JSON format
+              const parsedSummary = extractExecutiveSummaryFromBadJson(textTrimmed);
+              rawData.executiveSummary = parsedSummary;
+              
+              const extractedComps = extractCompetitorsFromBadJson(textTrimmed);
+              if (extractedComps.length > 0 && Array.isArray(rawData.competitors)) {
+                rawData.competitors = rawData.competitors.map((comp: any) => {
+                  const matched = extractedComps.find(c => c.id === comp.id);
+                  if (matched && matched.strategicAnalysis) {
+                    return {
+                      ...comp,
+                      insights: {
+                        ...comp.insights,
+                        strategicAnalysis: matched.strategicAnalysis
+                      }
+                    };
+                  }
+                  return comp;
+                });
+              }
+            }
+          } else {
+            rawData.executiveSummary = textTrimmed;
+          }
         }
-        rawData.executiveSummary = text;
       }
       
       setReportData(rawData);
@@ -217,6 +741,7 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
       setLoading(false);
     }
   };
+
 
   const generateSavedReport = async () => {
     try {
@@ -428,87 +953,501 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
             </CardContent>
           </Card>
         </div>
-
         {/* Executive Summary */}
         {reportData.executiveSummary && (
           <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-l-4 border-l-blue-500 shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-xl font-black text-blue-950">
                 <Sparkles className="h-6 w-6 text-blue-600 animate-pulse" />
-                Resumen Estratégico y Propuesta de Campañas
+                Análisis y Resumen Estratégico de Competidores
               </CardTitle>
-              <p className="text-sm text-blue-700/70 mt-1">Explora el análisis detallado navegando por las pestañas inferiores.</p>
+              <p className="text-sm text-blue-700/70 mt-1">Informe completo y detallado del análisis competitivo consolidado.</p>
             </CardHeader>
             <CardContent>
               {(() => {
                 const text = reportData.executiveSummary;
                 if (!text) return null;
-                
+
+                // 1. STRUCTURED JSON OBJECT RENDERING
+                if (typeof text === 'object') {
+                  const data = text as StructuredExecutiveSummary;
+
+                  return (
+                    <div className="space-y-8">
+                      {/* Section 1: Panorama Global */}
+                      <div className="bg-white/85 dark:bg-slate-900/60 rounded-2xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 backdrop-blur-sm space-y-6">
+                        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white pb-3 border-b flex items-center gap-2">
+                          <Globe className="h-5 w-5 text-blue-500" />
+                          1. Panorama Competitivo Global
+                        </h3>
+                        
+                        {data.panoramaGlobal ? (
+                          <div className="space-y-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                              <div className="lg:col-span-2 bg-gradient-to-br from-blue-50/40 to-indigo-50/40 dark:from-blue-950/5 dark:to-indigo-950/5 p-5 rounded-xl border border-blue-100/30 dark:border-blue-900/10">
+                                <h4 className="text-sm font-bold text-blue-900 dark:text-blue-400 mb-2">Resumen de Situación</h4>
+                                <p className="text-sm text-slate-700 dark:text-slate-350 leading-relaxed font-medium">
+                                  {data.panoramaGlobal.resumen}
+                                </p>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="p-4 rounded-xl border border-slate-150 bg-slate-50/50 flex items-center justify-between shadow-sm">
+                                  <span className="text-xs font-bold text-slate-500">Nivel de Digitalización</span>
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 font-extrabold">{data.panoramaGlobal.digitalizacion}</Badge>
+                                </div>
+                                <div className="p-4 rounded-xl border border-slate-150 bg-slate-50/50 flex items-center justify-between shadow-sm">
+                                  <span className="text-xs font-bold text-slate-500">Sofisticación de Marca</span>
+                                  <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 font-extrabold">{data.panoramaGlobal.branding}</Badge>
+                                </div>
+                                <div className="p-4 rounded-xl border border-slate-150 bg-slate-50/50 flex items-center justify-between shadow-sm">
+                                  <span className="text-xs font-bold text-slate-500">Interacción / Engagement</span>
+                                  <Badge variant="secondary" className="bg-purple-100 text-purple-800 font-extrabold">{data.panoramaGlobal.interaccion}</Badge>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {data.panoramaGlobal.observacionesClave && data.panoramaGlobal.observacionesClave.length > 0 && (
+                              <div className="bg-indigo-50/30 dark:bg-indigo-950/5 p-5 rounded-xl border border-indigo-100/40">
+                                <h5 className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                  <Award className="h-4 w-4 text-indigo-600" />
+                                  Observaciones Clave del Mercado
+                                </h5>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  {data.panoramaGlobal.observacionesClave.map((obs, i) => (
+                                    <div key={i} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-150 shadow-sm flex gap-3 items-start hover:shadow-md transition-all duration-200">
+                                      <span className="h-6 w-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-black shrink-0">
+                                        {i + 1}
+                                      </span>
+                                      <p className="text-xs font-semibold text-slate-700 dark:text-slate-350 leading-relaxed">
+                                        {obs}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Datos de panorama global no disponibles.</p>
+                        )}
+                      </div>
+
+                      {/* Section 2: Canales de Competencia */}
+                      <div className="bg-white/85 dark:bg-slate-900/60 rounded-2xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 backdrop-blur-sm space-y-6">
+                        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white pb-3 border-b flex items-center gap-2">
+                          <TrendingUp className="h-5 w-5 text-blue-500" />
+                          2. Análisis de Canales Digitales de la Competencia
+                        </h3>
+                        
+                        {data.analisisCanales && data.analisisCanales.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {data.analisisCanales.map((c, i) => {
+                              const icon = getChannelIcon(c.canal);
+                              const colorClass = getChannelColor(c.canal);
+                              return (
+                                <div key={i} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-150 p-5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-4">
+                                  <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border font-bold text-xs ${colorClass}`}>
+                                        {icon}
+                                        {c.canal}
+                                      </div>
+                                      <Badge className={`font-extrabold text-[10px] ${
+                                        c.dominio.toUpperCase() === 'ALTO' ? 'bg-emerald-500 hover:bg-emerald-600 text-white' :
+                                        c.dominio.toUpperCase() === 'MEDIO' ? 'bg-amber-500 hover:bg-amber-600 text-white' :
+                                        'bg-slate-500 hover:bg-slate-600 text-white'
+                                      }`}>
+                                        Dominio: {c.dominio}
+                                      </Badge>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                      <div className="bg-slate-50 dark:bg-slate-950/20 p-3 rounded-lg border border-slate-100">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Fórmula de Contenido</span>
+                                        <p className="text-xs text-slate-700 dark:text-slate-355 font-bold mt-1">
+                                          {c.enfoqueContenido}
+                                        </p>
+                                      </div>
+                                      
+                                      {c.tacticasConversion && c.tacticasConversion.length > 0 && (
+                                        <div>
+                                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-2">Tácticas de Conversión</span>
+                                          <ul className="space-y-1.5">
+                                            {c.tacticasConversion.map((tac, idx) => (
+                                              <li key={idx} className="text-xs text-slate-600 dark:text-slate-400 flex items-start gap-1.5 leading-relaxed">
+                                                <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
+                                                <span>{tac}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Análisis de canales no disponible.</p>
+                        )}
+                      </div>
+
+                      {/* Section 3: Oportunidades y Gaps */}
+                      <div className="bg-white/85 dark:bg-slate-900/60 rounded-2xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 backdrop-blur-sm space-y-6">
+                        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white pb-3 border-b flex items-center gap-2">
+                          <Lightbulb className="h-5 w-5 text-blue-500" />
+                          3. Matriz de Oportunidades y Gaps en el Mercado
+                        </h3>
+                        
+                        {data.oportunidadesGaps ? (
+                          <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="bg-rose-50/50 dark:bg-rose-950/5 border border-rose-100 dark:border-rose-900/10 p-5 rounded-2xl flex gap-4">
+                                <div className="p-3 bg-rose-500/10 rounded-xl text-rose-600 h-fit shrink-0">
+                                  <AlertCircle className="h-5 w-5" />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-rose-950 dark:text-rose-455">Dolores o Necesidades Desatendidas</h4>
+                                  <p className="text-xs text-rose-900/90 dark:text-slate-355 leading-relaxed font-semibold">
+                                    {data.oportunidadesGaps.necesidadesNoResueltas}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="bg-amber-50/50 dark:bg-amber-950/5 border border-amber-100 dark:border-amber-900/10 p-5 rounded-2xl flex gap-4">
+                                <div className="p-3 bg-amber-500/10 rounded-xl text-amber-600 h-fit shrink-0">
+                                  <Zap className="h-5 w-5" />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-amber-950 dark:text-amber-455">Formatos / Canales Ignorados</h4>
+                                  <p className="text-xs text-amber-900/90 dark:text-slate-355 leading-relaxed font-semibold">
+                                    {data.oportunidadesGaps.formatosDesatendidos}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {data.oportunidadesGaps.oportunidadesCrecimiento && data.oportunidadesGaps.oportunidadesCrecimiento.length > 0 && (
+                              <div className="space-y-4">
+                                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                  <Sparkles className="h-4.5 w-4.5 text-blue-500 animate-pulse" />
+                                  Oportunidades de Crecimiento Prioritarias
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {data.oportunidadesGaps.oportunidadesCrecimiento.map((op, idx) => (
+                                    <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-150 p-5 rounded-2xl shadow-sm space-y-3 hover:shadow-md transition-all duration-300">
+                                      <div className="flex items-center justify-between">
+                                        <h5 className="font-extrabold text-sm text-slate-900 dark:text-white">{op.titulo}</h5>
+                                        <Badge className={`font-extrabold text-[9px] ${
+                                          op.impacto.toUpperCase() === 'ALTO' ? 'bg-red-100 text-red-800 border-red-200' :
+                                          op.impacto.toUpperCase() === 'MEDIO' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                          'bg-slate-100 text-slate-800 border-slate-200'
+                                        } border`}>
+                                          Impacto: {op.impacto}
+                                        </Badge>
+                                      </div>
+                                      <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-100/30">
+                                        <span className="text-[10px] font-bold text-blue-600 block">Acción Recomendada</span>
+                                        <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed font-semibold">
+                                          {op.accion}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Matriz de oportunidades no disponible.</p>
+                        )}
+                      </div>
+
+                      {/* Section 4: Posicionamiento */}
+                      <div className="bg-white/85 dark:bg-slate-900/60 rounded-2xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 backdrop-blur-sm space-y-6">
+                        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white pb-3 border-b flex items-center gap-2">
+                          <Target className="h-5 w-5 text-blue-500" />
+                          4. Estrategia de Posicionamiento y Diferenciación
+                        </h3>
+                        
+                        {data.estrategiaPosicionamiento ? (
+                          <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="bg-gradient-to-br from-blue-500/5 to-indigo-500/5 p-5 rounded-2xl border border-blue-100/50 shadow-sm flex flex-col justify-between">
+                                <div>
+                                  <span className="text-xs font-extrabold text-blue-600 uppercase tracking-widest block mb-2">Propuesta de Valor Sugerida</span>
+                                  <p className="text-sm font-bold text-slate-800 dark:text-slate-300 leading-relaxed">
+                                    {data.estrategiaPosicionamiento.propuestaValor}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="bg-gradient-to-br from-indigo-500/5 to-purple-500/5 p-5 rounded-2xl border border-indigo-100/50 shadow-sm flex flex-col justify-between">
+                                <div>
+                                  <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest block mb-2">Ángulo de Comunicación Clave</span>
+                                  <p className="text-sm font-bold text-slate-800 dark:text-slate-300 leading-relaxed">
+                                    {data.estrategiaPosicionamiento.anguloComunicacion}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {data.estrategiaPosicionamiento.guiaVozTono && data.estrategiaPosicionamiento.guiaVozTono.length > 0 && (
+                                <div className="p-5 rounded-xl border border-slate-150 bg-slate-50/50 shadow-sm">
+                                  <h5 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                    <Megaphone className="h-4.5 w-4.5 text-indigo-600" />
+                                    Guía de Voz y Tono
+                                  </h5>
+                                  <ul className="space-y-2">
+                                    {data.estrategiaPosicionamiento.guiaVozTono.map((guideline, idx) => (
+                                      <li key={idx} className="text-xs text-slate-700 dark:text-slate-355 flex items-start gap-2.5 leading-relaxed font-semibold">
+                                        <span className="h-5 w-5 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 mt-0.5">{idx+1}</span>
+                                        <span>{guideline}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              
+                              {data.estrategiaPosicionamiento.pilaresStorytelling && data.estrategiaPosicionamiento.pilaresStorytelling.length > 0 && (
+                                <div className="p-5 rounded-xl border border-slate-150 bg-slate-50/50 shadow-sm">
+                                  <h5 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                    <BookOpen className="h-4.5 w-4.5 text-blue-600" />
+                                    Ganchos de Storytelling
+                                  </h5>
+                                  <ul className="space-y-2">
+                                    {data.estrategiaPosicionamiento.pilaresStorytelling.map((pilar, idx) => (
+                                      <li key={idx} className="text-xs text-slate-700 dark:text-slate-355 flex items-start gap-2.5 leading-relaxed font-semibold">
+                                        <span className="text-blue-500 font-bold shrink-0 mt-0.5 text-base leading-none">★</span>
+                                        <span>{pilar}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Estrategia de posicionamiento no disponible.</p>
+                        )}
+                      </div>
+
+                      {/* Section 5: Estrategia de Contenidos */}
+                      <div className="bg-white/85 dark:bg-slate-900/60 rounded-2xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 backdrop-blur-sm space-y-6">
+                        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white pb-3 border-b flex items-center gap-2">
+                          <FileText className="h-5 w-5 text-blue-500" />
+                          5. Estrategia de Contenidos y Guía de Formatos
+                        </h3>
+                        
+                        {data.estrategiaContenidos ? (
+                          <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {data.estrategiaContenidos.pilaresContenido && data.estrategiaContenidos.pilaresContenido.length > 0 && (
+                                <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/50 shadow-sm">
+                                  <h5 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-3">Pilares de Contenido Recomendados</h5>
+                                  <div className="flex flex-wrap gap-2">
+                                    {data.estrategiaContenidos.pilaresContenido.map((pilar, idx) => (
+                                      <Badge key={idx} variant="secondary" className="bg-blue-50 text-blue-700 border border-blue-100 text-xs py-1.5 px-3 rounded-lg font-bold">
+                                        {pilar}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {data.estrategiaContenidos.frecuenciaCanal && data.estrategiaContenidos.frecuenciaCanal.length > 0 && (
+                                <div className="p-5 rounded-2xl border border-slate-150 bg-slate-50/50 shadow-sm">
+                                  <h5 className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-3">Frecuencia de Publicación Recomendada</h5>
+                                  <ul className="space-y-2.5">
+                                    {data.estrategiaContenidos.frecuenciaCanal.map((freq, idx) => (
+                                      <li key={idx} className="text-xs text-slate-700 dark:text-slate-350 flex items-center gap-2 font-bold">
+                                        <Globe className="h-4 w-4 text-emerald-500 shrink-0" />
+                                        <span>{freq}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {data.estrategiaContenidos.formatosClave && data.estrategiaContenidos.formatosClave.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                  <Video className="h-4.5 w-4.5 text-blue-500" />
+                                  Formatos Estrella Recomendados
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {data.estrategiaContenidos.formatosClave.map((format, idx) => (
+                                    <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-150 p-4 rounded-xl shadow-sm flex items-start gap-4 hover:shadow-md transition-all duration-200">
+                                      <div className="p-2.5 bg-blue-500/10 rounded-lg text-blue-600 shrink-0">
+                                        <Video className="h-5 w-5" />
+                                      </div>
+                                      <div>
+                                        <h5 className="font-extrabold text-xs text-slate-900 dark:text-white">{format.formato}</h5>
+                                        <p className="text-xs text-slate-650 dark:text-slate-400 mt-1 leading-relaxed font-semibold">
+                                          {format.descripcion}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Estrategia de contenidos no disponible.</p>
+                        )}
+                      </div>
+
+                      {/* Section 6: Precios y Conversión */}
+                      <div className="bg-white/85 dark:bg-slate-900/60 rounded-2xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 backdrop-blur-sm space-y-6">
+                        <h3 className="text-xl font-extrabold text-slate-900 dark:text-white pb-3 border-b flex items-center gap-2">
+                          <DollarSign className="h-5 w-5 text-blue-500" />
+                          6. Tácticas de Conversión y Precios
+                        </h3>
+                        
+                        {data.tacticasConversionPrecios ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-indigo-50/30 dark:bg-indigo-950/5 border border-indigo-100 p-5 rounded-2xl space-y-3 shadow-sm">
+                              <h4 className="text-sm font-bold text-indigo-950 dark:text-indigo-400 flex items-center gap-2">
+                                <DollarSign className="h-4.5 w-4.5 text-indigo-600" />
+                                Estrategia de Precios Recomendada
+                              </h4>
+                              <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed font-bold">
+                                {data.tacticasConversionPrecios.estrategiaPrecios}
+                              </p>
+                            </div>
+                            
+                            {data.tacticasConversionPrecios.incentivosVenta && data.tacticasConversionPrecios.incentivosVenta.length > 0 && (
+                              <div className="bg-emerald-50/30 dark:bg-emerald-950/5 border border-emerald-100 p-5 rounded-2xl space-y-3 shadow-sm">
+                                <h4 className="text-sm font-bold text-emerald-950 dark:text-emerald-400 flex items-center gap-2">
+                                  <Tag className="h-4.5 w-4.5 text-emerald-600" />
+                                  Incentivos de Conversión y Venta
+                                </h4>
+                                <ul className="space-y-2">
+                                  {data.tacticasConversionPrecios.incentivosVenta.map((inc, idx) => (
+                                    <li key={idx} className="text-xs text-slate-700 dark:text-slate-350 flex items-start gap-2 leading-relaxed font-semibold">
+                                      <span className="text-emerald-600 font-bold shrink-0">✓</span>
+                                      <span>{inc}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Tácticas de conversión y precios no disponibles.</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // 2. LEGACY MARKDOWN STRING FALLBACK RENDERING
                 // Dividir el texto por las cabeceras "## "
                 const parts = text.split(/(?:^|\n)##\s+/);
-                const sections: { id: string, title: string, content: string }[] = [];
+                const sections: { id: string, title: string, fullTitle: string, content: string }[] = [];
+                let mainTitle = "";
+                let introText = "";
                 
-                parts.forEach((part, index) => {
+                parts.forEach((part: string, index: number) => {
                   if (!part.trim()) return;
                   
-                  const lines = part.split('\n');
-                  let title = "Introducción";
-                  let content = part;
-                  
-                  if (index > 0) {
-                    title = lines[0].trim();
-                    content = lines.slice(1).join('\n');
+                  if (index === 0) {
+                    const lines = part.split('\n');
+                    const h1Line = lines.find(l => l.trim().startsWith('# '));
+                    if (h1Line) {
+                      mainTitle = h1Line.replace('# ', '').replace(/\*/g, '').trim();
+                    }
+                    introText = lines.filter(l => !l.trim().startsWith('# ')).join('\n').trim();
+                    introText = introText
+                      .replace(/navegando por las pestañas (inferiores|de abajo)?/gi, 'a continuación')
+                      .replace(/navegando por las pestañas/gi, 'a continuación')
+                      .replace(/en las pestañas inferiores/gi, 'a continuación')
+                      .replace(/por las pestañas inferiores/gi, 'a continuación')
+                      .replace(/a través de las pestañas/gi, 'a continuación')
+                      .replace(/usando las pestañas/gi, 'a continuación')
+                      .replace(/en las pestañas/gi, 'a continuación');
                   } else {
-                    const h1Match = part.match(/^#\s+(.+)$/m);
-                    if (h1Match) title = "Resumen Global";
+                    const lines = part.split('\n');
+                    const title = lines[0].trim();
+                    const content = lines.slice(1).join('\n');
+                    
+                    // Limpiar título (quitar números como "1. ")
+                    const cleanTitle = title.replace(/^\d+\.\s*/, '').replace(/\*/g, '');
+                    
+                    sections.push({
+                      id: `tab-${index}`,
+                      title: cleanTitle.length > 28 ? cleanTitle.substring(0, 28) + "..." : cleanTitle,
+                      fullTitle: cleanTitle,
+                      content: content
+                    });
                   }
-                  
-                  // Limpiar título (quitar números como "1. ")
-                  const cleanTitle = title.replace(/^\d+\.\s*/, '').replace(/\*/g, '');
-                  
-                  sections.push({
-                    id: `tab-${index}`,
-                    title: cleanTitle.length > 35 ? cleanTitle.substring(0, 35) + "..." : cleanTitle,
-                    fullTitle: cleanTitle,
-                    content: content
-                  });
                 });
 
-                if (sections.length <= 1) {
+                if (sections.length === 0) {
                   return (
                     <div className="prose prose-sm max-w-none text-slate-800 bg-white/50 p-6 rounded-xl border border-blue-100">
+                      {mainTitle && <h2 className="text-xl font-bold text-blue-900 mb-4">{mainTitle}</h2>}
                       {parseMarkdown(text)}
                     </div>
                   );
                 }
 
                 return (
-                  <Tabs defaultValue={sections[0].id} className="w-full mt-2">
-                    <TabsList className="w-full flex flex-wrap h-auto p-1.5 bg-blue-900/5 justify-start mb-6 rounded-xl border border-blue-100/50">
-                      {sections.map(s => (
-                        <TabsTrigger 
-                          key={s.id} 
-                          value={s.id}
-                          className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm data-[state=active]:font-bold text-xs sm:text-sm py-2.5 px-4 transition-all"
-                        >
-                          {s.title}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                    {sections.map(s => (
-                      <TabsContent key={s.id} value={s.id} className="focus:outline-none animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="bg-white/60 rounded-xl p-5 sm:p-7 shadow-sm border border-blue-100 backdrop-blur-sm">
-                           <h3 className="text-xl font-extrabold text-blue-950 mb-5 pb-3 border-b border-blue-100/60 flex items-center gap-2">
-                             <Target className="h-5 w-5 text-blue-500" />
-                             {s.fullTitle}
-                           </h3>
-                           <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed space-y-2">
-                             {parseMarkdown(s.content)}
-                           </div>
-                        </div>
-                      </TabsContent>
-                    ))}
-                  </Tabs>
+                  <div className="space-y-8">
+                    {/* Header Info / Intro section above tabs */}
+                    {(mainTitle || introText) && (
+                      <div className="bg-white/60 dark:bg-slate-900/40 p-6 rounded-2xl border border-slate-200/60 dark:border-slate-800/40 backdrop-blur-sm shadow-sm">
+                        {mainTitle && (
+                          <h2 className="text-xl font-extrabold text-blue-900 dark:text-blue-400 tracking-tight">
+                            {mainTitle}
+                          </h2>
+                        )}
+                        {introText && (
+                          <div className="text-sm text-slate-650 dark:text-slate-400 leading-relaxed mt-2 whitespace-pre-line">
+                            {parseMarkdown(introText)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="space-y-8">
+                      {sections.map(s => {
+                        const highlights = extractHighlights(s.content);
+                        return (
+                          <div key={s.id} className="bg-white/80 dark:bg-slate-900/60 rounded-2xl p-6 sm:p-8 shadow-md border border-slate-200 dark:border-slate-800 backdrop-blur-sm transition-all duration-300 space-y-6">
+                            <h3 className="text-xl font-extrabold text-slate-900 dark:text-white pb-3 border-b flex items-center gap-2">
+                              <Target className="h-5 w-5 text-blue-500" />
+                              {s.fullTitle}
+                            </h3>
+
+                            {highlights.length > 0 && (
+                              <div className="mb-6 bg-blue-500/5 dark:bg-blue-950/20 p-4 rounded-xl border border-blue-500/10 dark:border-blue-500/5">
+                                <h5 className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                                  Puntos Clave / Resumen Rápido
+                                </h5>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {highlights.map((h, i) => (
+                                    <div key={i} className="flex items-start gap-2 bg-white/90 dark:bg-slate-900/90 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm hover:border-blue-500/30 transition-all duration-200">
+                                      <span className="h-5 w-5 rounded-full bg-blue-500/10 text-blue-600 dark:bg-blue-400/20 dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">{i+1}</span>
+                                      <span className="text-xs font-medium text-slate-700 dark:text-slate-355 leading-tight">{h}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="prose prose-sm max-w-none text-slate-700 dark:text-slate-300 space-y-3">
+                              {parseMarkdown(s.content, s.id)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })()}
             </CardContent>
@@ -634,12 +1573,65 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
                     {/* Perfil Estratégico (AI Generated) */}
                     {competitor.insights.strategicAnalysis && (
                       <div className="bg-gradient-to-br from-indigo-50/70 via-blue-50/50 to-slate-50/50 rounded-xl p-5 border border-indigo-100 shadow-sm">
-                        <h4 className="text-sm font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                        <h4 className="text-sm font-bold text-indigo-900 mb-4 flex items-center gap-2 pb-2 border-b border-indigo-100/50">
                           <Sparkles className="h-4 w-4 text-indigo-600 animate-pulse" />
                           Análisis de Estrategia y Posicionamiento
                         </h4>
                         <div className="text-slate-700 space-y-1">
-                          {parseMarkdown(competitor.insights.strategicAnalysis)}
+                          {typeof competitor.insights.strategicAnalysis === 'object' ? (
+                            (() => {
+                              const sa = competitor.insights.strategicAnalysis as {
+                                desempenoCanales?: string[];
+                                debilidadesGaps?: string[];
+                                planContramedida?: string[];
+                              };
+                              return (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  {sa.desempenoCanales && sa.desempenoCanales.length > 0 && (
+                                    <div className="p-4 rounded-xl bg-white/90 border border-slate-150 shadow-sm space-y-2">
+                                      <span className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider block">Desempeño en Canales</span>
+                                      <ul className="space-y-1.5">
+                                        {sa.desempenoCanales.map((pt, idx) => (
+                                          <li key={idx} className="text-xs text-slate-700 leading-relaxed flex items-start gap-1.5 font-medium">
+                                            <span className="text-blue-500 font-bold shrink-0 mt-0.5">•</span>
+                                            <span>{pt}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {sa.debilidadesGaps && sa.debilidadesGaps.length > 0 && (
+                                    <div className="p-4 rounded-xl bg-white/90 border border-slate-150 shadow-sm space-y-2">
+                                      <span className="text-[10px] font-extrabold text-rose-600 uppercase tracking-wider block">Debilidades y Gaps</span>
+                                      <ul className="space-y-1.5">
+                                        {sa.debilidadesGaps.map((pt, idx) => (
+                                          <li key={idx} className="text-xs text-slate-700 leading-relaxed flex items-start gap-1.5 font-medium">
+                                            <span className="text-rose-500 font-bold shrink-0 mt-0.5">✗</span>
+                                            <span>{pt}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  {sa.planContramedida && sa.planContramedida.length > 0 && (
+                                    <div className="p-4 rounded-xl bg-white/90 border border-slate-150 shadow-sm space-y-2">
+                                      <span className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider block">Acción de Contramedida</span>
+                                      <ul className="space-y-1.5">
+                                        {sa.planContramedida.map((pt, idx) => (
+                                          <li key={idx} className="text-xs text-slate-700 leading-relaxed flex items-start gap-1.5 font-medium">
+                                            <span className="text-emerald-500 font-bold shrink-0 mt-0.5">✓</span>
+                                            <span>{pt}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            parseMarkdown(competitor.insights.strategicAnalysis)
+                          )}
                         </div>
                       </div>
                     )}

@@ -151,7 +151,7 @@ export async function updateContent(id: string, input: UpdateContentInput): Prom
       ...(input.metrics !== undefined && { metrics: input.metrics as Prisma.JsonObject | null }),
       ...(input.externalId !== undefined && { externalId: input.externalId }),
       ...(input.externalUrl !== undefined && { externalUrl: input.externalUrl }),
-    },
+    } as any,
   })
 
   if (input.status) {

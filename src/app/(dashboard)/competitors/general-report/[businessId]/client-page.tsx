@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, RefreshCw, Download, TrendingUp, Users, Globe, Facebook, Instagram as InstagramIcon, Linkedin, Youtube, Search, Sparkles, CheckCircle2, AlertCircle, Target, Lightbulb, DollarSign, Award, Megaphone, Zap, Heart, FileText, Package, Tag, Handshake, Shield, Palette, BookOpen, Video, Star } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Download, TrendingUp, Users, Globe, Facebook, Instagram as InstagramIcon, Linkedin, Youtube, Search, Sparkles, CheckCircle2, AlertCircle, Target, Lightbulb, DollarSign, Award, Megaphone, Zap, Heart, FileText, Package, Tag, Handshake, Shield, Palette, BookOpen, Video, Star, Plus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CampaignForm } from '@/components/campaigns/campaign-form';
+import { toast } from 'sonner';
 
 function cleanJsonString(badJson: string): string {
   let clean = '';
@@ -397,6 +400,72 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
   const [generatingReport, setGeneratingReport] = useState(false);
   const [currentMessageIdx, setCurrentMessageIdx] = useState(0);
   const [activeSubs, setActiveSubs] = useState<Record<string, string>>({});
+  const [importingCampaign, setImportingCampaign] = useState<any | null>(null);
+  const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
+
+  const handleImportCampaign = (title: string, blocks: MarkdownBlock[]) => {
+    // Extract campaign details
+    const cleanedName = title.replace(/^campa[ñn]a\s+\d+:\s*/i, '').trim();
+    
+    let description = "";
+    let objective: "AWARENESS" | "ENGAGEMENT" | "TRAFFIC" | "LEADS" | "SALES" | "RETENTION" = "AWARENESS";
+    let channels: any[] = [];
+    
+    blocks.forEach((block) => {
+      if (block.type === 'card' && block.cardKey && block.cardValue) {
+        description += `**${block.cardKey}**: ${block.cardValue}\n\n`;
+        
+        const keyLower = block.cardKey.toLowerCase();
+        const valueLower = block.cardValue.toLowerCase();
+        
+        if (keyLower.includes('objetivo')) {
+          if (valueLower.includes('convers') || valueLower.includes('ventas') || valueLower.includes('vender') || valueLower.includes('comercial')) {
+            objective = "SALES";
+          } else if (valueLower.includes('tráfico') || valueLower.includes('trafico') || valueLower.includes('visitas')) {
+            objective = "TRAFFIC";
+          } else if (valueLower.includes('leads') || valueLower.includes('registro') || valueLower.includes('prospectos')) {
+            objective = "LEADS";
+          } else if (valueLower.includes('interacción') || valueLower.includes('interaccion') || valueLower.includes('engagement') || valueLower.includes('comunidad')) {
+            objective = "ENGAGEMENT";
+          } else if (valueLower.includes('retención') || valueLower.includes('retencion') || valueLower.includes('fideliza') || valueLower.includes('lealtad')) {
+            objective = "RETENTION";
+          }
+        }
+        
+        if (keyLower.includes('canal')) {
+          const possibleChannels = ['instagram', 'facebook', 'tiktok', 'linkedin', 'youtube'];
+          possibleChannels.forEach((plat) => {
+            if (valueLower.includes(plat)) {
+              channels.push({ platform: plat.toUpperCase(), isActive: true });
+            }
+          });
+        }
+      } else if (block.type === 'p' && block.content) {
+        description += `${block.content}\n\n`;
+      } else if (block.type === 'ul' && block.items) {
+        block.items.forEach((item) => {
+          description += `- ${item}\n`;
+        });
+        description += `\n`;
+      }
+    });
+
+    if (channels.length === 0) {
+      channels = [{ platform: 'INSTAGRAM', isActive: true }];
+    }
+
+    setImportingCampaign({
+      name: cleanedName,
+      description: description.trim(),
+      objective: objective,
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      budget: 0,
+      channels: channels,
+      status: "DRAFT"
+    });
+    setIsCampaignDialogOpen(true);
+  };
 
   const loadingMessages = [
     "Recopilando datos de canales scrapeados...",
@@ -628,16 +697,31 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
                 else if (lowerTitle.includes('campaña 3') || lowerTitle.includes('campana 3')) Icon = Zap;
                 else if (lowerTitle.includes('perfil')) Icon = Award;
                 
+                const isCampaign = lowerTitle.includes('campaña') || lowerTitle.includes('campana');
+
                 return (
                   <div
                     key={subIdx}
                     className="bg-slate-50/50 p-6 rounded-xl border border-slate-150 shadow-sm animate-in fade-in duration-300"
                   >
-                    <div className="flex items-center gap-2 mb-4 pb-2 border-b">
-                      <Icon className="h-5 w-5 text-blue-600" />
-                      <h4 className="text-base font-extrabold text-slate-900">
-                        {sub.title}
-                      </h4>
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b">
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-5 w-5 text-blue-600" />
+                        <h4 className="text-base font-extrabold text-slate-900">
+                          {sub.title}
+                        </h4>
+                      </div>
+                      {isCampaign && (
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 text-xs font-bold border-blue-200 hover:border-blue-500 text-blue-600 hover:text-blue-700 bg-blue-50/30"
+                          onClick={() => handleImportCampaign(sub.title, sub.blocks)}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Crear Campaña
+                        </Button>
+                      )}
                     </div>
                     {renderBlocks(sub.blocks)}
                   </div>
@@ -2070,6 +2154,28 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isCampaignDialogOpen} onOpenChange={setIsCampaignDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Crear Campaña Sugerida por IA</DialogTitle>
+            <DialogDescription>
+              Ajusta los detalles de la campaña sugerida por la IA antes de guardarla.
+            </DialogDescription>
+          </DialogHeader>
+          {importingCampaign && (
+            <CampaignForm
+              businessId={businessId}
+              defaultValues={importingCampaign}
+              onSuccess={() => {
+                setIsCampaignDialogOpen(false);
+                setImportingCampaign(null);
+                toast.success("Campaña creada con éxito");
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

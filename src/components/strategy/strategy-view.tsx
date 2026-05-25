@@ -13,7 +13,7 @@ export async function StrategyView({ businessId }: StrategyViewProps) {
     <div className="max-w-5xl mx-auto">
       <StrategyForm 
         businessId={businessId} 
-        defaultValues={strategy ? {
+        defaultValues={strategy ? ({
             name: strategy.name,
             description: strategy.description || "",
             isActive: strategy.isActive,
@@ -21,7 +21,7 @@ export async function StrategyView({ businessId }: StrategyViewProps) {
             personas: strategy.personas || [],
             funnelStages: strategy.funnelStages || [],
             channels: strategy.channels || []
-        } : undefined} 
+        } as any) : undefined} 
       />
     </div>
   );

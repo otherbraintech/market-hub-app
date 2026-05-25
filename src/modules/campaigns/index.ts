@@ -155,14 +155,14 @@ export async function updateCampaign(id: string, input: UpdateCampaignInput): Pr
       ...(input.slug !== undefined && { slug: input.slug }),
       ...(input.description !== undefined && { description: input.description }),
       ...(input.objective !== undefined && { objective: input.objective }),
-      ...(input.objectiveDetails !== undefined && { objectiveDetails: input.objectiveDetails as Prisma.JsonObject | null }),
+      ...(input.objectiveDetails !== undefined && { objectiveDetails: (input.objectiveDetails === null ? Prisma.DbNull : input.objectiveDetails) as unknown as Prisma.InputJsonValue }),
       ...(input.startDate !== undefined && { startDate: input.startDate }),
       ...(input.endDate !== undefined && { endDate: input.endDate }),
       ...(input.status !== undefined && { status: input.status }),
       ...(input.budget !== undefined && { budget: input.budget }),
       ...(input.channels !== undefined && { channels: input.channels as unknown as Prisma.JsonArray }),
-      ...(input.targeting !== undefined && { targeting: input.targeting as Prisma.JsonObject | null }),
-      ...(input.metrics !== undefined && { metrics: input.metrics as Prisma.JsonObject | null }),
+      ...(input.targeting !== undefined && { targeting: (input.targeting === null ? Prisma.DbNull : input.targeting) as unknown as Prisma.InputJsonValue }),
+      ...(input.metrics !== undefined && { metrics: (input.metrics === null ? Prisma.DbNull : input.metrics) as unknown as Prisma.InputJsonValue }),
     },
   })
 

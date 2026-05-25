@@ -131,11 +131,11 @@ export async function updateProduct(id: string, input: UpdateProductInput): Prom
       ...(input.shortDesc !== undefined && { shortDesc: input.shortDesc }),
       ...(input.features && { features: input.features as unknown as Prisma.JsonArray }),
       ...(input.benefits && { benefits: input.benefits as unknown as Prisma.JsonArray }),
-      ...(input.pricing !== undefined && { pricing: input.pricing as Prisma.JsonObject | null }),
+      ...(input.pricing !== undefined && { pricing: input.pricing as unknown as Prisma.JsonObject | null }),
       ...(input.images !== undefined && { images: input.images as Prisma.JsonArray | null }),
       ...(input.keywords !== undefined && { keywords: input.keywords as Prisma.JsonArray | null }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
-    },
+    } as any,
   })
 
   return product as unknown as ProductWithTypes

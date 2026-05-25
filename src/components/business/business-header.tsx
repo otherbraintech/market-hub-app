@@ -86,6 +86,9 @@ export function BusinessHeader({ business }: BusinessHeaderProps) {
                               description: business.description || "",
                               industry: business.industry || "",
                               website: business.website || "",
+                              phoneNumbers: business.phoneNumbers || "",
+                              location: business.location || "",
+                              socialLinks: (business.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
                               brandVoice: (business.brandVoice as any) || { tone: [], personality: [], values: [] },
                               targetAudience: (business.targetAudience as any) || { demographics: "", psychographics: "" }
                           }}

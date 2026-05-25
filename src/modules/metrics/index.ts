@@ -4,7 +4,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { emitEvent } from '@/services/event-emitter'
-import { EventType, JobType, ContentStatus, CampaignStatus } from '@prisma/client'
+import { EventType, JobType, ContentStatus, CampaignStatus, Prisma } from '@prisma/client'
 
 // Tipos
 export interface ContentMetrics {
@@ -209,7 +209,7 @@ export async function getTopPerformingContents(
     where: {
       campaign: { businessId },
       status: ContentStatus.PUBLISHED,
-      metrics: { not: null },
+      metrics: { not: Prisma.DbNull },
     },
     select: {
       id: true,

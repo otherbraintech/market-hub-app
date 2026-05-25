@@ -20,7 +20,7 @@ export const campaignSchema = z.object({
   description: z.string().optional(),
   objective: z.enum(["AWARENESS", "ENGAGEMENT", "TRAFFIC", "LEADS", "SALES", "RETENTION"]),
   startDate: z.date({
-    required_error: "La fecha de inicio es requerida",
+    message: "La fecha de inicio es requerida",
   }),
   endDate: z.date().optional(),
   budget: z.coerce.number().min(0).optional(),

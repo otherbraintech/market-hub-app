@@ -35,7 +35,7 @@ export function ProductForm({ businessId, defaultValues, onSuccess }: ProductFor
   const isEditing = !!defaultValues?.id;
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
+    resolver: zodResolver(productSchema) as any,
     defaultValues: defaultValues || {
       name: "",
       description: "",

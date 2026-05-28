@@ -228,6 +228,16 @@ export async function generateCampaignCalendarAction(
       };
     });
 
+    // Determinar los canales activos de la campaña
+    const campaignChannels = campaign.channels as Array<{ platform: string; isActive: boolean; budget?: number }>;
+    const activeChannels = campaignChannels
+      ? campaignChannels.filter(c => c.isActive).map(c => c.platform)
+      : [];
+
+    const allowedChannelsStr = activeChannels.length > 0 
+      ? activeChannels.join(", ") 
+      : "FACEBOOK, INSTAGRAM, TIKTOK, LINKEDIN, YOUTUBE";
+
     // 3. Llamar a Gemini para planificar las publicaciones
     const startDateStr = format(new Date(campaign.startDate), "yyyy-MM-dd");
     const durationDays = campaign.endDate 
@@ -254,11 +264,12 @@ DATOS DE LA CAMPAÑA:
 - Objetivo de la campaña: ${campaign.objective}
 - Fecha de inicio: ${startDateStr}
 - Duración estimada de la campaña: ${durationDays} días
+- Canales autorizados para esta campaña: ${allowedChannelsStr}
 
 INSTRUCCIONES DE PLANIFICACIÓN:
 1. Genera exactamente ${options.quantity} publicaciones.
 2. Distribuye las publicaciones a lo largo de la campaña usando "suggestedOffsetDays". Por ejemplo, si son 5 posts en una campaña de 30 días, repártelos en offsets como: 2, 8, 14, 20, 26. El offset debe ser un número entero entre 0 y ${durationDays}.
-3. Los canales sugeridos deben ser uno de: FACEBOOK, INSTAGRAM, TIKTOK, LINKEDIN o YOUTUBE (de preferencia de la lista de canales activos: ${JSON.stringify(campaign.channels)}).
+3. Los canales sugeridos deben ser uno de los canales autorizados para esta campaña: ${allowedChannelsStr}.
 4. El tipo de contenido debe ser uno de: POST, STORY, REEL, VIDEO o CAROUSEL.
 5. El formato debe ser: IMAGE o VIDEO.
 6. El "body" debe contener el storyboard visual de lo que se mostrará o el guion de video detallado.

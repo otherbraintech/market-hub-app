@@ -201,6 +201,16 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
   useEffect(() => {
     if (suggestions.length > 0 && suggestions[selectedIdx]) {
       const camp = suggestions[selectedIdx];
+      const allPlatforms = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "WEBSITE"];
+      const mergedChannels = allPlatforms.map(platform => {
+        const suggested = camp.channels.find(c => c.platform.toUpperCase() === platform);
+        return {
+          platform,
+          isActive: suggested ? suggested.isActive : false,
+          budget: suggested ? (suggested.budget || Math.round(camp.budget / (camp.channels.length || 1))) : 0
+        };
+      });
+
       setEditForm({
         name: camp.name,
         description: camp.description,
@@ -208,11 +218,7 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
         budget: camp.budget,
         durationDays: camp.durationDays || 30,
         startDate: format(new Date(), "yyyy-MM-dd"),
-        channels: camp.channels.map(c => ({
-          platform: c.platform,
-          isActive: c.isActive,
-          budget: c.budget || Math.round(camp.budget / camp.channels.length)
-        })),
+        channels: mergedChannels,
         interests: camp.targeting?.interests || [],
         locations: camp.targeting?.locations || [],
       });
@@ -286,6 +292,11 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
   const toggleChannelActive = (idx: number) => {
     const updated = [...editForm.channels];
     updated[idx].isActive = !updated[idx].isActive;
+    
+    // Si se activa y el presupuesto de ese canal es 0, asignarle un valor base para evitar que quede en cero
+    if (updated[idx].isActive && Number(updated[idx].budget) === 0) {
+      updated[idx].budget = 100;
+    }
     
     // Recalcular presupuesto total
     const sum = updated.reduce((acc, c) => acc + (c.isActive ? Number(c.budget) : 0), 0);

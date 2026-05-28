@@ -32,6 +32,23 @@ export async function suggestCampaignsAction(businessId: string) {
       return { success: false, error: "Negocio no encontrado en el sistema" };
     }
 
+    // Obtener la estrategia de marketing activa del negocio
+    const activeStrategy = await prisma.marketingStrategy.findFirst({
+      where: { businessId, isActive: true }
+    });
+
+    const strategyContext = activeStrategy 
+      ? `
+ESTRATEGIA DE MARKETING ACTIVA DEL NEGOCIO (Las campañas recomendadas DEBEN estar alineadas directamente con este marco estratégico):
+- Nombre de la Estrategia: ${activeStrategy.name}
+- Descripción: ${activeStrategy.description || "No especificada"}
+- Objetivos SMART definidos: ${JSON.stringify(activeStrategy.objectives)}
+- Públicos objetivo (Buyer Personas): ${JSON.stringify(activeStrategy.personas)}
+- Pilares de Contenido clave: ${JSON.stringify(activeStrategy.contentPillars)}
+- Canales autorizados: ${JSON.stringify(activeStrategy.channels)}
+`
+      : "No se ha definido una estrategia de marketing activa aún.";
+
     // 2. Obtener informes propios completados
     const businessReports = await prisma.analysisReport.findMany({
       where: {
@@ -118,6 +135,9 @@ DATOS GENERALES:
 - Identidad de marca (Voz/Valores): ${brandVoiceStr}
 - Audiencia Objetivo base: ${targetAudienceStr}
 
+ESTRATEGIA DE MARKETING DEL NEGOCIO:
+${strategyContext}
+
 INFORMES DE RENDIMIENTO DE NUESTRO NEGOCIO:
 ${JSON.stringify(reportsSummary, null, 2)}
 
@@ -126,7 +146,12 @@ INFORMES Y RESUMEN GENERAL DE NUESTROS COMPETIDORES:
 - Observaciones detalladas de canales de competidores:
 ${JSON.stringify(competitorSummary, null, 2)}
 
-ESTRUCTURA DE CADA PROPUESTA DE CAMPAÑA:
+IMPORTANTE: Si el negocio tiene una estrategia de marketing activa definida arriba, las campañas sugeridas DEBEN estar alineadas directamente con ella:
+1. Deben estar enfocadas en lograr alguno de los Objetivos SMART definidos (indica cómo ayuda a lograrlo).
+2. Deben dirigirse a alguna de las Buyer Personas definidas.
+3. Deben utilizar preferiblemente los canales y pilares de contenido definidos en la estrategia.
+
+ESTRATEGIA DE CADA PROPUESTA DE CAMPAÑA:
 1. "name": Un nombre creativo y comercial de la campaña (ej. "Dulce Tradición Navideña", "Revolución Fit en Santa Cruz").
 2. "description": Explicación muy detallada (2-3 oraciones) de la campaña: el gancho comercial, el mensaje central y cómo se diferencia de los competidores.
 3. "objective": El objetivo técnico de campaña (debe ser estrictamente uno de: AWARENESS, ENGAGEMENT, TRAFFIC, LEADS, SALES o RETENTION).
@@ -151,11 +176,13 @@ Por favor, genera exactamente 3 propuestas bien diferenciadas (ej. una orientada
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.75,
+      maxOutputTokens: 3000,
     });
 
     return {
       success: true,
       campaigns: object.campaigns,
+      activeStrategyId: activeStrategy?.id
     };
   } catch (error) {
     console.error("Error generating campaign suggestions:", error);

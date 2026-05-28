@@ -1,8 +1,7 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-
+import { prisma } from "@/lib/prisma";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { getSelectedBusinessId } from "@/actions/business";
+import { CalendarView } from "@/components/calendar/calendar-view";
 
 export default async function CalendarPage() {
   const selectedBusinessId = await getSelectedBusinessId();
@@ -18,45 +17,50 @@ export default async function CalendarPage() {
       </div>
     );
   }
-  return (
-    <div className="p-8 space-y-8 h-full flex flex-col">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Calendario Editorial</h1>
-          <p className="text-muted-foreground">Vista global de todas tus publicaciones programadas.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon"><ChevronLeft className="h-4 w-4" /></Button>
-          <div className="font-semibold px-4">Febrero 2026</div>
-          <Button variant="outline" size="icon"><ChevronRight className="h-4 w-4" /></Button>
-          <Button className="gradient-primary ml-4">Nueva Publicación</Button>
-        </div>
-      </div>
 
-      <div className="flex-1 overflow-hidden flex flex-col bg-card border rounded-xl card-shadow">
-        <div className="grid grid-cols-7 border-b bg-muted/30">
-          {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(day => (
-            <div key={day} className="p-4 text-center text-xs font-bold uppercase tracking-wider text-muted-foreground">{day}</div>
-          ))}
-        </div>
-        <div className="flex-1 grid grid-cols-7 grid-rows-5 overflow-y-auto">
-          {Array.from({ length: 35 }).map((_, i) => (
-            <div key={i} className="border-r border-b p-2 min-h-[120px] hover:bg-muted/10 transition-colors flex flex-col gap-1">
-              <span className="text-xs font-medium opacity-50">{i + 1}</span>
-              {i === 12 && (
-                <div className="bg-blue-100 text-blue-700 p-1 rounded text-[10px] font-medium border border-blue-200 line-clamp-1">
-                  Post Instagram (IA)
-                </div>
-              )}
-              {i === 15 && (
-                <div className="bg-purple-100 text-purple-700 p-1 rounded text-[10px] font-medium border border-purple-200 line-clamp-1">
-                  Blog Post
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+  const business = await prisma.business.findUnique({
+    where: { id: selectedBusinessId },
+    select: { name: true }
+  });
+
+  const businessName = business?.name || "";
+
+  const campaigns = await prisma.campaign.findMany({
+    where: { businessId: selectedBusinessId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" }
+  });
+
+  const contents = await prisma.content.findMany({
+    where: {
+      campaign: { businessId: selectedBusinessId },
+      scheduledAt: { not: null }
+    },
+    include: {
+      campaign: {
+        select: { name: true }
+      }
+    },
+    orderBy: { scheduledAt: "asc" }
+  });
+
+  // Convert dates to string/ISO format for serialization if necessary
+  const serializedContents = contents.map(item => ({
+    ...item,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+    scheduledAt: item.scheduledAt ? item.scheduledAt.toISOString() : null,
+    publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
+  }));
+
+  return (
+    <div className="p-8 space-y-6 h-full flex flex-col">
+      <CalendarView 
+        businessId={selectedBusinessId}
+        businessName={businessName}
+        campaigns={campaigns}
+        initialContents={serializedContents as any}
+      />
     </div>
   );
 }

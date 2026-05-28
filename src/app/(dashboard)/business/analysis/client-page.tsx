@@ -209,16 +209,8 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver
-          </Button>
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Análisis de Mi Negocio</h2>
+            <h2 className="text-3xl font-bold tracking-tight">Análisis de Mi Negocio: {business.name}</h2>
             <p className="text-muted-foreground text-sm">
               Monitorea y analiza los canales digitales de {business.name}.
             </p>

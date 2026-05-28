@@ -224,8 +224,8 @@ function buildStrategyPrompt(context: any) {
 
   prompt += `Genera la respuesta como un objeto JSON estructurado exactamente según el siguiente esquema (asegúrate de que los campos específicos de cada sección se cumplan y sean ricos en detalles en español):\n\n`;
   prompt += `{\n`;
-  prompt += `  "name": "Estrategia de Crecimiento para ${business.name}",\n`;
-  prompt += `  "description": "Breve resumen estratégico alineado con el nicho y la competencia del negocio (1 párrafo)",\n`;
+  prompt += `  "name": "${(context.selectedFocusName || 'Estrategia de Crecimiento para ' + business.name).replace(/"/g, '\\"')}",\n`;
+  prompt += `  "description": "${(context.selectedFocusDescription || 'Breve resumen estratégico').replace(/"/g, '\\"')}",\n`;
   prompt += `  "isActive": true,\n`;
   prompt += `  "objectives": [\n`;
   prompt += `    {\n`;

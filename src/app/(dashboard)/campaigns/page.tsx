@@ -1,14 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Plus, Calendar as CalendarIcon, Users } from "lucide-react";
+import { Target, Plus, Calendar as CalendarIcon, Users, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import Link from "next/link";
 
 import { getSelectedBusinessId } from "@/actions/business";
-import CampaignSuggestionsModal from "@/components/campaigns/campaign-suggestions-modal";
+import CreateCampaignModal from "@/components/campaigns/create-campaign-modal";
+import { DeleteCampaignButton } from "@/components/campaigns/delete-campaign-button";
+import { CampaignPlannerButton } from "@/components/campaigns/campaign-planner-button";
+import { ViewCampaignModal } from "@/components/campaigns/view-campaign-modal";
 
 export default async function CampaignsPage() {
   const selectedBusinessId = await getSelectedBusinessId();
@@ -25,14 +28,30 @@ export default async function CampaignsPage() {
     );
   }
 
-  const campaigns = await prisma.campaign.findMany({
+  const rawCampaigns = await prisma.campaign.findMany({
     where: { businessId: selectedBusinessId },
     include: {
       business: { select: { name: true } },
+      strategy: { select: { name: true } },
       _count: { select: { contents: true } }
     },
     orderBy: { startDate: "desc" }
   });
+
+  const business = await prisma.business.findUnique({
+    where: { id: selectedBusinessId },
+    select: { name: true }
+  });
+  const businessName = business?.name || "";
+
+  const campaigns = rawCampaigns.map((c) => ({
+    ...c,
+    budget: c.budget ? Number(c.budget.toString()) : null,
+    startDate: c.startDate.toISOString(),
+    endDate: c.endDate ? c.endDate.toISOString() : null,
+    createdAt: c.createdAt.toISOString(),
+    updatedAt: c.updatedAt.toISOString(),
+  }));
 
   const statusColors: Record<string, string> = {
     DRAFT: "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/50 dark:text-gray-400 dark:border-gray-800",
@@ -47,14 +66,11 @@ export default async function CampaignsPage() {
       {/* CABECERA PRINCIPAL */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Campañas Activas</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Campañas Activas: {businessName}</h1>
           <p className="text-muted-foreground text-sm">Monitorea, genera y gestiona tus campañas de marketing de alto rendimiento.</p>
         </div>
         <div className="flex items-center gap-3">
-          <CampaignSuggestionsModal businessId={selectedBusinessId} />
-          <Button className="gradient-primary font-semibold">
-            <Plus className="mr-2 h-4 w-4 shrink-0" /> Nueva Campaña
-          </Button>
+          <CreateCampaignModal businessId={selectedBusinessId} />
         </div>
       </div>
 
@@ -101,10 +117,16 @@ export default async function CampaignsPage() {
             ¡Deja que nuestra IA te sugiera ideas de campañas ganadoras ahora mismo!
           </p>
           <div className="flex items-center gap-3 mt-6">
-            <CampaignSuggestionsModal businessId={selectedBusinessId} />
-            <Button variant="outline" className="text-xs font-semibold">
-              Nueva campaña manual
-            </Button>
+            <CreateCampaignModal businessId={selectedBusinessId} />
+            <CreateCampaignModal 
+              businessId={selectedBusinessId} 
+              initialAiMode={false}
+              trigger={
+                <Button variant="outline" className="text-xs font-semibold">
+                  Nueva campaña manual
+                </Button>
+              }
+            />
           </div>
         </Card>
       ) : (
@@ -149,11 +171,27 @@ export default async function CampaignsPage() {
                     <p className="text-xl font-black text-foreground">{campaign.budget ? `$${campaign.budget.toString()} USD` : "No definido"}</p>
                   </div>
                   <div className="space-y-2">
-                    {/* Botón de sugerencias del mismo negocio dentro de la tarjeta */}
-                    <CampaignSuggestionsModal businessId={campaign.businessId} />
-                    <Link href={`/business/${campaign.businessId}`} className="block">
-                      <Button className="w-full text-xs font-semibold" variant="outline" size="sm">Ver Campaña</Button>
-                    </Link>
+                    {campaign._count.contents === 0 ? (
+                      <CampaignPlannerButton campaignId={campaign.id} businessId={campaign.businessId} hasContent={false} />
+                    ) : (
+                      <Link href={`/calendar?campaignId=${campaign.id}`} className="block w-full">
+                        <Button className="w-full text-xs font-semibold relative overflow-hidden transition-all duration-300 hover:scale-[1.02] shadow-sm border-0 group px-3 py-1.5 gradient-primary">
+                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-white shrink-0" />
+                          <span>Ver Calendario</span>
+                        </Button>
+                      </Link>
+                    )}
+                    <div className="flex gap-1.5 w-full">
+                      <div className="flex-1">
+                        <ViewCampaignModal campaign={campaign} />
+                      </div>
+                      {campaign._count.contents > 0 && (
+                        <div className="flex-1">
+                          <CampaignPlannerButton campaignId={campaign.id} businessId={campaign.businessId} hasContent={true} className="w-full" />
+                        </div>
+                      )}
+                      <DeleteCampaignButton campaignId={campaign.id} businessId={campaign.businessId} />
+                    </div>
                   </div>
                 </div>
               </div>

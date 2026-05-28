@@ -61,6 +61,7 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
   const [loading, setLoading] = useState(false);
   const [generatingStrategy, setGeneratingStrategy] = useState(false);
   const [aiMode, setAiMode] = useState(true);
+  const [currentStep, setCurrentStep] = useState(1);
   const [focuses, setFocuses] = useState<Array<{ 
     name: string; 
     description: string; 
@@ -76,31 +77,64 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
   const [selectedTone, setSelectedTone] = useState<string>("");
   const router = useRouter();
 
+  // Estados e intervalos de textos rotativos de carga
+  const [focusLoadingTextIdx, setFocusLoadingTextIdx] = useState(0);
+  const [planLoadingTextIdx, setPlanLoadingTextIdx] = useState(0);
+
+  const focusLoadingTexts = [
+    "Analizando los detalles principales de tu negocio...",
+    "Examinando los productos y servicios registrados...",
+    "Estudiando la presencia digital de tus competidores...",
+    "Claude está diseñando enfoques estratégicos altamente competitivos...",
+    "Estructurando propuestas iniciales de pilares de contenido..."
+  ];
+
+  const planLoadingTexts = [
+    "Iniciando el motor de inteligencia de marketing...",
+    "Estructurando los objetivos SMART de rendimiento...",
+    "Diseñando ganchos y pain points para tus buyer personas...",
+    "Creando un embudo de conversión (funnel) personalizado...",
+    "Organizando la frecuencia de posteo ideal por canal...",
+    "Dando los toques finales a la identidad y tono de comunicación..."
+  ];
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (loadingFocuses) {
+      interval = setInterval(() => {
+        setFocusLoadingTextIdx((prev) => (prev + 1) % focusLoadingTexts.length);
+      }, 2500);
+    } else {
+      setFocusLoadingTextIdx(0);
+    }
+    return () => clearInterval(interval);
+  }, [loadingFocuses]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (generatingStrategy) {
+      interval = setInterval(() => {
+        setPlanLoadingTextIdx((prev) => (prev + 1) % planLoadingTexts.length);
+      }, 2500);
+    } else {
+      setPlanLoadingTextIdx(0);
+    }
+    return () => clearInterval(interval);
+  }, [generatingStrategy]);
+
   useEffect(() => {
     if (aiMode && focuses.length === 0) {
-      fetchFocuses();
+      fetchFocuses(true); // Siempre pedir datos frescos al montar para variar cada vez
     }
   }, [aiMode, businessId]);
 
   const fetchFocuses = async (forceRefresh = false) => {
     try {
-      if (forceRefresh) {
-        setSelectedFocus(null);
-        setSelectedChannels([]);
-        setSelectedPillars([]);
-        setSelectedTone("");
-      } else {
-        const cached = sessionStorage.getItem(`strategy_focuses_${businessId}`);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            setFocuses(parsed);
-            return;
-          } catch (e) {
-            console.error("Error parsing cached focuses:", e);
-          }
-        }
-      }
+      setSelectedFocus(null);
+      setSelectedChannels([]);
+      setSelectedPillars([]);
+      setSelectedTone("");
+      setCurrentStep(1);
 
       setLoadingFocuses(true);
       const res = await fetch(`/api/business/${businessId}/suggest-strategy-focuses${forceRefresh ? "?refresh=true" : ""}`, {
@@ -110,7 +144,6 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
         const data = await res.json();
         if (data.focuses) {
           setFocuses(data.focuses);
-          sessionStorage.setItem(`strategy_focuses_${businessId}`, JSON.stringify(data.focuses));
         }
       }
     } catch (error) {
@@ -129,6 +162,9 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
     setSelectedChannels(focus.suggestedChannels || []);
     setSelectedPillars(focus.suggestedPillars || []);
     setSelectedTone(focus.suggestedTones?.[0] || "");
+    
+    // Auto-advance to Step 2
+    setCurrentStep(2);
   };
 
   const getFocusIcon = (iconName: string) => {
@@ -212,8 +248,8 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
 
       // Populate form fields
       form.reset({
-        name: data.name || "Estrategia Sugerida",
-        description: data.description || "",
+        name: watchedName || data.name || "Estrategia Sugerida",
+        description: watchedDescription || data.description || "",
         isActive: true,
         objectives: data.objectives || [],
         personas: data.personas || [],
@@ -371,236 +407,458 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
 
         {aiMode ? (
           <div className="space-y-6 animate-in fade-in duration-300">
-            {/* Paso 1: Enfoques sugeridos por IA */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400 animate-pulse" />
-                  Paso 1: Elige un Enfoque Estratégico propuesto por IA
-                </span>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-[10px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 h-7 px-2 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
-                  disabled={loadingFocuses}
-                  onClick={() => fetchFocuses(true)}
-                >
-                  <RefreshCw className={`h-3 w-3 mr-1 ${loadingFocuses ? 'animate-spin' : ''}`} />
-                  Regenerar Propuestas
-                </Button>
-              </h4>
-              <p className="text-xs text-muted-foreground">
-                Basado en tu descripción del negocio, productos y competidores scrapeados, la IA propone estas ideas. Haz clic en una para rellenar los datos.
-              </p>
+            {generatingStrategy ? (
+              <Card className="border border-violet-100 dark:border-violet-900 bg-violet-50/10 dark:bg-violet-950/5 overflow-hidden backdrop-blur-sm shadow-inner transition-all duration-300">
+                <CardContent className="flex flex-col items-center justify-center p-12 min-h-[380px] text-center space-y-6 relative">
+                  {/* Decorative gradient blur blobs */}
+                  <div className="absolute -top-10 -left-10 w-40 h-40 bg-violet-500/10 dark:bg-violet-500/5 rounded-full blur-3xl animate-pulse" />
+                  <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl animate-pulse duration-3000" />
 
-              {loadingFocuses ? (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {[1, 2, 3].map((n) => (
-                    <Card key={n} className="animate-pulse border-dashed bg-slate-50/10">
-                      <CardContent className="p-4 space-y-3">
-                        <div className="h-7 w-7 bg-slate-200 rounded-lg" />
-                        <div className="h-4 w-2/3 bg-slate-200 rounded" />
-                        <div className="h-3 w-full bg-slate-200 rounded" />
-                        <div className="h-3 w-5/6 bg-slate-200 rounded" />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-3">
-                  {focuses.map((focus, index) => {
-                    const isSelected = selectedFocus === index;
-                    return (
-                      <Card 
-                        key={index} 
-                        className={`cursor-pointer transition-all duration-300 hover:shadow-md border ${
-                          isSelected 
-                            ? 'border-violet-500 dark:border-violet-400 bg-violet-50/50 dark:bg-violet-950/20 shadow-sm ring-1 ring-violet-500/20' 
-                            : 'border-slate-200 dark:border-slate-800 bg-card hover:border-slate-300 dark:hover:border-slate-700'
-                        }`}
-                        onClick={() => handleSelectFocus(index, focus)}
-                      >
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
-                              {getFocusIcon(focus.icon)}
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute h-24 w-24 rounded-full border-4 border-violet-500/10 animate-ping duration-1500" />
+                    <div className="absolute h-20 w-20 rounded-full bg-violet-100/50 dark:bg-violet-950/40 border border-violet-500/30 animate-pulse" />
+                    <div className="relative h-16 w-16 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30 animate-bounce duration-1000">
+                      <Sparkles className="h-7 w-7 text-white animate-spin duration-3000" />
+                    </div>
+                  </div>
+                  <div className="space-y-3 max-w-md z-10">
+                    <h3 className="text-lg font-bold text-foreground flex items-center justify-center gap-2">
+                      <Sparkles className="h-5 w-5 text-violet-600 dark:text-violet-400 animate-pulse" />
+                      Generando Plan Estratégico Completo
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-semibold min-h-[32px] transition-all duration-500 animate-in fade-in duration-300 px-4">
+                      {planLoadingTexts[planLoadingTextIdx]}
+                    </p>
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-4 shadow-inner">
+                      <div 
+                        className="bg-gradient-to-r from-violet-600 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out" 
+                        style={{ width: `${((planLoadingTextIdx + 1) / planLoadingTexts.length) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Step Progress Bar */}
+                {watchedObjectives.length === 0 && (
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between max-w-xl mx-auto border bg-background/50 backdrop-blur-sm p-4 rounded-xl shadow-sm">
+                      {[
+                        { step: 1, label: "Enfoque", icon: Sparkles },
+                        { step: 2, label: "Canales", icon: Megaphone },
+                        { step: 3, label: "Pilares", icon: Lightbulb },
+                        { step: 4, label: "Tono", icon: Target },
+                        { step: 5, label: "Generar", icon: TrendingUp },
+                      ].map((s, idx, arr) => {
+                        const Icon = s.icon;
+                        const isActive = currentStep === s.step;
+                        const isCompleted = currentStep > s.step;
+                        const isAllowedToGo = s.step <= 1 || 
+                          (s.step === 2 && selectedFocus !== null) || 
+                          (s.step === 3 && selectedFocus !== null) || 
+                          (s.step === 4 && selectedFocus !== null) || 
+                          (s.step === 5 && selectedFocus !== null && selectedTone !== "");
+
+                        return (
+                          <div key={s.step} className="flex items-center flex-1 last:flex-none">
+                            <div className="flex flex-col items-center relative">
+                              <button
+                                type="button"
+                                disabled={!isAllowedToGo}
+                                onClick={() => setCurrentStep(s.step)}
+                                className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-300 ${
+                                  isActive
+                                    ? "bg-violet-600 border-violet-600 text-white shadow-md ring-2 ring-violet-500/20"
+                                    : isCompleted
+                                    ? "bg-emerald-500 border-emerald-500 text-white"
+                                    : isAllowedToGo
+                                    ? "bg-card border-violet-200 text-violet-600 hover:bg-violet-50"
+                                    : "bg-card border-slate-200 text-slate-400 cursor-not-allowed"
+                                }`}
+                              >
+                                {isCompleted ? (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                  </svg>
+                                ) : (
+                                  <Icon className="h-4.5 w-4.5" />
+                                )}
+                              </button>
+                              <span className={`text-[10px] font-bold mt-2 tracking-wide uppercase transition-colors duration-300 ${
+                                isActive ? "text-violet-700 dark:text-violet-300" : isCompleted ? "text-emerald-600" : "text-muted-foreground"
+                              }`}>
+                                {s.label}
+                              </span>
                             </div>
-                            {isSelected && <Badge className="text-[9px] bg-violet-600 dark:bg-violet-500 font-bold text-white">Elegido</Badge>}
-                          </div>
-                          <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100 leading-tight">{focus.name}</h5>
-                          <p className="text-[10px] text-muted-foreground leading-normal line-clamp-4">{focus.description}</p>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {focuses[selectedFocus ?? -1] && watchedObjectives.length === 0 && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                {/* Paso 2: Canales Activos */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                    <Megaphone className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
-                    Paso 2: Canales de Distribución Sugeridos
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Activa o desactiva los canales donde quieres enfocar tu estrategia. Haz clic en ellos para seleccionarlos.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {focuses[selectedFocus ?? -1].suggestedChannels?.map((channel: string) => {
-                      const isSelected = selectedChannels.includes(channel);
-                      return (
-                        <Badge
-                          key={channel}
-                          variant={isSelected ? "default" : "outline"}
-                          className={`cursor-pointer text-xs px-3 py-1.5 transition-all duration-200 select-none flex items-center gap-1.5 ${
-                            isSelected 
-                              ? 'bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white shadow-sm ring-1 ring-violet-500/10' 
-                              : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
-                          }`}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedChannels(selectedChannels.filter(c => c !== channel));
-                            } else {
-                              setSelectedChannels([...selectedChannels, channel]);
-                            }
-                          }}
-                        >
-                          <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors ${
-                            isSelected ? 'bg-white/20' : 'border border-slate-300 dark:border-slate-700'
-                          }`}>
-                            {isSelected ? (
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-2 h-2 text-white">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                              </svg>
-                            ) : (
-                              <span className="text-[10px] leading-none font-bold text-slate-400 dark:text-slate-500">+</span>
+                            {idx < arr.length - 1 && (
+                              <div className={`h-0.5 flex-1 mx-2 transition-colors duration-500 ${
+                                currentStep > s.step ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-800"
+                              }`} />
                             )}
                           </div>
-                          {channel}
-                        </Badge>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Paso 3: Pilares Temáticos */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                    <Lightbulb className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
-                    Paso 3: Pilares Temáticos de Contenido
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Selecciona los temas principales sobre los cuales la IA estructurará las temáticas de las buyer personas e ideas.
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {focuses[selectedFocus ?? -1].suggestedPillars?.map((pillar: string) => {
-                      const isSelected = selectedPillars.includes(pillar);
-                      return (
-                        <Card
-                          key={pillar}
-                          className={`cursor-pointer transition-all duration-200 border ${
-                            isSelected 
-                              ? 'border-violet-500 dark:border-violet-400 bg-violet-50/40 dark:bg-violet-950/20 ring-1 ring-violet-500/10' 
-                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card'
-                          }`}
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedPillars(selectedPillars.filter(p => p !== pillar));
-                            } else {
-                              setSelectedPillars([...selectedPillars, pillar]);
-                            }
-                          }}
-                        >
-                          <CardContent className="p-3 flex items-center justify-between">
-                            <span className="text-xs font-medium text-slate-850 dark:text-slate-200">{pillar}</span>
-                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
-                              isSelected ? 'bg-violet-600 dark:bg-violet-500 border-violet-600 dark:border-violet-500' : 'border-slate-300 dark:border-slate-700'
-                            }`}>
-                              {isSelected && <div className="w-1.5 h-1.5 bg-white dark:bg-slate-900 rounded-full" />}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Paso 4: Tono de Voz */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                    <Sparkles className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400 animate-pulse" />
-                    Paso 4: Tono de Comunicación de Marca
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Elige el tono de voz que la IA usará para generar la estrategia y el estilo de comunicación de las personas.
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {focuses[selectedFocus ?? -1].suggestedTones?.map((tone: string) => {
-                      const isSelected = selectedTone === tone;
-                      return (
-                        <Card
-                          key={tone}
-                          className={`cursor-pointer transition-all duration-200 border ${
-                            isSelected 
-                              ? 'border-violet-500 dark:border-violet-400 bg-violet-50/40 dark:bg-violet-950/20 ring-1 ring-violet-500/10' 
-                              : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card'
-                          }`}
-                          onClick={() => setSelectedTone(tone)}
-                        >
-                          <CardContent className="p-3 flex items-center justify-between">
-                            <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{tone}</span>
-                            <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
-                              isSelected ? 'bg-violet-600 dark:bg-violet-500 border-violet-600 dark:border-violet-500' : 'border-slate-300 dark:border-slate-700'
-                            }`}>
-                              {isSelected && <div className="w-1.5 h-1.5 bg-white dark:bg-slate-900 rounded-full" />}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Resumen & Generador */}
-                <Card className="border border-violet-100 dark:border-violet-900 bg-violet-50/10 dark:bg-violet-950/5 animate-in fade-in duration-300">
-                  <CardContent className="pt-6 space-y-4">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                      <div className="space-y-3 flex-1">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">Enfoque Elegido</span>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{watchedName}</h4>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold">Descripción Estratégica</span>
-                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{watchedDescription}</p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md shrink-0 w-full md:w-auto"
-                        disabled={generatingStrategy || loading}
-                        onClick={handleGenerateWithAI}
+                {/* Paso 1: Enfoques sugeridos por IA */}
+                {currentStep === 1 && watchedObjectives.length === 0 && (
+                  <div className="space-y-3 animate-in fade-in duration-300">
+                    <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400 animate-pulse" />
+                        Paso 1: Elige un Enfoque Estratégico propuesto por IA
+                      </span>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-[10px] font-bold text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 h-7 px-2 hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors"
+                        disabled={loadingFocuses}
+                        onClick={() => fetchFocuses(true)}
                       >
-                        {generatingStrategy ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                            <span>Diseñando...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-4 w-4" />
-                            <span>Generar Plan de Acción</span>
-                          </>
-                        )}
+                        <RefreshCw className={`h-3 w-3 mr-1 ${loadingFocuses ? 'animate-spin' : ''}`} />
+                        Regenerar Propuestas
+                      </Button>
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Basado en tu descripción del negocio, productos y competidores scrapeados, la IA propone estas ideas. Haz clic en una para rellenar los datos.
+                    </p>
+
+                    {loadingFocuses ? (
+                      <Card className="border border-violet-100 dark:border-violet-900 bg-violet-50/10 dark:bg-violet-950/5 overflow-hidden backdrop-blur-sm shadow-inner transition-all duration-300">
+                        <CardContent className="flex flex-col items-center justify-center p-12 min-h-[300px] text-center space-y-6 relative">
+                          {/* Decorative gradient blur blobs */}
+                          <div className="absolute -top-10 -left-10 w-32 h-32 bg-violet-400/20 dark:bg-violet-600/10 rounded-full blur-2xl animate-pulse" />
+                          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-indigo-400/20 dark:bg-indigo-600/10 rounded-full blur-2xl animate-pulse duration-3000" />
+
+                          <div className="relative flex items-center justify-center">
+                            {/* Multiple outer glow rings */}
+                            <div className="absolute h-24 w-24 rounded-full border border-violet-500/20 animate-ping duration-1500" />
+                            <div className="absolute h-20 w-20 rounded-full bg-violet-100/50 dark:bg-violet-950/40 border border-violet-500/30 animate-pulse" />
+                            <div className="relative h-16 w-16 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                              <Sparkles className="h-7 w-7 text-white animate-spin duration-3000" />
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 max-w-md z-10">
+                            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center justify-center gap-2">
+                              <span className="inline-block w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
+                              Generando Opciones con IA
+                            </h3>
+                            <p className="text-xs text-muted-foreground font-medium min-h-[36px] transition-all duration-500 ease-in-out px-4">
+                              {focusLoadingTexts[focusLoadingTextIdx]}
+                            </p>
+                            
+                            <div className="w-48 mx-auto bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden mt-4">
+                              <div 
+                                className="bg-gradient-to-r from-violet-600 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out" 
+                                style={{ width: `${((focusLoadingTextIdx + 1) / focusLoadingTexts.length) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground block pt-2 font-mono">
+                              Paso 1 de 5 • Generando Enfoques
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-3">
+                        {focuses.map((focus, index) => {
+                          const isSelected = selectedFocus === index;
+                          return (
+                            <Card 
+                              key={index} 
+                              className={`cursor-pointer transition-all duration-300 hover:shadow-md border ${
+                                isSelected 
+                                  ? 'border-violet-500 dark:border-violet-400 bg-violet-50/50 dark:bg-violet-950/20 shadow-sm ring-1 ring-violet-500/20' 
+                                  : 'border-slate-200 dark:border-slate-800 bg-card hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                              onClick={() => handleSelectFocus(index, focus)}
+                            >
+                              <CardContent className="p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
+                                    {getFocusIcon(focus.icon)}
+                                  </div>
+                                  {isSelected && <Badge className="text-[9px] bg-violet-600 dark:bg-violet-500 font-bold text-white">Elegido</Badge>}
+                                </div>
+                                <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100 leading-tight">{focus.name}</h5>
+                                <p className="text-[10px] text-muted-foreground leading-normal line-clamp-4">{focus.description}</p>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {selectedFocus !== null && !loadingFocuses && (
+                      <div className="flex justify-end pt-4">
+                        <Button type="button" onClick={() => setCurrentStep(2)} className="flex items-center gap-2">
+                          Continuar <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Paso 2: Canales Activos */}
+                {currentStep === 2 && focuses[selectedFocus ?? -1] && watchedObjectives.length === 0 && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <Megaphone className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
+                        Paso 2: Canales de Distribución Sugeridos
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Activa o desactiva los canales donde quieres enfocar tu estrategia. Haz clic en ellos para seleccionarlos.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {focuses[selectedFocus ?? -1].suggestedChannels?.map((channel: string) => {
+                          const isSelected = selectedChannels.includes(channel);
+                          return (
+                            <Badge
+                              key={channel}
+                              variant={isSelected ? "default" : "outline"}
+                              className={`cursor-pointer text-xs px-3 py-1.5 transition-all duration-200 select-none flex items-center gap-1.5 ${
+                                isSelected 
+                                  ? 'bg-violet-600 dark:bg-violet-500 hover:bg-violet-700 dark:hover:bg-violet-600 text-white shadow-sm ring-1 ring-violet-500/10' 
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800'
+                              }`}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedChannels(selectedChannels.filter(c => c !== channel));
+                                } else {
+                                  setSelectedChannels([...selectedChannels, channel]);
+                                }
+                              }}
+                            >
+                              <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors ${
+                                isSelected ? 'bg-white/20' : 'border border-slate-300 dark:border-slate-700'
+                              }`}>
+                                {isSelected ? (
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-2 h-2 text-white">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                  </svg>
+                                ) : (
+                                  <span className="text-[10px] leading-none font-bold text-slate-400 dark:text-slate-500">+</span>
+                                )}
+                              </div>
+                              {channel}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex justify-between pt-4 border-t mt-6">
+                      <Button type="button" variant="outline" onClick={() => setCurrentStep(1)}>
+                        Atrás
+                      </Button>
+                      <Button type="button" onClick={() => setCurrentStep(3)} className="flex items-center gap-2">
+                        Siguiente Paso <ArrowRight className="h-4 w-4" />
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                )}
+
+                {/* Paso 3: Pilares Temáticos */}
+                {currentStep === 3 && focuses[selectedFocus ?? -1] && watchedObjectives.length === 0 && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <Lightbulb className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
+                        Paso 3: Pilares Temáticos de Contenido
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Selecciona los temas principales sobre los cuales la IA estructurará las temáticas de las buyer personas e ideas.
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {focuses[selectedFocus ?? -1].suggestedPillars?.map((pillar: string) => {
+                          const isSelected = selectedPillars.includes(pillar);
+                          return (
+                            <Card
+                              key={pillar}
+                              className={`cursor-pointer transition-all duration-200 border ${
+                                isSelected 
+                                  ? 'border-violet-500 dark:border-violet-400 bg-violet-50/40 dark:bg-violet-950/20 ring-1 ring-violet-500/10' 
+                                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card'
+                              }`}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedPillars(selectedPillars.filter(p => p !== pillar));
+                                } else {
+                                  setSelectedPillars([...selectedPillars, pillar]);
+                                }
+                              }}
+                            >
+                              <CardContent className="p-3 flex items-center justify-between">
+                                <span className="text-xs font-medium text-slate-850 dark:text-slate-200">{pillar}</span>
+                                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
+                                  isSelected ? 'bg-violet-600 dark:bg-violet-500 border-violet-600 dark:border-violet-500' : 'border-slate-300 dark:border-slate-700'
+                                }`}>
+                                  {isSelected && <div className="w-1.5 h-1.5 bg-white dark:bg-slate-900 rounded-full" />}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex justify-between pt-4 border-t mt-6">
+                      <Button type="button" variant="outline" onClick={() => setCurrentStep(2)}>
+                        Atrás
+                      </Button>
+                      <Button type="button" onClick={() => setCurrentStep(4)} className="flex items-center gap-2">
+                        Siguiente Paso <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Paso 4: Tono de Voz */}
+                {currentStep === 4 && focuses[selectedFocus ?? -1] && watchedObjectives.length === 0 && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <Sparkles className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400 animate-pulse" />
+                        Paso 4: Tono de Comunicación de Marca
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Elige el tono de voz que la IA usará para generar la estrategia y el estilo de comunicación de las personas.
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {focuses[selectedFocus ?? -1].suggestedTones?.map((tone: string) => {
+                          const isSelected = selectedTone === tone;
+                          return (
+                            <Card
+                              key={tone}
+                              className={`cursor-pointer transition-all duration-200 border ${
+                                isSelected 
+                                  ? 'border-violet-500 dark:border-violet-400 bg-violet-50/40 dark:bg-violet-950/20 ring-1 ring-violet-500/10' 
+                                  : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-card'
+                              }`}
+                              onClick={() => setSelectedTone(tone)}
+                            >
+                              <CardContent className="p-3 flex items-center justify-between">
+                                <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{tone}</span>
+                                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
+                                  isSelected ? 'bg-violet-600 dark:bg-violet-500 border-violet-600 dark:border-violet-500' : 'border-slate-300 dark:border-slate-700'
+                                }`}>
+                                  {isSelected && <div className="w-1.5 h-1.5 bg-white dark:bg-slate-900 rounded-full" />}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex justify-between pt-4 border-t mt-6">
+                      <Button type="button" variant="outline" onClick={() => setCurrentStep(3)}>
+                        Atrás
+                      </Button>
+                      <Button 
+                        type="button" 
+                        disabled={!selectedTone}
+                        onClick={() => setCurrentStep(5)} 
+                        className="flex items-center gap-2"
+                      >
+                        Siguiente Paso <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Paso 5: Resumen y Generación */}
+                {currentStep === 5 && focuses[selectedFocus ?? -1] && watchedObjectives.length === 0 && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <Sparkles className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400 animate-pulse" />
+                        Paso 5: Resumen y Generación del Plan
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Revisa las opciones seleccionadas antes de generar el plan maestro de marketing.
+                      </p>
+                      
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Card className="border border-slate-200 dark:border-slate-800">
+                          <CardContent className="p-4 space-y-3">
+                            <h5 className="text-xs font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Enfoque Seleccionado</h5>
+                            <div>
+                              <div className="font-bold text-sm text-slate-900 dark:text-slate-100">{watchedName}</div>
+                              <p className="text-xs text-muted-foreground mt-1">{watchedDescription}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border border-slate-200 dark:border-slate-800">
+                          <CardContent className="p-4 space-y-3">
+                            <h5 className="text-xs font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide">Tono y Canales</h5>
+                            <div className="space-y-2">
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Tono de Voz:</span>
+                                <span className="text-xs text-slate-700 dark:text-slate-350">{selectedTone || "No seleccionado"}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-slate-400 block uppercase">Canales:</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {selectedChannels.length > 0 ? (
+                                    selectedChannels.map(c => <Badge key={c} variant="secondary" className="text-[10px]">{c}</Badge>)
+                                  ) : (
+                                    <span className="text-xs text-slate-400">Ninguno</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="md:col-span-2 border border-slate-200 dark:border-slate-800">
+                          <CardContent className="p-4 space-y-2">
+                            <h5 className="text-xs font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide font-semibold">Pilares de Contenido Seleccionados</h5>
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedPillars.length > 0 ? (
+                                selectedPillars.map(p => <Badge key={p} variant="outline" className="text-xs bg-slate-50 dark:bg-slate-900">{p}</Badge>)
+                              ) : (
+                                <span className="text-xs text-slate-400">Ninguno</span>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+
+                    <Card className="border border-violet-100 dark:border-violet-900 bg-violet-50/10 dark:bg-violet-950/5 animate-in fade-in duration-300">
+                      <CardContent className="pt-6 space-y-4">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">¿Todo listo para diseñar el plan?</h4>
+                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                              La IA estructurará tus objetivos SMART, buyer personas y embudo con base en estas elecciones. Esto tomará unos segundos.
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md shrink-0 w-full md:w-auto"
+                            disabled={generatingStrategy || loading}
+                            onClick={handleGenerateWithAI}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            <span>Generar Plan de Acción</span>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="flex justify-between pt-4 border-t mt-6">
+                      <Button type="button" variant="outline" onClick={() => setCurrentStep(4)} disabled={generatingStrategy}>
+                        Atrás
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {watchedObjectives.length > 0 && (

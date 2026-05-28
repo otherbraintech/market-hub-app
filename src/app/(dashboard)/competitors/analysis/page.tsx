@@ -44,9 +44,16 @@ export default async function CompetitorsAnalysisPage() {
     }
   }
 
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { name: true }
+  });
+  const businessName = business?.name || "";
+
   return (
     <CompetitorsAnalysisClient 
       businessId={businessId}
+      businessName={businessName}
       initialCompetitors={competitorsWithReports}
       myAnalysesByChannel={myAnalysesByChannel}
     />

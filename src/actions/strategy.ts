@@ -67,3 +67,16 @@ export async function getPersonasForBusinessAction(businessId: string) {
     return { success: false, error: "Error al obtener personas" };
   }
 }
+
+export async function getActiveStrategyAction(businessId: string) {
+  try {
+    const strategy = await prisma.marketingStrategy.findFirst({
+      where: { businessId, isActive: true },
+      select: { id: true, name: true }
+    });
+    return { success: true, strategy };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: "Error al obtener la estrategia activa" };
+  }
+}

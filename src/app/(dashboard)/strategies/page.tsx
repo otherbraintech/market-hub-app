@@ -32,11 +32,17 @@ export default async function StrategiesPage() {
     orderBy: { createdAt: "desc" }
   });
 
+  const business = await prisma.business.findUnique({
+    where: { id: selectedBusinessId },
+    select: { name: true }
+  });
+  const businessName = business?.name || "";
+
   return (
     <div className="p-8 space-y-8">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Estrategias de Marketing</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Estrategias de Marketing: {businessName}</h1>
           <p className="text-muted-foreground">Gestiona las estrategias maestras de tus negocios.</p>
         </div>
         <Link href="/strategies/new">

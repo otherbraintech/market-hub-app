@@ -276,6 +276,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
             }
 
             const isInstagramStructure = !!dataObj?.instagram_presence || !!dataObj?.engagement_analysis || !!dataObj?.content_analysis;
+            const isFacebookStructure = !!dataObj?.social_intelligence || !!dataObj?.brand_positioning || !!dataObj?.strategic_diagnostics;
 
             // Extract Instagram-specific data
             const socialPresence = dataObj?.instagram_presence || {};
@@ -321,7 +322,46 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {isInstagramStructure && isCompleted ? (
+                  {isFacebookStructure && isCompleted ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Users className={`h-3.5 w-3.5 ${theme.text}`} />
+                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                        </div>
+                        <p className="text-lg font-semibold text-foreground">
+                          {dataObj?.social_intelligence?.audience_size || "N/D"}
+                        </p>
+                      </div>
+                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Activity className={`h-3.5 w-3.5 ${theme.text}`} />
+                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Engagement</span>
+                        </div>
+                        <p className="text-lg font-semibold text-foreground">
+                          {dataObj?.social_intelligence?.engagement_level || "N/D"}
+                        </p>
+                      </div>
+                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Megaphone className={`h-3.5 w-3.5 ${theme.text}`} />
+                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Anuncios</span>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {dataObj?.social_intelligence?.active_marketing_ads ? "Activos (Meta)" : "Inactivos"}
+                        </p>
+                      </div>
+                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Briefcase className={`h-3.5 w-3.5 ${theme.text}`} />
+                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Nicho</span>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground truncate">
+                          {dataObj?.brand_positioning?.niche || "N/D"}
+                        </p>
+                      </div>
+                    </div>
+                  ) : isInstagramStructure && isCompleted ? (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
                         <div className="flex items-center gap-1.5 mb-1">
@@ -329,7 +369,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                           <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
                         </div>
                         <p className="text-lg font-semibold text-foreground">
-                          {(() => {
+                          {socialPresence.audience_size?.followers || (() => {
                             const visibility = compObs.visibility_indicators;
                             const socialProof = engagement.social_proof_signals;
                             
@@ -344,14 +384,14 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                             
                             if (socialProof && Array.isArray(socialProof)) {
                               for (const signal of socialProof) {
-                                if (typeof signal === 'string' && signal.toLowerCase().includes('seguidor')) {
-                                  const match = signal.match(/[\d.]+[KkMm]?/);
-                                  if (match) return match[0];
-                                }
+                                  if (typeof signal === 'string' && signal.toLowerCase().includes('seguidor')) {
+                                    const match = signal.match(/[\d.]+[KkMm]?/);
+                                    if (match) return match[0];
+                                  }
                               }
                             }
                             
-                            return socialPresence.audience_size?.followers || "N/D";
+                            return "N/D";
                           })()}
                         </p>
                       </div>

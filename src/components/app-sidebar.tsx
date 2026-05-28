@@ -52,30 +52,48 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
 
   const navMain = [
     {
-      title: "Principal",
+      title: "Inicio",
       url: "#",
       icon: LayoutDashboard,
       isActive: true,
       items: [
         { title: "Dashboard", url: "/dashboard" },
-        { title: "Negocios", url: "/business" },
-        { title: "Mi Negocio IA", url: "/business/analysis" },
-        { title: "Competencia IA", url: "/competitors/analysis" },
-        { title: "Estrategias", url: "/strategies" },
-        { title: "Productos", url: "/products" },
-        { title: "Campañas", url: "/campaigns" },
+        { title: "Administrar Negocios", url: "/business" },
       ],
     },
     {
-      title: "Contenido & Social",
+      title: "Mi Negocio",
+      url: "#",
+      icon: Building2,
+      isActive: true,
+      items: [
+        ...(selectedId ? [{ title: "Configurar Perfil", url: `/business/${selectedId}` }] : []),
+        { title: "Productos", url: "/products" },
+        { title: "Estrategias", url: "/strategies" },
+      ],
+    },
+    {
+      title: "Inteligencia IA",
+      url: "#",
+      icon: Lightbulb,
+      isActive: true,
+      items: [
+        { title: "Mi Negocio IA", url: "/business/analysis" },
+        { title: "Mi Competencia IA", url: "/competitors/analysis" },
+        { title: "Jobs IA", url: "/jobs" },
+      ],
+    },
+    {
+      title: "Marketing & Social",
       url: "#",
       icon: Share2,
+      isActive: true,
       items: [
+        { title: "Campañas", url: "/campaigns" },
         { title: "Calendario", url: "/calendar" },
         { title: "Media", url: "/media" },
         { title: "Publicación", url: "/publishing" },
         { title: "Métricas", url: "/metrics" },
-        { title: "Jobs IA", url: "/jobs" },
       ],
     },
     {
@@ -122,6 +140,28 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
 
 function ThemeToggle() {
   const { setTheme, theme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton tooltip="Cargando tema...">
+            <div className="relative flex items-center gap-2">
+              <div className="flex items-center justify-center">
+                <Sun className="h-4 w-4" />
+              </div>
+              <span className="truncate">Cargando tema...</span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
 
   return (
     <SidebarMenu>

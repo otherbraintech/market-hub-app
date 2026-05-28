@@ -29,6 +29,7 @@ interface BusinessReportData {
   metadata: {
     totalBusinessReports: number;
     channelsAnalyzed: string[];
+    activeChannelsCount: number;
   };
 }
 
@@ -61,6 +62,9 @@ export function BusinessGeneralReportClient({ businessId, businessName }: Busine
       
       const data = await response.json();
       setReportData(data);
+      if (data.consolidatedAnalysis) {
+        setConsolidatedAnalysis(data.consolidatedAnalysis);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading report');
     } finally {
@@ -206,7 +210,7 @@ export function BusinessGeneralReportClient({ businessId, businessName }: Busine
             <CardContent>
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-purple-600" />
-                <span className="text-2xl font-bold">{reportData.metadata.totalBusinessReports}</span>
+                <span className="text-2xl font-bold">{reportData.metadata.channelsAnalyzed.length}</span>
               </div>
             </CardContent>
           </Card>
@@ -217,7 +221,7 @@ export function BusinessGeneralReportClient({ businessId, businessName }: Busine
             <CardContent>
               <div className="flex items-center gap-2">
                 <Globe className="h-5 w-5 text-blue-600" />
-                <span className="text-2xl font-bold">{reportData.metadata.channelsAnalyzed.length}</span>
+                <span className="text-2xl font-bold">{reportData.metadata.activeChannelsCount}</span>
               </div>
             </CardContent>
           </Card>
@@ -486,10 +490,10 @@ export function BusinessGeneralReportClient({ businessId, businessName }: Busine
                           <div className="bg-pink-50 rounded p-2">
                             <span className="text-xs text-muted-foreground block">Seguidores</span>
                             <p className="font-semibold text-sm">
-                              {dataObj.engagement_analysis?.social_proof_signals?.[0] || 
-                               dataObj.instagram_presence.audience_size?.followers || 
-                               dataObj.competitive_observations?.visibility_indicators?.[0]?.match(/[\d.]+[KkMm]?/)?.[0] || 
-                               'N/D'}
+                            {dataObj.instagram_presence.audience_size?.followers || 
+                             dataObj.engagement_analysis?.social_proof_signals?.[0] || 
+                             dataObj.competitive_observations?.visibility_indicators?.[0]?.match(/[\d.]+[KkMm]?/)?.[0] || 
+                             'N/D'}
                             </p>
                           </div>
                           <div className="bg-purple-50 rounded p-2">

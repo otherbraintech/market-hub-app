@@ -17,6 +17,7 @@ export async function GET(
         website: true,
         phoneNumbers: true,
         location: true,
+        socialLinks: true,
       }
     });
 
@@ -29,10 +30,36 @@ export async function GET(
       where: {
         type: 'MY_BUSINESS',
         entityId: business.id,
+        status: 'COMPLETED',
+        NOT: {
+          channel: 'CONSOLIDATED'
+        }
+      },
+      orderBy: { completedAt: 'desc' }
+    });
+
+    // Get the latest consolidated report if exists
+    const consolidatedReport = await prisma.analysisReport.findFirst({
+      where: {
+        type: 'MY_BUSINESS',
+        channel: 'CONSOLIDATED',
+        entityId: business.id,
         status: 'COMPLETED'
       },
       orderBy: { completedAt: 'desc' }
     });
+
+    let consolidatedData = null;
+    if (consolidatedReport) {
+      consolidatedData = consolidatedReport.data;
+      if (typeof consolidatedReport.data === 'string') {
+        try {
+          consolidatedData = JSON.parse(consolidatedReport.data);
+        } catch (e) {
+          console.error('Error parsing consolidated report data:', e);
+        }
+      }
+    }
 
     // Group business reports by channel and normalize data
     const businessReportsMap = new Map<string, any>();
@@ -57,11 +84,26 @@ export async function GET(
       }
     });
 
+    // Calculate active (configured) channels
+    let activeChannelsCount = 0;
+    if (business.website && business.website.trim() !== '') {
+      activeChannelsCount++;
+    }
+    if (business.socialLinks && typeof business.socialLinks === 'object' && business.socialLinks !== null) {
+      const links = business.socialLinks as Record<string, any>;
+      Object.values(links).forEach(val => {
+        if (typeof val === 'string' && val.trim() !== '') {
+          activeChannelsCount++;
+        }
+      });
+    }
+
     // Build the consolidated report
     const generalReport = {
       businessId: business.id,
       businessName: business.name,
       generatedAt: new Date().toISOString(),
+      consolidatedAnalysis: consolidatedData,
       
       // Business summary
       businessSummary: {
@@ -83,7 +125,8 @@ export async function GET(
       // Metadata
       metadata: {
         totalBusinessReports: businessReports.length,
-        channelsAnalyzed: Array.from(businessReportsMap.keys())
+        channelsAnalyzed: Array.from(businessReportsMap.keys()),
+        activeChannelsCount: activeChannelsCount
       }
     };
 

@@ -4,7 +4,8 @@ import React from 'react';
 import { 
   CheckCircle2, XCircle, Lightbulb, Target, 
   Smile, Compass, BarChart3, Search, 
-  TrendingUp, Users, Brain, Sparkles, Instagram, AlertCircle 
+  TrendingUp, Users, Brain, Sparkles, Instagram, AlertCircle,
+  Facebook
 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,6 +82,41 @@ function normalizeReportData(data: any): ReportData {
       marketing_tactics: Array.isArray(bizSignals.commercial_signals) ? bizSignals.commercial_signals : [],
       market_positioning: branding.brand_positioning_indicators?.[0] || instaPresence.brand_summary || "Instagram activo con presencia digital",
       strategic_recommendations: Array.isArray(compObs.main_strengths) ? compObs.main_strengths.slice(0, 5) : []
+    };
+  }
+
+  // Verificar si es la estructura de Facebook
+  const isFacebookStructure = !!processedData.social_intelligence || !!processedData.brand_positioning || !!processedData.strategic_diagnostics;
+  
+  if (isFacebookStructure) {
+    const socialIntel = processedData.social_intelligence || {};
+    const brandPos = processedData.brand_positioning || {};
+    const channels = processedData.conversion_channels || {};
+    const diagnostics = processedData.strategic_diagnostics || {};
+    const recs = processedData.actionable_recommendations || [];
+
+    return {
+      strengths: Array.isArray(diagnostics.strengths) ? diagnostics.strengths : [],
+      weaknesses: Array.isArray(diagnostics.weaknesses) ? diagnostics.weaknesses : [],
+      seo_signals: [
+        `Seguidores: ${socialIntel.audience_size || 'N/D'}`,
+        `Anuncios Activos: ${socialIntel.active_marketing_ads ? 'Sí' : 'No'}`,
+        `Antigüedad: ${socialIntel.seniority_years || 'N/D'} años`
+      ],
+      opportunities: [],
+      emotional_tone: [],
+      target_audience: [],
+      ux_observations: [
+        `Fricción de Conversión: ${channels.conversion_friction || 'N/D'}`,
+        `Canal Principal: ${channels.main_channel || 'N/D'}`
+      ],
+      confidence_score: 0.9,
+      brand_personality: [],
+      marketing_tactics: [
+        `Nicho: ${brandPos.niche || 'N/D'}`
+      ],
+      market_positioning: brandPos.value_proposition || socialIntel.page_name || "Perfil de Facebook",
+      strategic_recommendations: Array.isArray(recs) ? recs : []
     };
   }
 
@@ -171,20 +207,20 @@ function normalizeReportData(data: any): ReportData {
 
   // Estructura clásica
   return {
-    strengths: Array.isArray(data.strengths) ? data.strengths : (Array.isArray(data.products) ? data.products : []),
-    weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses : (Array.isArray(data.promotions) ? data.promotions : []),
-    seo_signals: Array.isArray(data.seo_signals) ? data.seo_signals : [],
-    opportunities: Array.isArray(data.opportunities) ? data.opportunities : [],
-    emotional_tone: Array.isArray(data.emotional_tone) ? data.emotional_tone : [],
-    target_audience: Array.isArray(data.target_audience) ? data.target_audience : [],
-    ux_observations: Array.isArray(data.ux_observations) ? data.ux_observations : [],
-    confidence_score: typeof data.confidence_score === "number" ? data.confidence_score : 0.5,
-    brand_personality: Array.isArray(data.brand_personality) ? data.brand_personality : [],
-    marketing_tactics: Array.isArray(data.marketing_tactics) ? data.marketing_tactics : [],
-    market_positioning: data.market_positioning || data.title || "Sin posicionamiento especificado",
-    strategic_recommendations: Array.isArray(data.strategic_recommendations) 
-      ? data.strategic_recommendations 
-      : (Array.isArray(data.recommendations) ? data.recommendations : [])
+    strengths: Array.isArray(processedData.strengths) ? processedData.strengths : (Array.isArray(processedData.products) ? processedData.products : []),
+    weaknesses: Array.isArray(processedData.weaknesses) ? processedData.weaknesses : (Array.isArray(processedData.promotions) ? processedData.promotions : []),
+    seo_signals: Array.isArray(processedData.seo_signals) ? processedData.seo_signals : [],
+    opportunities: Array.isArray(processedData.opportunities) ? processedData.opportunities : [],
+    emotional_tone: Array.isArray(processedData.emotional_tone) ? processedData.emotional_tone : [],
+    target_audience: Array.isArray(processedData.target_audience) ? processedData.target_audience : [],
+    ux_observations: Array.isArray(processedData.ux_observations) ? processedData.ux_observations : [],
+    confidence_score: typeof processedData.confidence_score === "number" ? processedData.confidence_score : 0.5,
+    brand_personality: Array.isArray(processedData.brand_personality) ? processedData.brand_personality : [],
+    marketing_tactics: Array.isArray(processedData.marketing_tactics) ? processedData.marketing_tactics : [],
+    market_positioning: processedData.market_positioning || processedData.title || "Sin posicionamiento especificado",
+    strategic_recommendations: Array.isArray(processedData.strategic_recommendations) 
+      ? processedData.strategic_recommendations 
+      : (Array.isArray(processedData.recommendations) ? processedData.recommendations : [])
   };
 }
 
@@ -197,6 +233,7 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
 
   const data = normalizeReportData(rawData);
   const isInstagramStructure = !!processedRawData?.instagram_presence || !!processedRawData?.engagement_analysis || !!processedRawData?.content_analysis;
+  const isFacebookStructure = !!processedRawData?.social_intelligence || !!processedRawData?.brand_positioning || !!processedRawData?.strategic_diagnostics;
 
   return (
     <Dialog>
@@ -213,10 +250,10 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
             <div>
               <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-violet-500" />
-                {isInstagramStructure ? 'Análisis de Instagram' : 'Análisis de Inteligencia de Marca'}
+                {isInstagramStructure ? 'Análisis de Instagram' : isFacebookStructure ? 'Análisis de Facebook' : 'Análisis de Inteligencia de Marca'}
               </DialogTitle>
               <p className="text-slate-500 text-sm mt-1">
-                {isInstagramStructure ? 'Informe generado por IA a partir del scraping de Instagram.' : 'Informe generado por IA a partir del scraping del sitio web.'}
+                {isInstagramStructure ? 'Informe generado por IA a partir del scraping de Instagram.' : isFacebookStructure ? 'Informe generado por IA a partir del scraping de Facebook.' : 'Informe generado por IA a partir del scraping del sitio web.'}
               </p>
             </div>
             
@@ -238,6 +275,40 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           
+          {/* Facebook-specific metrics */}
+          {isFacebookStructure && (
+            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-blue-50 via-cyan-50 to-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-blue-600 uppercase tracking-wider flex items-center gap-2">
+                  <Facebook className="h-4 w-4" />
+                  Métricas de Facebook
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <span className="text-xs text-slate-400 block mb-1">Seguidores / Likes</span>
+                    <p className="text-lg font-bold text-slate-700">{processedRawData?.social_intelligence?.audience_size || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
+                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
+                    <p className="text-lg font-bold text-slate-700">{processedRawData?.social_intelligence?.engagement_level || 'N/A'}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <span className="text-xs text-slate-400 block mb-1">Anuncios en Meta</span>
+                    <p className={`text-lg font-bold ${processedRawData?.social_intelligence?.active_marketing_ads ? 'text-emerald-600' : 'text-slate-700'}`}>
+                      {processedRawData?.social_intelligence?.active_marketing_ads ? 'Activos' : 'Inactivos'}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
+                    <span className="text-xs text-slate-400 block mb-1">Nicho</span>
+                    <p className="text-sm font-bold text-slate-700 truncate">{processedRawData?.brand_positioning?.niche || 'N/A'}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Instagram-specific metrics */}
           {isInstagramStructure && (
             <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
@@ -251,7 +322,7 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-white rounded-lg p-3 border border-pink-100">
                     <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.engagement_analysis?.social_proof_signals?.[0] || processedRawData?.instagram_presence?.audience_size?.followers || 'N/A'}</p>
+                    <p className="text-lg font-bold text-slate-700">{processedRawData?.instagram_presence?.audience_size?.followers || processedRawData?.engagement_analysis?.social_proof_signals?.[0] || 'N/A'}</p>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <span className="text-xs text-slate-400 block mb-1">Publicaciones</span>
@@ -482,7 +553,7 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
           )}
 
           {/* Generic sections - only show if NOT Instagram structure */}
-          {!isInstagramStructure && (
+          {!isInstagramStructure && !isFacebookStructure && (
             <>
               {/* 1. POSICIONAMIENTO Y PERSONALIDAD */}
               <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
@@ -646,6 +717,108 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
                     {data.strategic_recommendations.map((item, i) => (
                       <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-violet-100/50 shadow-sm">
                         <span className="bg-violet-100 text-violet-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                          {i + 1}
+                        </span>
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {isFacebookStructure && (
+            <>
+              {/* 1. PROPUESTA DE VALOR */}
+              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <Compass className="h-4 w-4 text-blue-500" />
+                    Propuesta de Valor de Facebook
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold text-slate-700 leading-relaxed">
+                    "{data.market_positioning}"
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* 2. FORTALEZAS Y DEBILIDADES */}
+              <Card className="border-none shadow-sm bg-white">
+                <CardHeader className="pb-2 bg-emerald-50/50 rounded-t-lg">
+                  <CardTitle className="text-sm font-semibold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Fortalezas Identificadas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <ul className="space-y-3">
+                    {data.strengths.map((item, i) => (
+                      <li key={i} className="text-sm text-slate-600 flex gap-2">
+                        <span className="text-emerald-500 font-bold">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm bg-white">
+                <CardHeader className="pb-2 bg-rose-50/50 rounded-t-lg">
+                  <CardTitle className="text-sm font-semibold text-rose-700 uppercase tracking-wider flex items-center gap-2">
+                    <XCircle className="h-4 w-4" />
+                    Debilidades / Áreas de Mejora
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <ul className="space-y-3">
+                    {data.weaknesses.map((item, i) => (
+                      <li key={i} className="text-sm text-slate-600 flex gap-2">
+                        <span className="text-rose-500 font-bold">•</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+
+              {/* 3. CANALES Y CONVERSIÓN */}
+              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                    <Users className="h-4 w-4 text-cyan-500" />
+                    Canales de Conversión
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-xs text-slate-400 block mb-1">Fricción de Conversión</span>
+                    <Badge variant="secondary" className="mt-1 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 border-none px-2.5 py-0.5 font-medium">
+                      {processedRawData?.conversion_channels?.conversion_friction || "N/D"}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-400 block mb-1">Canal Principal de Ventas</span>
+                    <Badge variant="secondary" className="mt-1 text-sm bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border-none px-2.5 py-0.5 font-medium">
+                      {processedRawData?.conversion_channels?.main_channel || "N/D"}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 5. RECOMENDACIONES ESTRATÉGICAS */}
+              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-blue-50 via-white to-white border-l-4 border-l-blue-500">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-blue-700 uppercase tracking-wider flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4" />
+                    Recomendaciones Estratégicas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                    {data.strategic_recommendations.map((item, i) => (
+                      <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-blue-100/50 shadow-sm">
+                        <span className="bg-blue-100 text-blue-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                           {i + 1}
                         </span>
                         {item}

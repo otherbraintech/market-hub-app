@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -19,6 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ChevronLeft,
   ChevronRight,
@@ -38,10 +41,18 @@ import {
   Image as ImageIcon,
   Layers,
   ArrowLeft,
+  Loader2,
+  Edit,
+  Save,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteContentAction } from "@/actions/content";
-import { format } from "date-fns";
+import { 
+  deleteContentAction, 
+  updateCalendarContentAction, 
+  generateCampaignCalendarAction 
+} from "@/actions/content";
+import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface ContentItem {
@@ -71,7 +82,6 @@ const monthsSpanish = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-// Mapper de logos y estilos por canal
 const channelMeta: Record<string, { label: string; icon: React.ReactNode; styles: string; badge: string }> = {
   INSTAGRAM: {
     label: "Instagram",
@@ -87,8 +97,8 @@ const channelMeta: Record<string, { label: string; icon: React.ReactNode; styles
   },
   TIKTOK: {
     label: "TikTok",
-    icon: <Globe className="h-3 w-3" />, // Genérico, representará TikTok con estilo custom
-    styles: "bg-zinc-900 text-zinc-100 border-zinc-800 hover:bg-zinc-800 dark:bg-zinc-955 dark:text-zinc-100 dark:border-zinc-800",
+    icon: <Globe className="h-3 w-3" />,
+    styles: "bg-zinc-900 text-zinc-100 border-zinc-800 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-800",
     badge: "bg-zinc-900 text-zinc-100 border-zinc-800 dark:bg-zinc-100 dark:text-zinc-900",
   },
   LINKEDIN: {
@@ -105,6 +115,15 @@ const channelMeta: Record<string, { label: string; icon: React.ReactNode; styles
   },
 };
 
+const planningLoadingStates = [
+  "Analizando las metas de la campaña...",
+  "Recuperando informes de marca y de la competencia...",
+  "Gemini 2.0 está estructurando la línea de contenido...",
+  "Redactando copies y ganchos persuasivos para tu audiencia...",
+  "Estableciendo prompts para el diseño visual de cada publicación...",
+  "Distribuyendo las fechas y horas a lo largo de tu calendario editorial...",
+];
+
 export function CalendarView({
   businessId,
   businessName,
@@ -114,13 +133,12 @@ export function CalendarView({
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Si viene una campaña específica en los params, filtrarla por defecto
+  // Filtro de Campaña
   const queryCampaignId = searchParams.get("campaignId");
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>(queryCampaignId || "all");
   
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
   const [currentDate, setCurrentDate] = useState<Date>(() => {
-    // Si viene una campaña seleccionada, usar su primer publicación como fecha de enfoque si existe, o usar hoy
     if (queryCampaignId && initialContents.length > 0) {
       const campContents = initialContents.filter(c => c.campaignId === queryCampaignId);
       if (campContents.length > 0 && campContents[0].scheduledAt) {
@@ -130,8 +148,162 @@ export function CalendarView({
     return new Date();
   });
   
+  // Estados para ver y editar contenido
   const [viewingContent, setViewingContent] = useState<ContentItem | null>(null);
   const [copiedType, setCopiedType] = useState<"copy" | "prompt" | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  
+  // Estado local para formulario de edición
+  const [editForm, setEditForm] = useState({
+    title: "",
+    channel: "INSTAGRAM",
+    type: "POST",
+    format: "IMAGE",
+    scheduledAt: "",
+    caption: "",
+    body: "",
+    promptUsed: "",
+  });
+
+  // Estados para planificar con IA
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [isPlanning, setIsPlanning] = useState(false);
+  const [planningCampaignId, setPlanningCampaignId] = useState("");
+  const [planningQuantity, setPlanningQuantity] = useState(8);
+  const [loadingTextIdx, setLoadingTextIdx] = useState(0);
+
+  // Sincronizar contenidos del prop cuando cambian en el servidor
+  useEffect(() => {
+    setContents(initialContents);
+  }, [initialContents]);
+
+  // Rotador de frases para el planificador IA
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isPlanning) {
+      interval = setInterval(() => {
+        setLoadingTextIdx((prev) => (prev + 1) % planningLoadingStates.length);
+      }, 3500);
+    } else {
+      setLoadingTextIdx(0);
+    }
+    return () => clearInterval(interval);
+  }, [isPlanning]);
+
+  // Autorelleno de campaña al abrir planificación
+  useEffect(() => {
+    if (isPlanModalOpen) {
+      if (selectedCampaignId !== "all") {
+        setPlanningCampaignId(selectedCampaignId);
+      } else if (campaigns.length > 0) {
+        setPlanningCampaignId(campaigns[0].id);
+      }
+    }
+  }, [isPlanModalOpen, selectedCampaignId, campaigns]);
+
+  // Sincronizar el formulario de edición al seleccionar/ver una publicación
+  useEffect(() => {
+    if (viewingContent) {
+      setEditForm({
+        title: viewingContent.title,
+        channel: viewingContent.channel || "INSTAGRAM",
+        type: viewingContent.type,
+        format: viewingContent.format || "IMAGE",
+        scheduledAt: viewingContent.scheduledAt 
+          ? format(new Date(viewingContent.scheduledAt), "yyyy-MM-dd'T'HH:mm") 
+          : "",
+        caption: viewingContent.caption || "",
+        body: viewingContent.body || "",
+        promptUsed: viewingContent.promptUsed || "",
+      });
+      setIsEditing(false);
+    }
+  }, [viewingContent]);
+
+  // Guardar edición
+  const handleSaveEdit = async () => {
+    if (!viewingContent) return;
+    setIsSavingEdit(true);
+    try {
+      const scheduledD = editForm.scheduledAt ? new Date(editForm.scheduledAt) : null;
+      
+      const res = await updateCalendarContentAction(
+        viewingContent.id,
+        {
+          title: editForm.title,
+          channel: editForm.channel,
+          type: editForm.type,
+          format: editForm.format,
+          scheduledAt: scheduledD,
+          caption: editForm.caption,
+          body: editForm.body,
+          promptUsed: editForm.promptUsed,
+        },
+        businessId
+      );
+
+      if (res.success && res.content) {
+        toast.success("¡Publicación actualizada correctamente!");
+        
+        // Actualizar estado local al instante para evitar parpadeos
+        setContents(prev => 
+          prev.map(item => 
+            item.id === viewingContent.id 
+              ? { 
+                  ...item, 
+                  title: editForm.title,
+                  channel: editForm.channel,
+                  type: editForm.type,
+                  format: editForm.format,
+                  scheduledAt: scheduledD ? scheduledD.toISOString() : null,
+                  caption: editForm.caption,
+                  body: editForm.body,
+                  promptUsed: editForm.promptUsed
+                } 
+              : item
+          )
+        );
+
+        setViewingContent(null);
+        setIsEditing(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo actualizar el contenido.");
+      }
+    } catch (e) {
+      toast.error("Error al procesar la edición.");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Generar calendario con IA
+  const handlePlanCalendarWithIA = async () => {
+    if (!planningCampaignId) {
+      toast.error("Por favor, selecciona una campaña.");
+      return;
+    }
+    setIsPlanning(true);
+    try {
+      const res = await generateCampaignCalendarAction(planningCampaignId, {
+        quantity: Number(planningQuantity),
+        businessId
+      });
+
+      if (res.success) {
+        toast.success(res.message);
+        setIsPlanModalOpen(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo planificar el calendario.");
+      }
+    } catch (err) {
+      toast.error("Error de red al planificar con IA.");
+    } finally {
+      setIsPlanning(false);
+    }
+  };
 
   // Navegación de mes
   const handlePrevMonth = () => {
@@ -146,17 +318,15 @@ export function CalendarView({
     setCurrentDate(new Date());
   };
 
-  // Copiar al portapapeles
   const handleCopyToClipboard = (text: string, type: "copy" | "prompt") => {
     navigator.clipboard.writeText(text);
     setCopiedType(type);
-    toast.success(type === "copy" ? "¡Copy copiado al portapapeles!" : "¡Prompt de imagen copiado!");
+    toast.success(type === "copy" ? "¡Copy copiado!" : "¡Prompt copiado!");
     setTimeout(() => setCopiedType(null), 2000);
   };
 
-  // Eliminar contenido
   const handleDeleteContent = async (id: string) => {
-    const confirmDelete = window.confirm("¿Estás seguro de que deseas eliminar esta publicación del calendario?");
+    const confirmDelete = window.confirm("¿Estás seguro de que deseas eliminar esta publicación?");
     if (!confirmDelete) return;
 
     try {
@@ -169,42 +339,34 @@ export function CalendarView({
         toast.error(res.error || "No se pudo eliminar el contenido.");
       }
     } catch (err) {
-      toast.error("Error al conectar con la base de datos.");
-      console.error(err);
+      toast.error("Error de base de datos.");
     }
   };
 
-  // Calendario Dinámico
+  // Generar Celdas de Calendario
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
   const firstDayOfMonth = new Date(year, month, 1);
-  // Ajuste: Lunes es 0, Domingo es 6
   let startDayOfWeek = firstDayOfMonth.getDay();
-  startDayOfWeek = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
+  startDayOfWeek = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1; // Ajustar a Lunes inicio
 
   const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
   const prevMonthDays = new Date(year, month, 0).getDate();
 
   const gridCells = [];
-
-  // Padding mes anterior
   for (let i = startDayOfWeek - 1; i >= 0; i--) {
     gridCells.push({
       date: new Date(year, month - 1, prevMonthDays - i),
       isCurrentMonth: false,
     });
   }
-
-  // Mes actual
   for (let i = 1; i <= totalDaysInMonth; i++) {
     gridCells.push({
       date: new Date(year, month, i),
       isCurrentMonth: true,
     });
   }
-
-  // Padding mes siguiente (múltiplo de 7, total 35 o 42 celdas)
   const totalGridSize = gridCells.length > 35 ? 42 : 35;
   const nextPaddingCount = totalGridSize - gridCells.length;
   for (let i = 1; i <= nextPaddingCount; i++) {
@@ -220,13 +382,13 @@ export function CalendarView({
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Calendario Editorial: {businessName}</h1>
-          <p className="text-muted-foreground text-sm">Vista de planificación y distribución de contenido inteligente.</p>
+          <p className="text-muted-foreground text-sm">Organiza tu contenido en {businessName} y programa con asistencia inteligente.</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
           {/* Filtro por Campaña */}
           <div className="flex items-center gap-2 bg-card border px-3 py-1.5 rounded-xl shadow-sm h-9">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Campaña:</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Filtrar:</span>
             <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
               <SelectTrigger className="w-[180px] h-6 border-0 p-0 text-xs focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Todas las campañas" />
@@ -257,46 +419,42 @@ export function CalendarView({
               Hoy
             </Button>
           </div>
+
+          {/* Planificar con IA */}
+          <Button 
+            onClick={() => setIsPlanModalOpen(true)}
+            className="gradient-primary relative overflow-hidden transition-all duration-300 hover:scale-[1.02] shadow-sm border-0 group px-4 py-2 font-semibold h-9 text-xs"
+          >
+            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-300 animate-pulse shrink-0" />
+            Planificar con IA
+          </Button>
         </div>
       </div>
 
-      {/* REVOLUCIONARIO CONTENEDOR DEL CALENDARIO */}
+      {/* CONTENEDOR DEL CALENDARIO */}
       <div className="flex-1 min-h-[500px] overflow-hidden flex flex-col bg-card border rounded-2xl shadow-md card-shadow">
-        {/* Cabecera días de la semana */}
+        {/* Días de la semana */}
         <div className="grid grid-cols-7 border-b bg-muted/20 select-none shrink-0">
           {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
-            <div
-              key={day}
-              className="py-3 text-center text-xs font-black uppercase tracking-widest text-muted-foreground/80 border-r last:border-r-0"
-            >
+            <div key={day} className="py-3 text-center text-xs font-black uppercase tracking-widest text-muted-foreground/85 border-r last:border-r-0">
               {day}
             </div>
           ))}
         </div>
 
-        {/* Celdas del Calendario */}
+        {/* Celdas */}
         <div className="flex-1 grid grid-cols-7 grid-rows-5 overflow-y-auto">
           {gridCells.map((cell, index) => {
             const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-            
-            // Filtrar publicaciones para este día de la celda
             const dayContents = contents.filter((item) => {
               if (!item.scheduledAt) return false;
               const scheduledDate = new Date(item.scheduledAt);
-              
-              // Verificar si cae en el mismo día, mes y año
               const matchesDate =
                 scheduledDate.getFullYear() === cell.date.getFullYear() &&
                 scheduledDate.getMonth() === cell.date.getMonth() &&
                 scheduledDate.getDate() === cell.date.getDate();
-                
               if (!matchesDate) return false;
-
-              // Filtrar por campaña si está seleccionado
-              if (selectedCampaignId !== "all" && item.campaignId !== selectedCampaignId) {
-                return false;
-              }
-
+              if (selectedCampaignId !== "all" && item.campaignId !== selectedCampaignId) return false;
               return true;
             });
 
@@ -307,15 +465,8 @@ export function CalendarView({
                   cell.isCurrentMonth ? "bg-background" : "bg-muted/5 opacity-40"
                 }`}
               >
-                {/* Indicador de Número de Día */}
                 <div className="flex justify-between items-center select-none">
-                  <span
-                    className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                      isToday
-                        ? "bg-violet-600 text-white shadow-sm"
-                        : "text-muted-foreground"
-                    }`}
-                  >
+                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isToday ? "bg-blue-600 text-white shadow-sm" : "text-muted-foreground"}`}>
                     {cell.date.getDate()}
                   </span>
                   {dayContents.length > 0 && (
@@ -325,7 +476,6 @@ export function CalendarView({
                   )}
                 </div>
 
-                {/* Listado de publicaciones programadas */}
                 <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                   {dayContents.map((post) => {
                     const ch = (post.channel || "INSTAGRAM").toUpperCase();
@@ -354,157 +504,434 @@ export function CalendarView({
         </div>
       </div>
 
-      {/* DIÁLOGO DETALLES DE PUBLICACIÓN IA */}
+      {/* DIÁLOGO DETALLES Y EDICIÓN DE PUBLICACIÓN */}
       <Dialog open={!!viewingContent} onOpenChange={(open) => !open && setViewingContent(null)}>
         {viewingContent && (
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto border border-muted/20 rounded-2xl shadow-2xl p-0 bg-background flex flex-col">
-            {/* Header del Dialog */}
+            {/* Cabecera modal */}
             <div className="p-6 border-b border-muted/20 bg-muted/5 space-y-3 shrink-0">
+              <DialogTitle className="sr-only">Detalles y Configuración de Publicación</DialogTitle>
+              <DialogDescription className="sr-only">Formulario para previsualizar y editar el contenido programado</DialogDescription>
+              
               <div className="flex flex-wrap items-center gap-2">
                 <Badge
                   variant="outline"
                   className={`text-[9px] font-bold border ${
-                    channelMeta[viewingContent.channel || "INSTAGRAM"]?.badge || "bg-pink-100 text-pink-700 border-pink-250"
+                    channelMeta[editForm.channel]?.badge || "bg-pink-100 text-pink-700 border-pink-250"
                   }`}
                 >
                   <span className="mr-1">
-                    {channelMeta[viewingContent.channel || "INSTAGRAM"]?.icon}
+                    {channelMeta[editForm.channel]?.icon}
                   </span>
-                  {viewingContent.channel}
+                  {editForm.channel}
                 </Badge>
                 
                 <Badge variant="outline" className="text-[9px] font-bold border-muted-foreground/20 text-muted-foreground bg-muted/10">
-                  {viewingContent.format === "VIDEO" ? (
+                  {editForm.format === "VIDEO" ? (
                     <Video className="h-3 w-3 mr-1" />
                   ) : (
                     <ImageIcon className="h-3 w-3 mr-1" />
                   )}
-                  {viewingContent.type}
+                  {editForm.type}
                 </Badge>
 
-                {viewingContent.scheduledAt && (
-                  <Badge variant="outline" className="text-[9px] font-bold border-violet-200 text-violet-700 bg-violet-50/50 dark:border-violet-850 dark:text-violet-400">
+                {editForm.scheduledAt && (
+                  <Badge variant="outline" className="text-[9px] font-bold border-blue-200 text-blue-700 bg-blue-50/50 dark:border-blue-900 dark:text-blue-400">
                     <Clock className="h-3 w-3 mr-1" />
-                    Programado: {format(new Date(viewingContent.scheduledAt), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
+                    Programado: {format(new Date(editForm.scheduledAt), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
                   </Badge>
                 )}
               </div>
-              <DialogTitle className="text-lg font-black tracking-tight text-foreground leading-snug">
-                {viewingContent.title}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground leading-none">
-                Campaña: {viewingContent.campaign?.name || "Sin campaña vinculada"}
-              </DialogDescription>
+
+              {!isEditing ? (
+                <>
+                  <h3 className="text-xl font-black tracking-tight text-foreground leading-snug">
+                    {editForm.title}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-none">
+                    Campaña: {viewingContent.campaign?.name || "Sin campaña vinculada"}
+                  </p>
+                </>
+              ) : (
+                <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1.5 pt-1">
+                  <Edit className="h-3.5 w-3.5" /> MODO EDICIÓN ACTIVO
+                </div>
+              )}
             </div>
 
             {/* Cuerpo del Dialog */}
-            <div className="p-6 space-y-6">
-              {/* PUBLICACIÓN COPY (CAPTION) */}
-              {viewingContent.caption && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
-                      Texto de la Publicación (Copy / Caption)
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleCopyToClipboard(viewingContent.caption || "", "copy")}
-                      className="h-7 text-[10px] font-semibold gap-1 text-violet-650 hover:bg-violet-50"
-                    >
-                      {copiedType === "copy" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
-                      {copiedType === "copy" ? "Copiado" : "Copiar Copy"}
-                    </Button>
-                  </div>
-                  <div className="relative bg-muted/5 border border-muted/20 p-4 rounded-xl text-xs leading-relaxed text-justify text-foreground/90 whitespace-pre-line font-medium">
-                    {viewingContent.caption}
-                  </div>
-                </div>
-              )}
-
-              {/* FORMAT SPECIFIC CONTENT */}
-              {viewingContent.format === "VIDEO" ? (
-                /* VIDEO SCRIPT */
-                <div className="space-y-3">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block border-b border-muted/25 pb-1">
-                    Guion de Video / Storyboard detallado (Reel / TikTok)
-                  </span>
-                  
-                  <div className="bg-muted/5 border border-muted/20 rounded-xl p-4 space-y-4">
-                    {/* Render guion con estructura estilizada */}
-                    {viewingContent.body ? (
-                      <div className="text-xs space-y-3 font-medium leading-relaxed whitespace-pre-line text-justify text-foreground/90">
-                        {viewingContent.body}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground italic">No hay guion cargado.</span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* IMAGE DETAIL */
-                <div className="space-y-4">
-                  {/* Idea Visual */}
-                  {viewingContent.body && (
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block border-b border-muted/25 pb-1">
-                        Concepto Visual del Diseño / Imagen
-                      </span>
-                      <p className="text-xs text-muted-foreground/90 leading-relaxed text-justify bg-muted/5 p-4 rounded-xl border border-muted/20 font-medium">
-                        {viewingContent.body}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* AI Prompt de Imagen */}
-                  {viewingContent.promptUsed && (
-                    <div className="space-y-2 bg-violet-50/10 dark:bg-violet-950/10 p-4 rounded-xl border border-violet-100 dark:border-violet-900">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+              {!isEditing ? (
+                // MODO LECTURA ESTÁTICA
+                <div className="space-y-6">
+                  {/* COPY */}
+                  {editForm.caption && (
+                    <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-black text-violet-750 dark:text-violet-300 uppercase tracking-widest flex items-center gap-1">
-                          <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
-                          AI Image Generation Prompt (Midjourney / DALL-E)
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                          Texto de la Publicación (Copy / Caption)
                         </span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleCopyToClipboard(viewingContent.promptUsed || "", "prompt")}
-                          className="h-7 text-[10px] font-semibold gap-1 text-violet-650 hover:bg-violet-100/50"
+                          onClick={() => handleCopyToClipboard(editForm.caption || "", "copy")}
+                          className="h-7 text-[10px] font-semibold gap-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
                         >
-                          {copiedType === "prompt" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
-                          {copiedType === "prompt" ? "Copiado" : "Copiar Prompt"}
+                          {copiedType === "copy" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                          {copiedType === "copy" ? "Copiado" : "Copiar Copy"}
                         </Button>
                       </div>
-                      <div className="bg-background border border-violet-200/50 dark:border-violet-850 p-3 rounded-lg text-xs leading-relaxed text-foreground/80 italic font-mono select-all">
-                        {viewingContent.promptUsed}
+                      <div className="relative bg-muted/5 border border-muted/20 p-4 rounded-xl text-xs leading-relaxed text-justify text-foreground/90 whitespace-pre-line font-medium">
+                        {editForm.caption}
                       </div>
                     </div>
                   )}
+
+                  {/* GUION / storyboard */}
+                  {editForm.body && (
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block border-b border-muted/25 pb-1">
+                        {editForm.format === "VIDEO" ? "Guion de Video / Storyboard" : "Concepto Visual del Diseño"}
+                      </span>
+                      <div className="bg-muted/5 border border-muted/20 rounded-xl p-4 text-xs leading-relaxed text-justify text-foreground/90 whitespace-pre-line font-medium">
+                        {editForm.body}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PROMPT */}
+                  {(() => {
+                    const hasValidPrompt = (() => {
+                      if (!editForm.promptUsed) return false;
+                      const clean = editForm.promptUsed.trim().toLowerCase();
+                      if (
+                        clean === "" || 
+                        clean === "n/a" || 
+                        clean === "n/a." || 
+                        clean === "n.a." || 
+                        clean === "none" || 
+                        clean === "none." || 
+                        clean === "no aplica" || 
+                        clean === "no aplica." || 
+                        clean === "no disponible" || 
+                        clean === "no disponible." || 
+                        clean === "n / a" ||
+                        clean.startsWith("n/a") ||
+                        clean.startsWith("no aplica")
+                      ) {
+                        return false;
+                      }
+                      return true;
+                    })();
+                    
+                    return hasValidPrompt ? (
+                      <div className="space-y-2 bg-blue-500/5 dark:bg-blue-950/10 p-4 rounded-xl border border-blue-500/10">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
+                            AI Image Generation Prompt (Midjourney / DALL-E)
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyToClipboard(editForm.promptUsed || "", "prompt")}
+                            className="h-7 text-[10px] font-semibold gap-1 text-blue-655 hover:bg-blue-100/50"
+                          >
+                            {copiedType === "prompt" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                            {copiedType === "prompt" ? "Copiado" : "Copiar Prompt"}
+                          </Button>
+                        </div>
+                        <div className="bg-background border p-3 rounded-lg text-xs leading-relaxed text-foreground/80 italic font-mono select-all mt-1">
+                          {editForm.promptUsed}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+              ) : (
+                // MODO EDICIÓN DINÁMICA
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Título de la publicación</label>
+                    <Input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm(p => ({ ...p, title: e.target.value }))}
+                      className="text-xs h-9 focus-visible:ring-blue-600"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Red Social</label>
+                      <Select 
+                        value={editForm.channel} 
+                        onValueChange={(val) => setEditForm(p => ({ ...p, channel: val }))}
+                      >
+                        <SelectTrigger className="text-xs h-9 bg-background">
+                          <SelectValue placeholder="Canal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.keys(channelMeta).map((ch) => (
+                            <SelectItem key={ch} value={ch} className="text-xs">
+                              {ch}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Tipo</label>
+                      <Select 
+                        value={editForm.type} 
+                        onValueChange={(val) => setEditForm(p => ({ ...p, type: val }))}
+                      >
+                        <SelectTrigger className="text-xs h-9 bg-background">
+                          <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["POST", "STORY", "REEL", "VIDEO", "CAROUSEL"].map((t) => (
+                            <SelectItem key={t} value={t} className="text-xs">
+                              {t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Formato</label>
+                      <Select 
+                        value={editForm.format} 
+                        onValueChange={(val) => setEditForm(p => ({ ...p, format: val }))}
+                      >
+                        <SelectTrigger className="text-xs h-9 bg-background">
+                          <SelectValue placeholder="Formato" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["IMAGE", "VIDEO", "TEXT", "LINK"].map((f) => (
+                            <SelectItem key={f} value={f} className="text-xs">
+                              {f}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Programación</label>
+                      <Input
+                        type="datetime-local"
+                        value={editForm.scheduledAt}
+                        onChange={(e) => setEditForm(p => ({ ...p, scheduledAt: e.target.value }))}
+                        className="text-xs h-9 focus-visible:ring-blue-600 px-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Texto de la Publicación (Copy / Caption)</label>
+                    <Textarea
+                      value={editForm.caption}
+                      onChange={(e) => setEditForm(p => ({ ...p, caption: e.target.value }))}
+                      className="text-xs min-h-[100px] leading-relaxed focus-visible:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Guion / Storyboard / Concepto Visual</label>
+                    <Textarea
+                      value={editForm.body}
+                      onChange={(e) => setEditForm(p => ({ ...p, body: e.target.value }))}
+                      className="text-xs min-h-[100px] leading-relaxed focus-visible:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">AI Prompt para Imágenes (Midjourney / DALL-E)</label>
+                    <Textarea
+                      value={editForm.promptUsed}
+                      onChange={(e) => setEditForm(p => ({ ...p, promptUsed: e.target.value }))}
+                      className="text-xs min-h-[70px] leading-relaxed focus-visible:ring-blue-600 font-mono"
+                    />
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Acciones en el footer */}
             <div className="p-4 border-t border-muted/20 bg-muted/5 flex justify-between items-center shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleDeleteContent(viewingContent.id)}
-                className="text-xs text-red-600 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold gap-1.5"
-              >
-                <Trash2 className="h-4 w-4" /> Eliminar Publicación
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setViewingContent(null)}
-                className="text-xs font-semibold"
-              >
-                Cerrar Detalles
-              </Button>
+              {!isEditing ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteContent(viewingContent.id)}
+                    className="text-xs text-red-650 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold gap-1.5"
+                  >
+                    <Trash2 className="h-4 w-4" /> Eliminar Publicación
+                  </Button>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditing(true)}
+                      className="text-xs font-semibold gap-1.5 border-blue-200 text-blue-600 hover:bg-blue-50/50"
+                    >
+                      <Edit className="h-4 w-4" /> Editar Publicación
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => setViewingContent(null)}
+                      className="text-xs font-semibold"
+                    >
+                      Cerrar Detalles
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsEditing(false)}
+                    className="text-xs text-muted-foreground hover:text-foreground font-semibold"
+                  >
+                    Cancelar
+                  </Button>
+
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={isSavingEdit || !editForm.title}
+                    onClick={handleSaveEdit}
+                    className="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shadow-sm"
+                  >
+                    {isSavingEdit ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Guardar Cambios
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </DialogContent>
         )}
+      </Dialog>
+
+      {/* DIÁLOGO GENERACIÓN CALENDARIO CON IA */}
+      <Dialog open={isPlanModalOpen} onOpenChange={(open) => !open && setIsPlanModalOpen(false)}>
+        <DialogContent className="max-w-md border border-muted/20 rounded-2xl shadow-2xl p-0 bg-background flex flex-col">
+          {isPlanning ? (
+            // PANTALLA DE CARGA PLANIFICADOR IA
+            <div className="flex flex-col items-center justify-center p-12 min-h-[350px] text-center space-y-6">
+              <DialogTitle className="sr-only">Planificando Calendario con IA</DialogTitle>
+              <DialogDescription className="sr-only">Proceso automatizado de diseño editorial</DialogDescription>
+              <div className="relative flex items-center justify-center">
+                <div className="absolute h-14 w-14 rounded-full border-4 border-blue-600/20 animate-ping" />
+                <div className="relative h-12 w-12 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg animate-spin">
+                  <Loader2 className="h-5 w-5 text-white animate-spin duration-1000" />
+                </div>
+              </div>
+              <div className="space-y-2 max-w-sm">
+                <h3 className="text-base font-bold text-foreground flex items-center justify-center gap-1.5">
+                  <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
+                  Estructurando Calendario Editorial
+                </h3>
+                <p className="text-xs text-muted-foreground/90 font-medium h-8 animate-fade-in transition-all">
+                  {planningLoadingStates[loadingTextIdx]}
+                </p>
+                <div className="w-full bg-muted/60 h-1 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 h-full transition-all duration-500" 
+                    style={{ width: `${((loadingTextIdx + 1) / planningLoadingStates.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            // FORMULARIO PLANIFICADOR IA
+            <>
+              <div className="p-6 border-b border-muted/20 bg-muted/5 space-y-1">
+                <DialogTitle className="text-lg font-bold flex items-center gap-1.5">
+                  <Sparkles className="h-5 w-5 text-blue-600 animate-pulse" />
+                  Planificación Editorial con IA
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Genera una secuencia estratégica de publicaciones asociadas a tu campaña.
+                </DialogDescription>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Campaña de Referencia</label>
+                  <Select value={planningCampaignId} onValueChange={setPlanningCampaignId}>
+                    <SelectTrigger className="text-xs h-9 bg-background">
+                      <SelectValue placeholder="Selecciona una campaña" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {campaigns.map((camp) => (
+                        <SelectItem key={camp.id} value={camp.id} className="text-xs">
+                          {camp.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Número de Publicaciones a generar</label>
+                  <Select 
+                    value={planningQuantity.toString()} 
+                    onValueChange={(val) => setPlanningQuantity(Number(val))}
+                  >
+                    <SelectTrigger className="text-xs h-9 bg-background">
+                      <SelectValue placeholder="Selecciona cantidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[5, 8, 12, 15, 20].map((num) => (
+                        <SelectItem key={num} value={num.toString()} className="text-xs">
+                          {num} publicaciones distribuidas
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-[10px] text-muted-foreground/80 mt-1 block">
+                    Se distribuirán uniformemente a lo largo de las fechas definidas de la campaña.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-muted/20 bg-muted/5 flex justify-end gap-2.5">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setIsPlanModalOpen(false)}
+                  className="text-xs font-semibold"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handlePlanCalendarWithIA}
+                  disabled={!planningCampaignId}
+                  className="gradient-primary text-xs font-semibold h-9 shadow-sm"
+                >
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-300 shrink-0" />
+                  Generar Calendario IA
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
       </Dialog>
     </>
   );

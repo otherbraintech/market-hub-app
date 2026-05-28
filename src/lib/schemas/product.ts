@@ -25,6 +25,7 @@ export const productSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   description: z.string().min(10, "La descripción debe tener al menos 10 caracteres"),
   shortDesc: z.string().optional(),
+  imageUrl: z.string().url("Debe ser una URL válida").or(z.literal("")).optional(),
   features: z.array(productFeatureSchema).default([]),
   benefits: z.array(productBenefitSchema).default([]),
   pricing: productPricingSchema.optional(),

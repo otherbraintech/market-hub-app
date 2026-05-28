@@ -42,7 +42,7 @@ export async function login(prevState: any, formData: FormData) {
   // Save in cookie
   (await cookies()).set("session", session, { expires, httpOnly: true });
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function signup(prevState: any, formData: FormData) {
@@ -78,7 +78,7 @@ export async function signup(prevState: any, formData: FormData) {
 
   (await cookies()).set("session", session, { expires, httpOnly: true });
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function logout() {

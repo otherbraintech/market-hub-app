@@ -21,7 +21,7 @@ const publicationSchema = z.object({
   scheduledAt: z.string().describe("Fecha y hora optimizada en formato ISO 8601 (YYYY-MM-DDTHH:mm:ssZ) dentro del rango de la campaña"),
   caption: z.string().describe("Copy/Texto persuasivo final para la red social, con ganchos, cuerpo, CTA y hashtags integrados"),
   body: z.string().describe("Si el formato es VIDEO, el guion detallado (Gancho, Contenido, CTA, Indicaciones Visuales). Si es IMAGE, la descripción detallada del concepto visual a diseñar"),
-  promptUsed: z.string().describe("Si el formato es IMAGE, un prompt en inglés super descriptivo y estilizado para generar la imagen con Midjourney o DALL-E. Si es VIDEO, dejar vacío o proponer prompt de miniatura"),
+  promptUsed: z.string().describe("Prompt en INGLÉS altamente detallado y optimizado para generadores de imágenes por IA (Midjourney, DALL-E, etc.) para la imagen de diseño o la miniatura/portada del video. ¡Nunca debe ser vacío, 'N/A' ni 'None'!"),
   hashtags: z.array(z.string()).describe("Lista de hashtags sugeridos")
 });
 
@@ -140,11 +140,11 @@ REQUERIMIENTOS DETALLADOS POR FORMATO:
     2. DESARROLLO (Body): El valor o contenido principal de la publicación.
     3. CTA (Llamada a la Acción): Qué debe hacer el usuario (comentar, compartir, ir al enlace).
     4. INDICACIONES VISUALES: Indicaciones breves de qué grabar o mostrar en pantalla en cada fase.
-  - La propiedad "promptUsed" se puede dejar vacía.
+  - En la propiedad "promptUsed" proporciona un prompt en INGLÉS detallado y sumamente visual para generar la portada o miniatura de este video (ej. "A dramatic cinematic thumbnail representing [video concept], highly descriptive, photorealistic, 8k"). ¡Nunca lo dejes vacío ni uses "N/A"!
 
 - Si el formato es IMAGE (por ejemplo, POST, STORY, CAROUSEL):
   - En la propiedad "body" describe detalladamente la composición de la imagen: qué elementos visuales debe tener, la paleta de colores sugerida, el enfoque artístico y el estilo de diseño de marca.
-  - En la propiedad "promptUsed" crea un prompt profesional, técnico y detallado escrito en INGLÉS optimizado para generadores de imágenes por IA (Midjourney, DALL-E, etc.). Ejemplo: "A premium close-up photo of artisan gourmet chocolate cupcakes on a rustic wooden table, soft warm lighting, cinematic depth of field, 8k resolution, photorealistic --ar 4:5".
+  - En la propiedad "promptUsed" crea un prompt profesional, técnico y detallado escrito en INGLÉS optimizado para generadores de imágenes por IA (Midjourney, DALL-E, etc.). Ejemplo: "A premium close-up photo of artisan gourmet chocolate cupcakes on a rustic wooden table, soft warm lighting, cinematic depth of field, 8k resolution, photorealistic --ar 4:5". ¡Nunca uses "N/A" ni lo dejes vacío!
 
 GENERA EXACTAMENTE 8 PUBLICACIONES DISTRIBUIDAS DE MANERA ESTRATÉGICA EN EL TIEMPO.
 `;

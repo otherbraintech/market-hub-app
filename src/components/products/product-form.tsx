@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productSchema, ProductFormValues } from "@/lib/schemas/product";
-import { createProductAction, updateProductAction } from "@/actions/product";
+import { createProductAction, updateProductAction, suggestProductDetailsAction } from "@/actions/product";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash, GripVertical } from "lucide-react";
+import { Plus, Trash, GripVertical, Sparkles, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -32,6 +32,7 @@ interface ProductFormProps {
 
 export function ProductForm({ businessId, defaultValues, onSuccess }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const isEditing = !!defaultValues?.id;
 
   const form = useForm<ProductFormValues>({
@@ -40,6 +41,7 @@ export function ProductForm({ businessId, defaultValues, onSuccess }: ProductFor
       name: "",
       description: "",
       shortDesc: "",
+      imageUrl: "",
       features: [],
       benefits: [],
       pricing: {
@@ -51,6 +53,40 @@ export function ProductForm({ businessId, defaultValues, onSuccess }: ProductFor
       isActive: true,
     },
   });
+
+  const handleAISuggest = async () => {
+    const name = form.getValues("name");
+    const description = form.getValues("description");
+    if (!name || name.trim().length < 2) {
+      toast.error("Por favor ingresa un nombre válido para el producto (mínimo 2 caracteres).");
+      return;
+    }
+    if (!description || description.trim().length < 10) {
+      toast.error("Por favor ingresa una descripción detallada (mínimo 10 caracteres) para que la IA tenga suficiente contexto.");
+      return;
+    }
+
+    setIsSuggesting(true);
+    try {
+      const res = await suggestProductDetailsAction(name, description, businessId);
+      if (res.success && res.details) {
+        form.setValue("shortDesc", res.details.shortDesc);
+        form.setValue("keywords", res.details.keywords);
+        
+        // Limpiar arrays existentes y llenarlos con los nuevos
+        form.setValue("features", res.details.features.map(f => ({ name: f.name, description: f.description })));
+        form.setValue("benefits", res.details.benefits.map(b => ({ title: b.title, description: b.description })));
+        
+        toast.success("¡Detalles, características y beneficios sugeridos con IA con éxito!");
+      } else {
+        toast.error(res.error || "No se pudieron sugerir los detalles.");
+      }
+    } catch (e) {
+      toast.error("Ocurrió un error al conectar con el asistente de IA.");
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   const { fields: featureFields, append: appendFeature, remove: removeFeature } = useFieldArray({
     control: form.control,
@@ -134,8 +170,8 @@ export function ProductForm({ businessId, defaultValues, onSuccess }: ProductFor
                     <FormLabel>Descripción Detallada</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Explica en detalle qué es el producto..." 
-                        className="min-h-[100px]"
+                        placeholder="Explica en detalle qué es el producto o servicio..." 
+                        className="min-h-[100px] text-xs leading-relaxed"
                         {...field} 
                       />
                     </FormControl>
@@ -143,6 +179,62 @@ export function ProductForm({ businessId, defaultValues, onSuccess }: ProductFor
                   </FormItem>
                 )}
               />
+
+              <div className="flex justify-end pt-0.5 pb-1">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAISuggest}
+                  disabled={isSuggesting}
+                  className="bg-blue-500/5 hover:bg-blue-500/10 text-blue-650 border-blue-500/20 text-xs gap-1.5 font-bold transition-all duration-350 hover:scale-[1.01]"
+                >
+                  {isSuggesting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Analizando y Generando detalles...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
+                      Autocompletar Detalles con IA
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="imageUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL de la Imagen del Producto</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej. https://tuservidor.com/imagen.jpg" className="text-xs" {...field} />
+                    </FormControl>
+                    <FormDescription className="text-[10px]">
+                      URL de la imagen del producto. Servirá para ilustrar los creativos visuales.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("imageUrl") && form.watch("imageUrl")?.trim() !== "" && (
+                <div className="mt-2 space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Previsualización de Imagen</span>
+                  <div className="h-24 w-40 rounded-xl overflow-hidden border border-muted bg-muted/20 shadow-sm flex items-center justify-center">
+                    <img 
+                      src={form.watch("imageUrl")} 
+                      alt="Vista previa de producto" 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
 
               <FormField
                 control={form.control}

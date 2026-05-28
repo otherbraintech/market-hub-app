@@ -63,6 +63,7 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
       name: product.name,
       description: product.description,
       shortDesc: product.shortDesc || undefined,
+      imageUrl: product.images && (product.images as string[]).length > 0 ? (product.images as string[])[0] : "",
       features: product.features.map(f => ({
         id: f.id,
         name: f.name,
@@ -81,7 +82,7 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
         discountPrice: product.pricing.discountPrice,
         period: product.pricing.period
       } : undefined,
-      keywords: product.keywords ? product.keywords.join(", ") : "",
+      keywords: product.keywords ? (product.keywords as string[]).join(", ") : "",
       isActive: product.isActive
     };
   };
@@ -113,75 +114,95 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => (
-            <Card key={product.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Package className="h-5 w-5 text-blue-600" />
+          {products.map((product) => {
+            const hasImage = product.images && (product.images as string[]).length > 0;
+            const imageUrl = hasImage ? (product.images as string[])[0] : null;
+
+            return (
+              <Card key={product.id} className="overflow-hidden hover:shadow-md transition-all duration-350 group flex flex-col justify-between">
+                <div>
+                  <div className="h-32 bg-muted relative overflow-hidden flex items-center justify-center border-b">
+                    {imageUrl ? (
+                      <img 
+                        src={imageUrl} 
+                        alt={product.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                      />
+                    ) : (
+                      <div className="p-3 rounded-full bg-background/60 shadow-sm">
+                        <Package className="h-6 w-6 text-muted-foreground/45 group-hover:scale-110 transition-transform duration-500" />
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      {product.isActive ? (
+                        <Badge className="text-[9px] h-5 bg-green-500/10 text-green-700 hover:bg-green-500/20 border-green-500/20 font-bold">
+                          Activo
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[9px] h-5 text-muted-foreground bg-background font-bold">Inactivo</Badge>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-base font-bold line-clamp-1" title={product.name}>
+
+                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2 p-4">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base font-bold truncate" title={product.name}>
                         {product.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                        {product.isActive ? (
-                             <Badge variant="secondary" className="text-[10px] h-5 px-1 bg-green-500/10 text-green-700 hover:bg-green-500/20">
-                                Activo
-                             </Badge>
-                        ) : (
-                             <Badge variant="outline" className="text-[10px] h-5 px-1 text-muted-foreground">Inactivo</Badge>
-                        )}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
                         {product.pricing && (
-                            <span className="text-xs font-medium text-muted-foreground">
-                                {product.pricing.basePrice} {product.pricing.currency}
-                            </span>
+                          <span className="text-xs font-semibold text-blue-600">
+                            {product.pricing.basePrice} {product.pricing.currency} {product.pricing.period && product.pricing.period !== 'one-time' ? `/ ${product.pricing.period}` : ''}
+                          </span>
                         )}
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => {
+                          setEditingProduct(product);
+                          setIsDialogOpen(true);
+                        }}>
+                          <Edit className="mr-2 h-4 w-4" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleDelete(product.id)}
+                        >
+                          <Trash className="mr-2 h-4 w-4" /> Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0">
+                    <p className="text-xs text-muted-foreground line-clamp-3 min-h-[50px] leading-relaxed">
+                      {product.shortDesc || product.description}
+                    </p>
+                  </CardContent>
+                </div>
+                <CardFooter className="p-4 pt-0 flex items-center justify-between border-t border-muted/10 mt-2 bg-muted/5">
+                  <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground/90 font-medium">
+                    <div className="flex items-center gap-1" title="Características">
+                      <Check className="h-3.5 w-3.5 text-blue-600" />
+                      {product.features.length} Features
+                    </div>
+                    <div className="flex items-center gap-1" title="Beneficios">
+                      <Check className="h-3.5 w-3.5 text-blue-600" />
+                      {product.benefits.length} Beneficios
                     </div>
                   </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => {
-                      setEditingProduct(product);
-                      setIsDialogOpen(true);
-                    }}>
-                      <Edit className="mr-2 h-4 w-4" /> Editar
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem 
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => handleDelete(product.id)}
-                    >
-                      <Trash className="mr-2 h-4 w-4" /> Eliminar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-3 min-h-[60px]">
-                  {product.shortDesc || product.description}
-                </p>
-                <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1" title="Características">
-                        <Check className="h-3 w-3" />
-                        {product.features.length} Features
-                    </div>
-                     <div className="flex items-center gap-1" title="Beneficios">
-                        <Check className="h-3 w-3" />
-                         {product.benefits.length} Beneficios
-                    </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
 

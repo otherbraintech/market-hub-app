@@ -69,7 +69,6 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
       items: [
         ...(selectedId ? [{ title: "Configurar Perfil", url: `/business/${selectedId}` }] : []),
         { title: "Productos", url: "/products" },
-        { title: "Estrategias", url: "/strategies" },
       ],
     },
     {
@@ -89,6 +88,7 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
       icon: Share2,
       isActive: true,
       items: [
+        { title: "Estrategias", url: "/strategies" },
         { title: "Campañas", url: "/campaigns" },
         { title: "Calendario", url: "/calendar" },
         { title: "Media", url: "/media" },

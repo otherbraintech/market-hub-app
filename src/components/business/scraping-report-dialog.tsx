@@ -18,6 +18,23 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+// TikTok Icon SVG
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+    </svg>
+  );
+}
+
 interface ReportData {
   strengths: string[];
   weaknesses: string[];
@@ -121,14 +138,14 @@ function normalizeReportData(data: any): ReportData {
   }
 
   // Verificar si es la estructura nueva
-  const isNewestStructure = !!data.brand_identity || !!data.business_insights || !!data.website_analysis;
+  const isNewestStructure = !!processedData.brand_identity || !!processedData.business_insights || !!processedData.website_analysis;
   
   if (isNewestStructure) {
-    const bIdentity = data.brand_identity || {};
-    const wAnalysis = data.website_analysis || {};
-    const mSignals = data.marketing_signals || {};
-    const bInsights = data.business_insights || {};
-    const dQuality = data.data_quality || {};
+    const bIdentity = processedData.brand_identity || {};
+    const wAnalysis = processedData.website_analysis || {};
+    const mSignals = processedData.marketing_signals || {};
+    const bInsights = processedData.business_insights || {};
+    const dQuality = processedData.data_quality || {};
     
     // Obtener debilidades y vacíos de información para generar recomendaciones si no existen
     const mainWeaknesses = bInsights.main_weaknesses || [];
@@ -174,7 +191,7 @@ function normalizeReportData(data: any): ReportData {
       generatedRecommendations.push("Crear llamadas a la acción (CTAs) claras y persuasivas en toda la página.");
     }
 
-    const recs = data.strategic_recommendations || {};
+    const recs = processedData.strategic_recommendations || {};
     const brandingRecs = recs.branding_recommendations || [];
     const marketingRecs = recs.marketing_recommendations || [];
     const seoRecs = recs.seo_recommendations || [];
@@ -224,7 +241,17 @@ function normalizeReportData(data: any): ReportData {
   };
 }
 
-export function ScrapingReportDialog({ data: rawData }: { data: any }) {
+export function ScrapingReportDialog({ 
+  data: rawData, 
+  channel,
+  triggerText = "Ver Informe",
+  triggerClassName = "hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300 dark:hover:bg-violet-950/30 dark:hover:text-violet-300"
+}: { 
+  data: any; 
+  channel?: string;
+  triggerText?: string;
+  triggerClassName?: string;
+}) {
   // Handle new array structure with output field
   let processedRawData = rawData;
   if (Array.isArray(rawData) && rawData.length > 0 && rawData[0].output) {
@@ -234,41 +261,90 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
   const data = normalizeReportData(rawData);
   const isInstagramStructure = !!processedRawData?.instagram_presence || !!processedRawData?.engagement_analysis || !!processedRawData?.content_analysis;
   const isFacebookStructure = !!processedRawData?.social_intelligence || !!processedRawData?.brand_positioning || !!processedRawData?.strategic_diagnostics;
+  const isTikTok = channel === "TIKTOK";
+
+  let tiktokFollowers = "N/D";
+  let tiktokLikes = "N/D";
+  let tiktokVideos = "N/D";
+  let tiktokAverageViews = "N/D";
+  let tiktokUsername = "N/D";
+
+  if (isTikTok) {
+    const seoSignals = data.seo_signals || processedRawData?.seo_signals || processedRawData?.marketing_signals?.seo_signals;
+    if (Array.isArray(seoSignals)) {
+      seoSignals.forEach((signal: string) => {
+        const sigLower = signal.toLowerCase();
+        if (sigLower.includes("seguidor")) {
+          const parts = signal.split(":");
+          tiktokFollowers = parts.length > 1 ? parts[1].trim() : signal;
+        } else if (sigLower.includes("me gusta")) {
+          const parts = signal.split(":");
+          tiktokLikes = parts.length > 1 ? parts[1].trim() : signal;
+        } else if (sigLower.includes("video") || sigLower.includes("publica")) {
+          const parts = signal.split(":");
+          tiktokVideos = parts.length > 1 ? parts[1].trim() : signal;
+        } else if (sigLower.includes("visualiza") || sigLower.includes("promedio")) {
+          const parts = signal.split(":");
+          tiktokAverageViews = parts.length > 1 ? parts[1].trim() : signal;
+        }
+      });
+    }
+
+    if (processedRawData?.tiktok_presence) {
+      if (tiktokFollowers === "N/D") tiktokFollowers = processedRawData.tiktok_presence.followers?.toString() || "N/D";
+      if (tiktokLikes === "N/D") tiktokLikes = processedRawData.tiktok_presence.likes?.toString() || "N/D";
+      if (tiktokVideos === "N/D") tiktokVideos = processedRawData.tiktok_presence.videos_count?.toString() || "N/D";
+      tiktokUsername = processedRawData.tiktok_presence.username || "N/D";
+    }
+
+    const firstItem = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : null;
+    const author = processedRawData?.authorMeta || firstItem?.authorMeta;
+    if (author) {
+      if (tiktokFollowers === "N/D") tiktokFollowers = author.fans !== undefined ? author.fans.toLocaleString() : "N/D";
+      if (tiktokLikes === "N/D") tiktokLikes = author.heart !== undefined ? author.heart.toLocaleString() : "N/D";
+      if (tiktokVideos === "N/D") tiktokVideos = author.video !== undefined ? author.video.toLocaleString() : "N/D";
+      if (tiktokUsername === "N/D") tiktokUsername = author.name || author.nickName || "N/D";
+    }
+  }
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm transition-all hover:shadow-md">
+        <Button variant="outline" className={`gap-2 bg-white border-slate-200 text-slate-700 shadow-sm transition-all hover:shadow-md cursor-pointer active:scale-[0.98] ${triggerClassName}`}>
           <BarChart3 className="h-4 w-4 text-violet-500" />
-          Ver Informe de Scraping
+          {triggerText}
         </Button>
       </DialogTrigger>
       
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-50/95 backdrop-blur-md border-slate-200/60 shadow-2xl">
         <DialogHeader className="border-b border-slate-200/60 pb-4 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                <Sparkles className="h-6 w-6 text-violet-500" />
-                {isInstagramStructure ? 'Análisis de Instagram' : isFacebookStructure ? 'Análisis de Facebook' : 'Análisis de Inteligencia de Marca'}
-              </DialogTitle>
-              <p className="text-slate-500 text-sm mt-1">
-                {isInstagramStructure ? 'Informe generado por IA a partir del scraping de Instagram.' : isFacebookStructure ? 'Informe generado por IA a partir del scraping de Facebook.' : 'Informe generado por IA a partir del scraping del sitio web.'}
-              </p>
-            </div>
+          <div className="flex flex-col gap-2">
+            <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <Sparkles className="h-6 w-6 text-violet-500" />
+              {isInstagramStructure ? 'Análisis de Instagram' : isFacebookStructure ? 'Análisis de Facebook' : isTikTok ? 'Análisis de TikTok' : 'Análisis de Inteligencia de Marca'}
+            </DialogTitle>
             
-            {/* Score de Confianza */}
-            <div className="flex flex-col items-end">
-              <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">Confianza</span>
-              <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-24 bg-slate-200 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full" 
-                    style={{ width: `${data.confidence_score * 100}%` }}
-                  />
-                </div>
-                <span className="font-bold text-slate-700">{Math.round(data.confidence_score * 100)}%</span>
-              </div>
+            {/* Fiabilidad del Análisis */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400 font-medium uppercase tracking-wider">Fiabilidad del Análisis:</span>
+              <span className={`font-semibold px-2.5 py-0.5 rounded-full ${
+                data.confidence_score >= 0.85 
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200/60" 
+                  : data.confidence_score >= 0.7 
+                    ? "bg-blue-50 text-blue-700 border border-blue-200/60" 
+                    : data.confidence_score >= 0.5 
+                      ? "bg-amber-50 text-amber-700 border border-amber-200/60" 
+                      : "bg-rose-50 text-rose-700 border border-rose-200/60"
+              }`}>
+                {data.confidence_score >= 0.85 
+                  ? `Excelente (${Math.round(data.confidence_score * 100)}%)` 
+                  : data.confidence_score >= 0.7 
+                    ? `Alta (${Math.round(data.confidence_score * 100)}%)` 
+                    : data.confidence_score >= 0.5 
+                      ? `Moderada (${Math.round(data.confidence_score * 100)}%)` 
+                      : `Baja / Limitada (${Math.round(data.confidence_score * 100)}%)`
+                }
+              </span>
             </div>
           </div>
         </DialogHeader>
@@ -309,6 +385,38 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
             </Card>
           )}
 
+          {/* TikTok-specific metrics */}
+          {isTikTok && (
+            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-slate-900/10 via-slate-800/5 to-white dark:from-slate-800/20 dark:via-slate-900/10 dark:to-slate-950/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                  <TikTokIcon className="h-4 w-4" />
+                  Métricas de TikTok
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                    <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokFollowers}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                    <span className="text-xs text-slate-400 block mb-1">Me gusta</span>
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokLikes}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                    <span className="text-xs text-slate-400 block mb-1">Videos</span>
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokVideos}</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                    <span className="text-xs text-slate-400 block mb-1">Visualizaciones Promedio</span>
+                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokAverageViews}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Instagram-specific metrics */}
           {isInstagramStructure && (
             <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
@@ -333,8 +441,12 @@ export function ScrapingReportDialog({ data: rawData }: { data: any }) {
                     <p className="text-lg font-bold text-slate-700">{processedRawData?.instagram_presence?.audience_size?.following || 'N/A'}</p>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-purple-100">
-                    <span className="text-xs text-slate-400 block mb-1">Username</span>
-                    <p className="text-sm font-bold text-slate-700 truncate">{processedRawData?.instagram_presence?.username || processedRawData?.instagram_presence?.brand_name || 'N/A'}</p>
+                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
+                    <p className="text-sm font-bold text-slate-700 truncate">
+                      {processedRawData?.engagement_analysis?.engagement_level || 
+                       processedRawData?.engagement_analysis?.current_activity_level || 
+                       processedRawData?.community_analysis?.current_activity_level || 'N/A'}
+                    </p>
                   </div>
                 </div>
               </CardContent>

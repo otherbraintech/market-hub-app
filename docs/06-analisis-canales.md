@@ -51,18 +51,25 @@ Si es verídico, los datos son mapeados dinámicamente y de forma robusta hacia 
 * **Marketing**: Integra señales comerciales, tácticas de anuncios activas y madurez de la plataforma.
 * **UX / Canal**: Traducido a observaciones de presencia local, fortalezas y debilidades competitivas, y madurez de marca.
 
-### Panel de Impacto de Audiencia (Métricas Premium)
+### Soporte Específico de TikTok (Métricas y Tarjetas)
 
-Adicionalmente, se renderiza al principio del reporte un panel visual enriquecido con gradientes estéticos y sombras modernas que detalla el impacto cuantitativo del canal:
-* **Seguidores**: Total de seguidores formateados localmente.
-* **Me Gusta (Likes)**: Cantidad total de aprobaciones públicas.
-* **Usuarios Activos**: Métrica `talking_about` que refleja la tracción semanal.
-* **Nivel de Engagement**: Badge con color semántico que representa la interacción e interés del público.
+Para el canal de **TikTok**, se ha implementado un flujo de extracción dedicado para alinear su visualización con el resto de redes sociales (evitando el comportamiento por defecto de Sitio Web):
+1. **Extracción Dinámica**: 
+   - El sistema busca primero en `seo_signals` del reporte (donde el agente de n8n guarda cadenas como `"Seguidores en TikTok: 815"`, `"Me gusta totales del perfil: 6,949"`, etc.) e interpreta mediante filtros y parseos numéricos las métricas de **Seguidores**, **Me gusta**, y **Videos**.
+   - Como respaldo, busca en la estructura `tiktok_presence` (proporcionada por el análisis estructurado) o en el objeto `authorMeta` (que contiene campos del scraper de Apify como `fans`, `heart`, `video`, `name`).
+2. **Visualización en Dashboard**: Las tarjetas de redes sociales en el Panel de Análisis muestran de manera interactiva:
+   - **TikTok**: Seguidores (con icono `Users`), Me gusta (con icono `Heart`), Videos (con icono `FileText`) y **Vistas Promedio** (con icono `Eye` para mostrar rendimiento).
+   - **Instagram**: Seguidores (con icono `Users`), Publicaciones (con icono `FileText`), Siguiendo (con icono `Users`) y **Engagement** (con icono `Activity` para medir interacción).
+3. **Diálogo de Reporte de Scraping**: Al hacer clic en "Ver Informe", el diálogo detecta el canal respectivo y despliega un panel de métricas de impacto dedicado (reemplazando el usuario redundante por Engagement y Visualizaciones Promedio).
 
 ---
 
 ## Archivos Involucrados
 
-Las modificaciones del control de concurrencia y soporte de datos sociales se implementaron de forma coherente en:
-1. **Mi Negocio IA**: `src/app/(dashboard)/business/analysis/client-page.tsx` ([client-page.tsx](file:///d:/Users/ludwi/Documents/workspace/OB-MarketHub/src/app/(dashboard)/business/analysis/client-page.tsx))
-2. **Análisis de Competidores**: `src/app/(dashboard)/competitors/analysis/client-page.tsx` ([client-page.tsx](file:///d:/Users/ludwi/Documents/workspace/OB-MarketHub/src/app/(dashboard)/competitors/analysis/client-page.tsx))
+Las modificaciones del control de concurrencia, soporte de datos de TikTok y normalización de redes sociales se implementaron de forma coherente en:
+1. **Mi Negocio IA**: `src/app/(dashboard)/business/analysis/client-page.tsx` ([client-page.tsx](file:///d:/Users/Ludwing/Documents/workspace/OB-MarketHub/src/app/(dashboard)/business/analysis/client-page.tsx))
+2. **Mi Negocio con ID IA**: `src/app/(dashboard)/business/[id]/analysis/client-page.tsx` ([client-page.tsx](file:///d:/Users/Ludwing/Documents/workspace/OB-MarketHub/src/app/(dashboard)/business/[id]/analysis/client-page.tsx))
+3. **Página de Inicio de Negocio**: `src/app/(dashboard)/business/[id]/page.tsx` ([page.tsx](file:///d:/Users/Ludwing/Documents/workspace/OB-MarketHub/src/app/(dashboard)/business/[id]/page.tsx))
+4. **Diálogo de Informe de Scraping**: `src/components/business/scraping-report-dialog.tsx` ([scraping-report-dialog.tsx](file:///d:/Users/Ludwing/Documents/workspace/OB-MarketHub/src/components/business/scraping-report-dialog.tsx))
+5. **Análisis de Competidores**: `src/app/(dashboard)/competitors/analysis/client-page.tsx` ([client-page.tsx](file:///d:/Users/Ludwing/Documents/workspace/OB-MarketHub/src/app/(dashboard)/competitors/analysis/client-page.tsx))
+

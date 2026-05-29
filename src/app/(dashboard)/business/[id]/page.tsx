@@ -89,7 +89,7 @@ export default async function BusinessDetailPage({
           </div>
           <div className="flex gap-3">
              {myAnalysis && (
-               <ScrapingReportDialog data={myAnalysis.data as any} />
+               <ScrapingReportDialog data={myAnalysis.data as any} channel={myAnalysis.channel} />
              )}
              <Button asChild variant="outline" className="gap-2">
                <Link href={`/business/${id}/analysis`} className="flex items-center gap-2">

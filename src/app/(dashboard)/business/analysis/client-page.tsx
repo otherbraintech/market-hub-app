@@ -14,6 +14,17 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ScrapingReportDialog } from "@/components/business/scraping-report-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // TikTok Icon SVG
 function TikTokIcon({ className }: { className?: string }) {
@@ -95,6 +106,29 @@ const getPlatformTheme = (channel: string) => {
     iconBg: "bg-slate-500/10",
     accent: "slate"
   };
+};
+
+const getPlatformHoverClasses = (channel: string) => {
+  const c = channel?.toUpperCase();
+  if (c === "FACEBOOK") {
+    return "hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 dark:hover:bg-blue-950/30 dark:hover:text-blue-300";
+  }
+  if (c === "INSTAGRAM") {
+    return "hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 dark:hover:bg-pink-950/30 dark:hover:text-pink-300";
+  }
+  if (c === "TIKTOK") {
+    return "hover:bg-slate-100 hover:text-slate-900 hover:border-slate-400 dark:hover:bg-slate-800/40 dark:hover:text-slate-100";
+  }
+  if (c === "LINKEDIN") {
+    return "hover:bg-blue-50 hover:text-blue-800 hover:border-blue-400 dark:hover:bg-blue-950/30 dark:hover:text-blue-300";
+  }
+  if (c === "YOUTUBE") {
+    return "hover:bg-red-50 hover:text-red-700 hover:border-red-300 dark:hover:bg-red-950/30 dark:hover:text-red-300";
+  }
+  if (c === "SEO_GOOGLE" || c === "WEBSITE") {
+    return "hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300 dark:hover:bg-violet-950/30 dark:hover:text-violet-300";
+  }
+  return "hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300 dark:hover:bg-violet-950/30 dark:hover:text-violet-300";
 };
 
 const accentMap: Record<string, string> = {
@@ -212,19 +246,19 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Análisis de Mi Negocio: {business.name}</h2>
             <p className="text-muted-foreground text-sm">
-              Monitorea y analiza los canales digitales de {business.name}.
+              Monitorea y analiza los canales digitales de {business.name} con informes inteligentes generados por IA a partir del scraping de su presencia online.
             </p>
           </div>
         </div>
         <div className="flex gap-2">
           <Link href={`/business/${businessId}/general-report`}>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 cursor-pointer transition-all active:scale-[0.98] hover:bg-slate-50">
               <FileText className="h-4 w-4" />
               Ver Informe General
             </Button>
           </Link>
           <Link href={`/business/${businessId}`}>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2 cursor-pointer transition-all active:scale-[0.98] hover:bg-slate-50">
               <Briefcase className="h-4 w-4" />
               Ver Negocio
             </Button>
@@ -267,24 +301,137 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
               }
             }
 
+            // Extract TikTok specific data
+            let tiktokFollowers = "N/D";
+            let tiktokLikes = "N/D";
+            let tiktokVideos = "N/D";
+            let tiktokAverageViews = "N/D";
+            let tiktokUsername = "N/D";
+
+            const hasTiktokData = card.channel === "TIKTOK" && isCompleted;
+            if (hasTiktokData) {
+              const seoSignals = dataObj?.seo_signals || dataObj?.marketing_signals?.seo_signals;
+              if (Array.isArray(seoSignals)) {
+                seoSignals.forEach((signal: string) => {
+                  const sigLower = signal.toLowerCase();
+                  if (sigLower.includes("seguidor")) {
+                    const parts = signal.split(":");
+                    tiktokFollowers = parts.length > 1 ? parts[1].trim() : signal;
+                  } else if (sigLower.includes("me gusta")) {
+                    const parts = signal.split(":");
+                    tiktokLikes = parts.length > 1 ? parts[1].trim() : signal;
+                  } else if (sigLower.includes("video") || sigLower.includes("publica")) {
+                    const parts = signal.split(":");
+                    tiktokVideos = parts.length > 1 ? parts[1].trim() : signal;
+                  } else if (sigLower.includes("visualiza") || sigLower.includes("promedio")) {
+                    const parts = signal.split(":");
+                    tiktokAverageViews = parts.length > 1 ? parts[1].trim() : signal;
+                  }
+                });
+              }
+
+              if (dataObj?.tiktok_presence) {
+                if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.tiktok_presence.followers?.toString() || "N/D";
+                if (tiktokLikes === "N/D") tiktokLikes = dataObj.tiktok_presence.likes?.toString() || "N/D";
+                if (tiktokVideos === "N/D") tiktokVideos = dataObj.tiktok_presence.videos_count?.toString() || "N/D";
+                tiktokUsername = dataObj.tiktok_presence.username || "N/D";
+              }
+
+              if (tiktokFollowers === "N/D" || tiktokLikes === "N/D" || tiktokVideos === "N/D" || tiktokUsername === "N/D") {
+                const rawData = report?.data ? (typeof report.data === "string" ? JSON.parse(report.data) : report.data) : null;
+                const firstItem = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : null;
+                const author = dataObj?.authorMeta || firstItem?.authorMeta;
+                if (author) {
+                  if (tiktokFollowers === "N/D") tiktokFollowers = author.fans !== undefined ? author.fans.toLocaleString() : "N/D";
+                  if (tiktokLikes === "N/D") tiktokLikes = author.heart !== undefined ? author.heart.toLocaleString() : "N/D";
+                  if (tiktokVideos === "N/D") tiktokVideos = author.video !== undefined ? author.video.toLocaleString() : "N/D";
+                  if (tiktokUsername === "N/D") tiktokUsername = author.name || author.nickName || "N/D";
+                }
+              }
+
+              if (tiktokUsername === "N/D" && card.url) {
+                try {
+                  const urlObj = new URL(card.url.startsWith("http") ? card.url : `https://${card.url}`);
+                  const pathParts = urlObj.pathname.split("/").filter(Boolean);
+                  if (pathParts.length > 0) {
+                    tiktokUsername = pathParts[0].startsWith("@") ? pathParts[0] : `@${pathParts[0]}`;
+                  }
+                } catch (e) {
+                  // ignore
+                }
+              }
+            }
+
             const isInstagramStructure = !!dataObj?.instagram_presence || !!dataObj?.engagement_analysis || !!dataObj?.content_analysis;
             const isFacebookStructure = !!dataObj?.social_intelligence || !!dataObj?.brand_positioning || !!dataObj?.strategic_diagnostics;
+            const isWebsiteStructure = !!dataObj?.brand_identity || !!dataObj?.website_analysis || !!dataObj?.business_insights;
+            const isConsolidatedStructure = !!dataObj?.marketPosition || !!dataObj?.executiveSummary || !!dataObj?.strategicRecommendations;
 
             // Extract Instagram-specific data
             const socialPresence = dataObj?.instagram_presence || {};
             const engagement = dataObj?.engagement_analysis || {};
             const compObs = dataObj?.competitive_observations || {};
 
+            // Extract Website/Consolidated preview metrics
+            let positionVal = "N/D";
+            let advantageVal = "N/D";
+            let gapVal = "N/D";
+            let priorityVal = "N/D";
+            let summaryText = "";
+            let strengthsList: string[] = [];
+            let weaknessesList: string[] = [];
+
+            if (isWebsiteStructure) {
+              positionVal = dataObj?.brand_identity?.market_positioning || dataObj?.brand_identity?.brand_summary || "N/D";
+              advantageVal = dataObj?.business_insights?.differentiators?.[0] || dataObj?.business_insights?.main_strengths?.[0] || "N/D";
+              gapVal = dataObj?.business_insights?.product_or_service_focus?.[0] || dataObj?.website_analysis?.content_focus?.[0] || "N/D";
+              priorityVal = dataObj?.data_quality?.confidence_score ? `Confianza: ${Math.round(dataObj.data_quality.confidence_score * 100)}%` : "Alta";
+              summaryText = dataObj?.brand_identity?.brand_summary || "";
+              strengthsList = dataObj?.business_insights?.main_strengths || [];
+              weaknessesList = dataObj?.business_insights?.main_weaknesses || [];
+            } else if (isConsolidatedStructure) {
+              positionVal = dataObj?.marketPosition?.currentPosition || "N/D";
+              advantageVal = dataObj?.marketPosition?.competitiveAdvantage || "N/D";
+              gapVal = dataObj?.marketPosition?.marketGap || "N/D";
+              priorityVal = dataObj?.channelStrategy?.channelPriorities?.WEBSITE ? `Prioridad Web: ${dataObj.channelStrategy.channelPriorities.WEBSITE}` : "Alta";
+              summaryText = dataObj?.executiveSummary || "";
+              strengthsList = dataObj?.strengths || [];
+              weaknessesList = dataObj?.weaknesses || [];
+            }
+
             return (
               <Card key={card.channel} className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-opacity-50">
-                <CardHeader className="pb-3 space-y-3">
+                <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
-                    <div className={`p-3 rounded-xl ${theme.gradient} ${theme.border} border`}>
-                      <card.icon className={`h-6 w-6 ${theme.text}`} />
+                    <div className="flex items-center gap-3">
+                      <div className={`p-3 rounded-xl ${theme.gradient} ${theme.border} border shrink-0`}>
+                        <card.icon className={`h-6 w-6 ${theme.text}`} />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-bold flex items-center gap-1.5">
+                          {card.label}
+                          {isCompleted && (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                          )}
+                        </CardTitle>
+                        {card.url ? (
+                          <a
+                            href={card.url.startsWith("http") ? card.url : `https://${card.url}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-muted-foreground mt-0.5 line-clamp-1 hover:text-primary hover:underline cursor-pointer transition-colors inline-block w-fit max-w-[140px] sm:max-w-[200px] truncate"
+                            title={card.url}
+                          >
+                            {card.url}
+                          </a>
+                        ) : (
+                          <span className="text-xs text-muted-foreground mt-0.5 block">N/D</span>
+                        )}
+                      </div>
                     </div>
                     <Badge 
                       variant={isCompleted ? "default" : isPending ? "secondary" : isError ? "destructive" : "outline"}
-                      className={isCompleted ? `bg-gradient-to-r ${theme.gradient} ${theme.text} border-0` : ""}
+                      className={`${isCompleted ? `bg-gradient-to-r ${theme.gradient} ${theme.text} border-0` : ""} pointer-events-none shrink-0`}
                     >
                       {isPending ? (
                         <>
@@ -300,68 +447,88 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                       )}
                     </Badge>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg font-bold flex items-center gap-2">
-                      {card.label}
-                      {isCompleted && (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-                      )}
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                      {card.url}
-                    </p>
-                  </div>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {isFacebookStructure && isCompleted ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Users className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                  {card.channel === "TIKTOK" && isCompleted ? (
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Users className={`h-4 w-4 ${theme.text}`} />
+                          <span>Seguidores</span>
                         </div>
-                        <p className="text-lg font-semibold text-foreground">
+                        <span className="font-semibold text-foreground text-right">{tiktokFollowers}</span>
+                      </div>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Heart className={`h-4 w-4 ${theme.text}`} />
+                          <span>Me gusta</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right">{tiktokLikes}</span>
+                      </div>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <FileText className={`h-4 w-4 ${theme.text}`} />
+                          <span>Videos</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right">{tiktokVideos}</span>
+                      </div>
+                      <div className="flex items-start justify-between text-sm gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Eye className={`h-4 w-4 ${theme.text}`} />
+                          <span>Vistas Promedio</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right">{tiktokAverageViews}</span>
+                      </div>
+                    </div>
+                  ) : isFacebookStructure && isCompleted ? (
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Users className={`h-4 w-4 ${theme.text}`} />
+                          <span>Seguidores</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right">
                           {dataObj?.social_intelligence?.audience_size || "N/D"}
-                        </p>
+                        </span>
                       </div>
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Activity className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Engagement</span>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Activity className={`h-4 w-4 ${theme.text}`} />
+                          <span>Engagement</span>
                         </div>
-                        <p className="text-lg font-semibold text-foreground">
+                        <span className="font-semibold text-foreground text-right">
                           {dataObj?.social_intelligence?.engagement_level || "N/D"}
-                        </p>
+                        </span>
                       </div>
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Megaphone className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Anuncios</span>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Megaphone className={`h-4 w-4 ${theme.text}`} />
+                          <span>Anuncios</span>
                         </div>
-                        <p className="text-sm font-semibold text-foreground truncate">
+                        <span className="font-semibold text-foreground text-right">
                           {dataObj?.social_intelligence?.active_marketing_ads ? "Activos (Meta)" : "Inactivos"}
-                        </p>
+                        </span>
                       </div>
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Briefcase className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Nicho</span>
+                      <div className="flex items-start justify-between text-sm gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Briefcase className={`h-4 w-4 ${theme.text}`} />
+                          <span>Nicho</span>
                         </div>
-                        <p className="text-sm font-semibold text-foreground truncate">
+                        <span className="font-semibold text-foreground text-right" title={dataObj?.brand_positioning?.niche || "N/D"}>
                           {dataObj?.brand_positioning?.niche || "N/D"}
-                        </p>
+                        </span>
                       </div>
                     </div>
                   ) : isInstagramStructure && isCompleted ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Users className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Users className={`h-4 w-4 ${theme.text}`} />
+                          <span>Seguidores</span>
                         </div>
-                        <p className="text-lg font-semibold text-foreground">
-                          {socialPresence.audience_size?.followers || (() => {
+                        <span className="font-semibold text-foreground text-right">
+                          {(() => {
                             const visibility = compObs.visibility_indicators;
                             const socialProof = engagement.social_proof_signals;
                             
@@ -383,44 +550,85 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                               }
                             }
                             
-                            return "N/D";
+                            return socialPresence.audience_size?.followers || "N/D";
                           })()}
-                        </p>
+                        </span>
                       </div>
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <FileText className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Publicaciones</span>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <FileText className={`h-4 w-4 ${theme.text}`} />
+                          <span>Publicaciones</span>
                         </div>
-                        <p className="text-lg font-semibold text-foreground">
+                        <span className="font-semibold text-foreground text-right">
                           {socialPresence.audience_size?.posts_count || dataObj.instagram_presence?.audience_size?.posts_count || "N/D"}
-                        </p>
+                        </span>
                       </div>
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Users className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Siguiendo</span>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Users className={`h-4 w-4 ${theme.text}`} />
+                          <span>Siguiendo</span>
                         </div>
-                        <p className="text-lg font-semibold text-foreground">
+                        <span className="font-semibold text-foreground text-right">
                           {socialPresence.audience_size?.following || dataObj.instagram_presence?.audience_size?.following || "N/D"}
-                        </p>
+                        </span>
                       </div>
-                      <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Instagram className={`h-3.5 w-3.5 ${theme.text}`} />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Username</span>
+                      <div className="flex items-start justify-between text-sm gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Activity className={`h-4 w-4 ${theme.text}`} />
+                          <span>Engagement</span>
                         </div>
-                        <p className="text-lg font-semibold text-foreground truncate">
-                          {socialPresence.username || socialPresence.brand_name || dataObj.instagram_presence?.username || dataObj.instagram_presence?.brand_name || "N/D"}
-                        </p>
+                        <span className="font-semibold text-foreground text-right">
+                          {dataObj?.engagement_analysis?.engagement_level || 
+                           dataObj?.engagement_analysis?.current_activity_level || 
+                           dataObj?.community_analysis?.current_activity_level || "N/D"}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (isWebsiteStructure || isConsolidatedStructure) && isCompleted ? (
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Compass className={`h-4 w-4 ${theme.text}`} />
+                          <span>Posición</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right" title={positionVal}>
+                          {positionVal}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Award className={`h-4 w-4 ${theme.text}`} />
+                          <span>Ventaja</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right" title={advantageVal}>
+                          {advantageVal}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Target className={`h-4 w-4 ${theme.text}`} />
+                          <span>Enfoque / Brecha</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right" title={gapVal}>
+                          {gapVal}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between text-sm gap-4">
+                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                          <Zap className={`h-4 w-4 ${theme.text}`} />
+                          <span>Estado / Confianza</span>
+                        </div>
+                        <span className="font-semibold text-foreground text-right" title={priorityVal}>
+                          {priorityVal}
+                        </span>
                       </div>
                     </div>
                   ) : isCompleted && dataObj ? (
                     <div className="space-y-2">
                       {dataObj.market_positioning && (
-                        <div className="bg-muted/30 rounded p-2">
+                        <div className="bg-muted/30 rounded p-2 text-sm">
                           <p className="text-xs text-muted-foreground mb-1">Posicionamiento</p>
-                          <p className="text-sm font-medium line-clamp-2">{dataObj.market_positioning}</p>
+                          <p className="font-medium line-clamp-2">{dataObj.market_positioning}</p>
                         </div>
                       )}
                       {dataObj.strengths && dataObj.strengths.length > 0 && (
@@ -453,31 +661,57 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                 </CardContent>
 
                 <CardFooter className="pt-0 flex gap-2">
-                  <Button
-                    onClick={() => handleRequestAnalysis(card.channel, card.url)}
-                    disabled={isAnyAnalyzing || requestingChannel === card.channel}
-                    className="flex-1"
-                    variant={isCompleted ? "outline" : "default"}
-                  >
-                    {requestingChannel === card.channel || isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Analizando...
-                      </>
-                    ) : isCompleted ? (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Re-analizar
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Analizar
-                      </>
-                    )}
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        disabled={isAnyAnalyzing || requestingChannel === card.channel}
+                        className={`flex-1 cursor-pointer transition-all hover:shadow-md active:scale-[0.98] disabled:pointer-events-auto disabled:cursor-not-allowed ${
+                          isCompleted ? getPlatformHoverClasses(card.channel) : "hover:brightness-95 hover:shadow-lg"
+                        }`}
+                        variant={isCompleted ? "outline" : "default"}
+                      >
+                        {requestingChannel === card.channel || isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Analizando...
+                          </>
+                        ) : isCompleted ? (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Re-analizar
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Analizar
+                          </>
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmar Análisis</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          ¿Estás seguro de que deseas iniciar el análisis para el canal {card.label.toLowerCase()} ({card.url})? Esto iniciará un proceso de scraping en segundo plano a través del agente de IA en n8n.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="cursor-pointer">Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleRequestAnalysis(card.channel, card.url)}
+                          className="cursor-pointer bg-violet-600 hover:bg-violet-700 text-white"
+                        >
+                          Confirmar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                   {isCompleted && report && (
-                    <ScrapingReportDialog data={dataObj} />
+                    <ScrapingReportDialog 
+                      data={dataObj} 
+                      channel={card.channel}
+                      triggerClassName={getPlatformHoverClasses(card.channel)} 
+                    />
                   )}
                 </CardFooter>
               </Card>

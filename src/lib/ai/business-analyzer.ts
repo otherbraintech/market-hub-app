@@ -51,7 +51,7 @@ export async function analyzeBusiness(name: string, description: string, website
   }
 
   const { object } = await generateObject({
-    model: openrouter('google/gemini-2.0-flash-001'),
+    model: openrouter('google/gemini-2.5-flash'),
     schema: businessAnalysisSchema,
     system: `Eres un experto en estrategia de marca y marketing digital. 
     Tu tarea es analizar la información de un negocio y extraer/generar su perfil estratégico.

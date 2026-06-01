@@ -151,12 +151,12 @@ GENERA EXACTAMENTE 8 PUBLICACIONES DISTRIBUIDAS DE MANERA ESTRATÉGICA EN EL TIE
 
     // 7. Llamar a OpenRouter / Gemini
     const { object } = await generateObject({
-      model: openrouter("google/gemini-2.0-flash-001"),
+      model: openrouter("google/gemini-2.5-flash"),
       schema: contentPlannerSchema,
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.7,
-      maxOutputTokens: 5000,
+      maxOutputTokens: 8192,
     });
 
     // 8. Iniciar transacción en la base de datos

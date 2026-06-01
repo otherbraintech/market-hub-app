@@ -154,7 +154,15 @@ export async function POST(
 
     // Generate AI executive summary
     let executiveSummary: any = null;
-    let competitorAnalyses: any[] = [];
+    interface CompetitorAnalysisItem {
+      id: string;
+      strategicAnalysis: {
+        desempenoCanales: string[];
+        debilidadesGaps: string[];
+        planContramedida: string[];
+      };
+    }
+    let competitorAnalyses: CompetitorAnalysisItem[] = [];
     const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
     
     if (!openRouterKey) {
@@ -324,7 +332,7 @@ REGLAS CRÍTICAS:
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.0-flash-001',
+            model: 'google/gemini-2.5-flash',
             messages: [
               { role: 'system', content: 'Eres un consultor senior de marketing digital que entrega reportes y planes estratégicos estructurados en formato JSON.' },
               { role: 'user', content: prompt }
@@ -611,7 +619,7 @@ REGLAS CRÍTICAS:
         allInsights.valueProposition = [...new Set(allInsights.valueProposition)];
         allInsights.differentiation = [...new Set(allInsights.differentiation)];
         // Assign strategic analysis if available
-        const compAnalysis = competitorAnalyses.find((ca: any) => ca.id === competitor.id);
+        const compAnalysis = competitorAnalyses.find((ca) => ca.id === competitor.id);
         if (compAnalysis) {
           allInsights.strategicAnalysis = compAnalysis.strategicAnalysis;
         }

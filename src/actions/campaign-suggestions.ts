@@ -171,7 +171,7 @@ Por favor, genera exactamente 3 propuestas bien diferenciadas (ej. una orientada
 
     // 6. Ejecutar la llamada a Gemini
     const { object } = await generateObject({
-      model: openrouter("google/gemini-2.0-flash-001"),
+      model: openrouter("google/gemini-2.5-flash"),
       schema: campaignSuggestionsListSchema,
       system: systemPrompt,
       prompt: userPrompt,

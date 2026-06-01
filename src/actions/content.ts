@@ -130,7 +130,7 @@ export async function generateMediaAction(
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { ContentStatus, ContentType, ContentFormat, SocialChannel, Prisma } from "@prisma/client";
+import { ContentStatus, ContentType, ContentFormat, SocialChannel } from "@prisma/client";
 import { addDays, format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 
@@ -279,12 +279,12 @@ INSTRUCCIONES DE PLANIFICACIÓN:
 Por favor, genera la lista de publicaciones de forma creativa e inteligente.`;
 
     const { object } = await generateObject({
-      model: openrouter("google/gemini-2.0-flash-001"),
+      model: openrouter("google/gemini-2.5-flash"),
       schema: calendarPlanSchema,
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.75,
-      maxOutputTokens: 4000
+      maxOutputTokens: 8192
     });
 
     const posts = object.posts;
@@ -308,7 +308,7 @@ Por favor, genera la lista de publicaciones de forma creativa e inteligente.`;
             promptUsed: post.promptUsed,
             scheduledAt: scheduledDate,
             status: ContentStatus.DRAFT,
-            metadata: { source: "ai_generated" } as Prisma.JsonObject,
+            metadata: { source: "ai_generated" },
           }
         });
       })

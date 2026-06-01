@@ -46,7 +46,7 @@ Por favor, genera:
 `;
 
     const { object } = await generateObject({
-      model: openrouter("google/gemini-2.0-flash-001"),
+      model: openrouter("google/gemini-2.5-flash"),
       schema: z.object({
         shortDesc: z.string(),
         features: z.array(z.object({

@@ -644,10 +644,9 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                   ) : (
                     <div className="text-center py-4 text-muted-foreground text-sm">
                       {isPending ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Analizando...</span>
-                        </div>
+                        <p className="text-xs text-slate-400 py-2">
+                          Obteniendo datos del canal en segundo plano...
+                        </p>
                       ) : isError ? (
                         <div className="flex items-center justify-center gap-2 text-red-500">
                           <AlertCircle className="h-4 w-4" />

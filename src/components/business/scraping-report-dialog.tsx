@@ -103,9 +103,58 @@ function normalizeReportData(data: any): ReportData {
   }
 
   // Verificar si es la estructura de Facebook
-  const isFacebookStructure = !!processedData.social_intelligence || !!processedData.brand_positioning || !!processedData.strategic_diagnostics;
+  const isFacebookStructure = !!processedData.social_intelligence || 
+                              !!processedData.brand_positioning || 
+                              !!processedData.strategic_diagnostics ||
+                              !!processedData.facebook_presence;
   
   if (isFacebookStructure) {
+    if (processedData.facebook_presence) {
+      const fbPres = processedData.facebook_presence || {};
+      const community = processedData.community_analysis || {};
+      const reputation = processedData.reputation_analysis || {};
+      const bizIntel = processedData.business_intelligence || {};
+      const compObs = processedData.competitive_observations || {};
+      const dQuality = processedData.data_quality || {};
+
+      const followers = fbPres.audience_metrics?.followers || fbPres.audience_metrics?.likes || "N/D";
+      const adsActivos = bizIntel.advertising_active ? "Sí" : "No";
+      
+      const recs: string[] = [];
+      if (bizIntel.phone_contact_available === false) {
+        recs.push("Añadir un número de teléfono de contacto visible en la página de Facebook.");
+      }
+      if (bizIntel.website_present === false) {
+        recs.push("Enlazar el sitio web oficial en la sección de información del perfil.");
+      }
+      if (Array.isArray(reputation.trust_signals) && reputation.trust_signals.length === 0) {
+        recs.push("Incentivar a tus clientes actuales a dejar opiniones positivas en tu página.");
+      }
+      if (recs.length === 0) {
+        recs.push("Publicar contenido interactivo de manera constante para aumentar el nivel de interacción actual.");
+        recs.push("Aprovechar la presencia comercial activa y anuncios para dirigir tráfico al canal de conversión principal.");
+      }
+
+      return {
+        strengths: Array.isArray(compObs.main_strengths) ? compObs.main_strengths : [],
+        weaknesses: Array.isArray(compObs.main_weaknesses) ? compObs.main_weaknesses : [],
+        seo_signals: [
+          `Seguidores: ${followers}`,
+          `Anuncios Activos: ${adsActivos}`,
+          `Categoría: ${fbPres.business_category || 'N/D'}`
+        ],
+        opportunities: Array.isArray(compObs.differentiators) ? compObs.differentiators : [],
+        emotional_tone: [],
+        target_audience: [],
+        ux_observations: Array.isArray(fbPres.brand_maturity_indicators) ? fbPres.brand_maturity_indicators : [],
+        confidence_score: typeof dQuality.confidence_score === "number" ? dQuality.confidence_score : 0.8,
+        brand_personality: [],
+        marketing_tactics: Array.isArray(bizIntel.commercial_signals) ? bizIntel.commercial_signals : [],
+        market_positioning: fbPres.brand_summary || fbPres.brand_name || "Perfil de Facebook",
+        strategic_recommendations: recs
+      };
+    }
+
     const socialIntel = processedData.social_intelligence || {};
     const brandPos = processedData.brand_positioning || {};
     const channels = processedData.conversion_channels || {};
@@ -364,21 +413,34 @@ export function ScrapingReportDialog({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-white rounded-lg p-3 border border-blue-100">
                     <span className="text-xs text-slate-400 block mb-1">Seguidores / Likes</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.social_intelligence?.audience_size || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.social_intelligence?.engagement_level || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-blue-100">
-                    <span className="text-xs text-slate-400 block mb-1">Anuncios en Meta</span>
-                    <p className={`text-lg font-bold ${processedRawData?.social_intelligence?.active_marketing_ads ? 'text-emerald-600' : 'text-slate-700'}`}>
-                      {processedRawData?.social_intelligence?.active_marketing_ads ? 'Activos' : 'Inactivos'}
+                    <p className="text-lg font-bold text-slate-700">
+                      {processedRawData?.social_intelligence?.audience_size || 
+                       processedRawData?.facebook_presence?.audience_metrics?.followers || 
+                       processedRawData?.facebook_presence?.audience_metrics?.likes || 
+                       'N/A'}
                     </p>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <span className="text-xs text-slate-400 block mb-1">Nicho</span>
-                    <p className="text-sm font-bold text-slate-700 truncate">{processedRawData?.brand_positioning?.niche || 'N/A'}</p>
+                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
+                    <p className="text-lg font-bold text-slate-700">
+                      {processedRawData?.social_intelligence?.engagement_level || 
+                       processedRawData?.community_analysis?.current_activity_level || 
+                       'N/A'}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <span className="text-xs text-slate-400 block mb-1">Anuncios en Meta</span>
+                    <p className={`text-lg font-bold ${(processedRawData?.social_intelligence?.active_marketing_ads || processedRawData?.business_intelligence?.advertising_active) ? 'text-emerald-600' : 'text-slate-700'}`}>
+                      {(processedRawData?.social_intelligence?.active_marketing_ads || processedRawData?.business_intelligence?.advertising_active) ? 'Activos' : 'Inactivos'}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
+                    <span className="text-xs text-slate-400 block mb-1">Nicho / Categoría</span>
+                    <p className="text-sm font-bold text-slate-700 truncate">
+                      {processedRawData?.brand_positioning?.niche || 
+                       processedRawData?.facebook_presence?.business_category || 
+                       'N/A'}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -906,13 +968,15 @@ export function ScrapingReportDialog({
                   <div>
                     <span className="text-xs text-slate-400 block mb-1">Fricción de Conversión</span>
                     <Badge variant="secondary" className="mt-1 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 border-none px-2.5 py-0.5 font-medium">
-                      {processedRawData?.conversion_channels?.conversion_friction || "N/D"}
+                      {processedRawData?.conversion_channels?.conversion_friction || 
+                       (processedRawData?.business_intelligence?.conversion_signals?.length > 0 ? "Baja" : "N/D")}
                     </Badge>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400 block mb-1">Canal Principal de Ventas</span>
                     <Badge variant="secondary" className="mt-1 text-sm bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border-none px-2.5 py-0.5 font-medium">
-                      {processedRawData?.conversion_channels?.main_channel || "N/D"}
+                      {processedRawData?.conversion_channels?.main_channel || 
+                       (processedRawData?.business_intelligence?.website_present ? "Sitio Web" : "Facebook Direct")}
                     </Badge>
                   </div>
                 </CardContent>

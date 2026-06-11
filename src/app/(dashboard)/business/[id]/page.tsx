@@ -38,20 +38,18 @@ export default async function BusinessDetailPage({
     notFound();
   }
 
-  // Fetch products, campaigns, social accounts and contents in parallel
-  const [productsData, campaignsData, socialAccounts, contents] = await Promise.all([
-    listProductsByBusiness(business.id),
-    listCampaignsByBusiness(business.id),
-    listSocialAccounts(business.id),
-    prisma.content.findMany({
-      where: { campaign: { businessId: business.id } },
-      include: {
-        campaign: { select: { name: true } },
-        socialAccount: { select: { accountName: true } },
-      },
-      orderBy: { scheduledAt: 'asc' }
-    })
-  ]);
+  // Fetch products, campaigns, social accounts and contents sequentially to prevent DB pool connection failures
+  const productsData = await listProductsByBusiness(business.id);
+  const campaignsData = await listCampaignsByBusiness(business.id);
+  const socialAccounts = await listSocialAccounts(business.id);
+  const contents = await prisma.content.findMany({
+    where: { campaign: { businessId: business.id } },
+    include: {
+      campaign: { select: { name: true } },
+      socialAccount: { select: { accountName: true } },
+    },
+    orderBy: { scheduledAt: 'asc' }
+  });
 
   // Fetch latest analysis report for this business
   const myAnalysis = await prisma.analysisReport.findFirst({

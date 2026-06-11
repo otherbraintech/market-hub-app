@@ -117,7 +117,7 @@ function normalizeReportData(data: any): ReportData {
       const compObs = processedData.competitive_observations || {};
       const dQuality = processedData.data_quality || {};
 
-      const followers = fbPres.audience_metrics?.followers || fbPres.audience_metrics?.likes || "N/D";
+      const followers = fbPres.audience_metrics?.followers || "N/D";
       const adsActivos = bizIntel.advertising_active ? "Sí" : "No";
       
       const recs: string[] = [];
@@ -365,8 +365,8 @@ export function ScrapingReportDialog({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-50/95 backdrop-blur-md border-slate-200/60 shadow-2xl">
-        <DialogHeader className="border-b border-slate-200/60 pb-4 mb-4">
+      <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[80vh] flex flex-col bg-slate-50/95 backdrop-blur-md border-slate-200/60 shadow-2xl p-0 overflow-hidden">
+        <DialogHeader className="border-b border-slate-200/60 px-6 py-4 shrink-0">
           <div className="flex flex-col gap-2">
             <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-violet-500" />
@@ -398,11 +398,12 @@ export function ScrapingReportDialog({
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           
           {/* Facebook-specific metrics */}
           {isFacebookStructure && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-blue-50 via-cyan-50 to-white">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-blue-50 via-cyan-50 to-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-blue-600 uppercase tracking-wider flex items-center gap-2">
                   <Facebook className="h-4 w-4" />
@@ -410,21 +411,12 @@ export function ScrapingReportDialog({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-white rounded-lg p-3 border border-blue-100">
                     <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
                     <p className="text-lg font-bold text-slate-700">
                       {processedRawData?.social_intelligence?.audience_size || 
                        processedRawData?.facebook_presence?.audience_metrics?.followers || 
-                       processedRawData?.facebook_presence?.audience_metrics?.likes || 
-                       'N/A'}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-blue-100">
-                    <span className="text-xs text-slate-400 block mb-1">Me gusta (Likes)</span>
-                    <p className="text-lg font-bold text-slate-700">
-                      {processedRawData?.facebook_presence?.audience_metrics?.likes || 
-                       processedRawData?.social_intelligence?.audience_size || 
                        'N/A'}
                     </p>
                   </div>
@@ -457,7 +449,7 @@ export function ScrapingReportDialog({
 
           {/* TikTok-specific metrics */}
           {isTikTok && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-slate-900/10 via-slate-800/5 to-white dark:from-slate-800/20 dark:via-slate-900/10 dark:to-slate-950/10">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-slate-900/10 via-slate-800/5 to-white dark:from-slate-800/20 dark:via-slate-900/10 dark:to-slate-950/10">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
                   <TikTokIcon className="h-4 w-4" />
@@ -489,7 +481,7 @@ export function ScrapingReportDialog({
 
           {/* Instagram-specific metrics */}
           {isInstagramStructure && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-pink-600 uppercase tracking-wider flex items-center gap-2">
                   <Instagram className="h-4 w-4" />
@@ -726,7 +718,7 @@ export function ScrapingReportDialog({
 
           {/* Instagram data quality */}
           {isInstagramStructure && processedRawData?.data_quality && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-slate-50 via-white to-white border-l-4 border-l-slate-400">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-slate-50 via-white to-white border-l-4 border-l-slate-400">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
@@ -762,7 +754,7 @@ export function ScrapingReportDialog({
           {!isInstagramStructure && !isFacebookStructure && (
             <>
               {/* 1. POSICIONAMIENTO Y PERSONALIDAD */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
+              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <Compass className="h-4 w-4 text-violet-500" />
@@ -911,7 +903,7 @@ export function ScrapingReportDialog({
               </Card>
 
               {/* 5. RECOMENDACIONES ESTRATÉGICAS */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-violet-50 via-white to-white border-l-4 border-l-violet-500">
+              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-violet-50 via-white to-white border-l-4 border-l-violet-500">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-2">
                     <Lightbulb className="h-4 w-4" />
@@ -919,7 +911,7 @@ export function ScrapingReportDialog({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {data.strategic_recommendations.map((item, i) => (
                       <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-violet-100/50 shadow-sm">
                         <span className="bg-violet-100 text-violet-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
@@ -938,7 +930,7 @@ export function ScrapingReportDialog({
             <>
               {/* 1. PROPUESTA DE VALOR */}
               {data.market_positioning && data.market_positioning !== "Sin posicionamiento especificado" && (
-                <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
                       <Compass className="h-4 w-4 text-blue-500" />
@@ -995,7 +987,7 @@ export function ScrapingReportDialog({
               )}
 
               {/* 3. CANALES Y CONVERSIÓN */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
+              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                     <Users className="h-4 w-4 text-cyan-500" />
@@ -1022,7 +1014,7 @@ export function ScrapingReportDialog({
 
               {/* 5. RECOMENDACIONES ESTRATÉGICAS */}
               {data.strategic_recommendations.length > 0 && (
-                <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-blue-50 via-white to-white border-l-4 border-l-blue-500">
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-blue-50 via-white to-white border-l-4 border-l-blue-500">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-semibold text-blue-700 uppercase tracking-wider flex items-center gap-2">
                       <Lightbulb className="h-4 w-4" />
@@ -1030,7 +1022,7 @@ export function ScrapingReportDialog({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       {data.strategic_recommendations.map((item, i) => (
                         <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-blue-100/50 shadow-sm">
                           <span className="bg-blue-100 text-blue-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
@@ -1046,6 +1038,7 @@ export function ScrapingReportDialog({
             </>
           )}
           
+        </div>
         </div>
       </DialogContent>
     </Dialog>

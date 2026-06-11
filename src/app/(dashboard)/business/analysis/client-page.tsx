@@ -8,7 +8,7 @@ import {
   Sparkles, Globe, Loader2, Facebook, Instagram, ChevronRight, FileText,
   Users, ThumbsUp, MessageSquare, Activity, Flame, MapPin, Award, ShieldCheck,
   Megaphone, Zap, Eye, Compass, Briefcase, TrendingUp, Heart, Target,
-  AlertCircle, Star, Linkedin, Youtube, Search, ArrowLeft
+  AlertCircle, Star, Linkedin, Youtube, Search, ArrowLeft, Smile
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -555,12 +555,17 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                                             dataObj?.engagement_analysis?.current_activity_level || 
                                             dataObj?.community_analysis?.current_activity_level;
 
+                    const branding = dataObj?.branding_analysis || {};
+                    const brandPersonality = branding.brand_personality || [];
+                    const emotionalTone = branding.emotional_tone || [];
+                    const category = socialPresence.business_category || socialPresence.business_category_name || dataObj?.instagram_presence?.business_category;
+
                     const hasFollowers = followers !== undefined && followers !== null && followers !== "" && followers !== "N/D" && followers !== "N/A";
                     const hasPosts = posts !== undefined && posts !== null && posts !== "" && posts !== "N/D" && posts !== "N/A";
                     const hasFollowing = following !== undefined && following !== null && following !== "" && following !== "N/D" && following !== "N/A";
                     const hasEngagement = engagementLevel !== undefined && engagementLevel !== null && engagementLevel !== "" && engagementLevel !== "N/D" && engagementLevel !== "N/A";
 
-                    if (!hasFollowers && !hasPosts && !hasFollowing && !hasEngagement) {
+                    if (!hasFollowers && !hasPosts && !hasFollowing && !hasEngagement && !category && brandPersonality.length === 0 && emotionalTone.length === 0) {
                       return <div className="text-center py-4 text-muted-foreground text-xs">Sin métricas disponibles en Instagram</div>;
                     }
 
@@ -594,12 +599,43 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                           </div>
                         )}
                         {hasEngagement && (
-                          <div className="flex items-start justify-between text-sm gap-4">
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                             <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
                               <Activity className={`h-4 w-4 ${theme.text}`} />
                               <span>Engagement</span>
                             </div>
                             <span className="font-semibold text-foreground text-right">{engagementLevel}</span>
+                          </div>
+                        )}
+                        {category && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Briefcase className={`h-4 w-4 ${theme.text}`} />
+                              <span>Categoría</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate max-w-[150px]" title={category}>{category}</span>
+                          </div>
+                        )}
+                        {brandPersonality && brandPersonality.length > 0 && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Sparkles className={`h-4 w-4 ${theme.text}`} />
+                              <span>Personalidad</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate max-w-[150px]" title={brandPersonality.join(", ")}>
+                              {brandPersonality.slice(0, 2).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                        {emotionalTone && emotionalTone.length > 0 && (
+                          <div className="flex items-start justify-between text-sm gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Smile className={`h-4 w-4 ${theme.text}`} />
+                              <span>Tono Emocional</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate max-w-[150px]" title={emotionalTone.join(", ")}>
+                              {emotionalTone.slice(0, 2).join(", ")}
+                            </span>
                           </div>
                         )}
                       </div>

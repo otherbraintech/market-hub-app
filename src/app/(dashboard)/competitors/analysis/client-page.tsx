@@ -170,7 +170,6 @@ const normalizeReportData = (rawReportData: any) => {
           business_category: "Panadería y Pastelería",
           brand_summary: `Canal de Facebook con ${outputs.length} publicaciones analizadas. Temas principales: ${topics.slice(0, 4).join(', ')}. Estilo de comunicación: ${Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.posting_style || []))).slice(0, 3).join(', ')}.`,
           audience_metrics: {
-            likes: totalReactions, // Usamos total de reacciones acumuladas
             followers: totalReactions, // Fallback
             talking_about_count: totalComments // Usamos total de comentarios
           }
@@ -564,14 +563,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
                             {/* Facebook-specific metrics */}
                             {isFacebookNewStructure && (
-                              <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-lg p-2 border border-blue-100 dark:border-blue-900/30">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <ThumbsUp className="h-3 w-3 text-blue-600" />
-                                    <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-400 uppercase">Likes</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-blue-900 dark:text-blue-100">{likes}</p>
-                                </div>
+                              <div className="grid grid-cols-3 gap-2 mb-3">
                                 <div className="bg-purple-50/50 dark:bg-purple-950/20 rounded-lg p-2 border border-purple-100 dark:border-purple-900/30">
                                   <div className="flex items-center gap-1.5 mb-1">
                                     <Users className="h-3 w-3 text-purple-600" />
@@ -879,7 +871,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
       {/* Modal de Informe Completo */}
       <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 overflow-hidden border border-muted/50 shadow-2xl">
+        <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[80vh] flex flex-col p-0 overflow-hidden border border-muted/50 shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b bg-muted/20 shrink-0">
             <div className="flex items-center justify-between">
               <div>
@@ -899,7 +891,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-[calc(85vh-120px)]">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {selectedReport?.data && (() => {
               const dataObj = normalizeReportData(selectedReport.data);
               if (!dataObj) return null;
@@ -1161,7 +1153,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                       </div>
 
                       {/* MÉTRICAS PRINCIPALES */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className={`grid grid-cols-2 ${selectedReport?.channel === "FACEBOOK" ? "md:grid-cols-3" : "md:grid-cols-4"} gap-3`}>
                         {isInstagramStructure ? (
                           <>
                             <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
@@ -1246,15 +1238,17 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                                 {formatSocialMetric(socialPresence.audience_metrics?.followers ?? socialPresence.audience_size?.followers)}
                               </p>
                             </div>
-                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <ThumbsUp className={`h-3.5 w-3.5 ${theme.text}`} />
-                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Likes</span>
+                            {selectedReport?.channel !== "FACEBOOK" && (
+                              <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <ThumbsUp className={`h-3.5 w-3.5 ${theme.text}`} />
+                                  <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Likes</span>
+                                </div>
+                                <p className="text-lg font-semibold text-foreground">
+                                  {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
+                                </p>
                               </div>
-                              <p className="text-lg font-semibold text-foreground">
-                                {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
-                              </p>
-                            </div>
+                            )}
                             <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
                               <div className="flex items-center gap-1.5 mb-1">
                                 <Activity className={`h-3.5 w-3.5 ${theme.text}`} />
@@ -1281,8 +1275,8 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         )}
                       </div>
 
-                      {/* INFORMACIÓN ORGANIZADA EN SECCIONES */}
-                      <div className="space-y-4">
+                      {/* INFORMACIÓN ORGANIZADA EN SECCIONES - Grid horizontal */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Sección de Presencia */}
                         <Card className="p-4 border border-muted/50 shadow-sm">
                           <h4 className="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2 mb-3">
@@ -1300,79 +1294,75 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                               <p className="text-xs text-muted-foreground italic">No se detectaron señales de ubicación física.</p>
                             )}
                           </div>
-                        </Card>
 
-                        {/* Sección de Negocio */}
-                        <Card className="p-4 border border-muted/50 shadow-sm">
-                          <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2 mb-3">
+                          {/* Inteligencia de Negocio inline */}
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2 mb-2 mt-4 pt-3 border-t border-muted/30">
                             <Briefcase className="h-4 w-4" /> Inteligencia de Negocio
                           </h4>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {bizSignals.website_present !== undefined && (
-                              <Badge variant={bizSignals.website_present ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.website_present ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                Sitio Web: {bizSignals.website_present ? "Detectado" : "No detectado"}
+                              <Badge variant={bizSignals.website_present ? "default" : "secondary"} className={`text-[10px] font-bold ${bizSignals.website_present ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Web: {bizSignals.website_present ? "Sí" : "No"}
                               </Badge>
                             )}
                             {bizSignals.advertising_active !== undefined && (
-                              <Badge variant={bizSignals.advertising_active ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.advertising_active ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                Publicidad: {bizSignals.advertising_active ? "Activa" : "Inactiva"}
+                              <Badge variant={bizSignals.advertising_active ? "default" : "secondary"} className={`text-[10px] font-bold ${bizSignals.advertising_active ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Ads: {bizSignals.advertising_active ? "Activa" : "Inactiva"}
                               </Badge>
                             )}
                             {bizSignals.phone_contact_available !== undefined && (
-                              <Badge variant={bizSignals.phone_contact_available ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.phone_contact_available ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                Teléfono: {bizSignals.phone_contact_available ? "Disponible" : "No disponible"}
+                              <Badge variant={bizSignals.phone_contact_available ? "default" : "secondary"} className={`text-[10px] font-bold ${bizSignals.phone_contact_available ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Tel: {bizSignals.phone_contact_available ? "Sí" : "No"}
                               </Badge>
                             )}
                             {bizSignals.price_range_indicator && (
-                              <Badge variant="outline" className="text-xs font-bold border-teal-500/20 bg-teal-500/10 text-teal-700">
+                              <Badge variant="outline" className="text-[10px] font-bold border-teal-500/20 bg-teal-500/10 text-teal-700">
                                 Precio: {bizSignals.price_range_indicator}
                               </Badge>
                             )}
                             {reputationAnalysis.recommendation_percentage != null && (
-                              <Badge variant="outline" className="text-xs font-bold border-green-500/20 bg-green-500/10 text-green-700">
-                                Recomendación: {reputationAnalysis.recommendation_percentage}%
+                              <Badge variant="outline" className="text-[10px] font-bold border-green-500/20 bg-green-500/10 text-green-700">
+                                Rec: {reputationAnalysis.recommendation_percentage}%
                               </Badge>
                             )}
                           </div>
                         </Card>
 
-                        {/* Sección de Fortalezas y Debilidades */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Card className="p-4 border border-muted/50 shadow-sm">
-                            <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-600 flex items-center gap-2 mb-3">
-                              <TrendingUp className="h-4 w-4" /> Fortalezas
-                            </h4>
-                            <div className="space-y-2">
-                              {compObs.main_strengths && compObs.main_strengths.length > 0 ? (
-                                compObs.main_strengths.map((s: string, i: number) => (
-                                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                    <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
-                                    <span>{s}</span>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-xs text-muted-foreground italic">No se detectaron fortalezas específicas.</p>
-                              )}
-                            </div>
-                          </Card>
-                          <Card className="p-4 border border-muted/50 shadow-sm">
-                            <h4 className="font-bold text-xs uppercase tracking-wider text-rose-600 flex items-center gap-2 mb-3">
-                              <AlertCircle className="h-4 w-4" /> Debilidades
-                            </h4>
-                            <div className="space-y-2">
-                              {compObs.main_weaknesses && compObs.main_weaknesses.length > 0 ? (
-                                compObs.main_weaknesses.map((s: string, i: number) => (
-                                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                    <ChevronRight className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
-                                    <span>{s}</span>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-xs text-muted-foreground italic">No se detectaron debilidades específicas.</p>
-                              )}
-                            </div>
-                          </Card>
-                        </div>
+                        {/* Sección de Fortalezas */}
+                        <Card className="p-4 border border-muted/50 shadow-sm">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-600 flex items-center gap-2 mb-3">
+                            <TrendingUp className="h-4 w-4" /> Fortalezas
+                          </h4>
+                          <div className="space-y-2">
+                            {compObs.main_strengths && compObs.main_strengths.length > 0 ? (
+                              compObs.main_strengths.map((s: string, i: number) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+                                  <span>{s}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No se detectaron fortalezas específicas.</p>
+                            )}
+                          </div>
+
+                          {/* Debilidades inline */}
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-rose-600 flex items-center gap-2 mb-2 mt-4 pt-3 border-t border-muted/30">
+                            <AlertCircle className="h-4 w-4" /> Debilidades
+                          </h4>
+                          <div className="space-y-2">
+                            {compObs.main_weaknesses && compObs.main_weaknesses.length > 0 ? (
+                              compObs.main_weaknesses.map((s: string, i: number) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <ChevronRight className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
+                                  <span>{s}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No se detectaron debilidades específicas.</p>
+                            )}
+                          </div>
+                        </Card>
 
                         {/* Sección de Recomendaciones */}
                         <Card className="p-4 border border-blue-500/10 bg-blue-500/5 shadow-sm">
@@ -1557,7 +1547,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     )}
 
                     {/* 2. Personalidad y Tono */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {overview.brand_personality && overview.brand_personality.length > 0 && (
                         <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/10">
                           <h4 className="font-bold text-xs uppercase tracking-wider text-purple-600 mb-2">Personalidad de Marca</h4>
@@ -1622,7 +1612,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
                         Análisis de Marketing y Conversión
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {mkt.marketing_tactics && mkt.marketing_tactics.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-teal-600">Tácticas de Marketing</h4>
@@ -1676,7 +1666,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           </div>
                         )}
                         {mkt.social_proof_signals && mkt.social_proof_signals.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-muted/20">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-muted/20">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-pink-600">Señales de Prueba Social</h4>
                             <ul className="space-y-1">
                               {mkt.social_proof_signals.map((p: string, i: number) => (
@@ -1697,7 +1687,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
                         Experiencia de Usuario (UX)
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {ux.ux_strengths && ux.ux_strengths.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-emerald-600">Fortalezas UX</h4>
@@ -1753,7 +1743,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         )}
 
                         {ux.mobile_experience_observations && ux.mobile_experience_observations.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-muted/20">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-muted/20">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-blue-600">Experiencia Móvil</h4>
                             <ul className="space-y-1">
                               {ux.mobile_experience_observations.map((p: string, i: number) => (
@@ -1774,7 +1764,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <span className="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
                         Perspectivas Competitivas y Diferenciación
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {insights.differentiation_opportunities && insights.differentiation_opportunities.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-purple-600">Oportunidades de Diferenciación</h4>
@@ -1802,7 +1792,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           </div>
                         )}
                         {insights.customer_psychology_insights && insights.customer_psychology_insights.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-muted/20">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-muted/20">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-blue-600">Psicología del Consumidor</h4>
                             <ul className="space-y-1">
                               {insights.customer_psychology_insights.map((p: string, i: number) => (
@@ -1823,7 +1813,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <Sparkles className="h-4 w-4" />
                         Plan de Recomendaciones Estratégicas
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {finalBranding && finalBranding.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-purple-600">Branding</h4>
@@ -1877,7 +1867,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           </div>
                         )}
                         {finalConversion && finalConversion.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-blue-500/10">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-blue-500/10">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-rose-600">Conversión y E-commerce</h4>
                             <ul className="space-y-1">
                               {finalConversion.map((p: string, i: number) => (

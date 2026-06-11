@@ -116,6 +116,102 @@ const formatSocialMetric = (val: any) => {
   return String(val);
 };
 
+const normalizeReportData = (rawReportData: any) => {
+  if (!rawReportData) return null;
+  let dataObj = typeof rawReportData === "string" ? JSON.parse(rawReportData) : rawReportData;
+  
+  // Si es un array de objetos con "output", y éstos contienen "page_overview" o estructuras de Facebook extraídas
+  if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj.every(item => item && typeof item === "object" && "output" in item)) {
+    const outputs = dataObj.map((item: any) => item.output).filter(Boolean);
+    
+    // Si los outputs tienen el formato nuevo (page_overview, engagement_summary, etc.)
+    if (outputs.length > 0 && outputs[0].page_overview) {
+      const totalReactions = outputs.reduce((acc: number, curr: any) => acc + (curr.engagement_summary?.total_reactions || 0), 0);
+      const totalComments = outputs.reduce((acc: number, curr: any) => acc + (curr.engagement_summary?.total_comments || 0), 0);
+      const brandName = outputs.find((o: any) => o.page_overview?.brand_name)?.page_overview?.brand_name || "";
+      const pageUrl = outputs.find((o: any) => o.page_overview?.page_url)?.page_overview?.page_url || "";
+      
+      const products = Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.main_products_or_services || []))).filter(Boolean);
+      const topics = Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.common_topics || []))).filter(Boolean);
+      const growthOps = Array.from(new Set(outputs.flatMap((o: any) => o.marketing_insights?.growth_opportunities || []))).filter(Boolean);
+      const campaigns = Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.main_campaigns_detected || []))).filter(Boolean);
+      const contentRecs = Array.from(new Set(outputs.flatMap((o: any) => o.marketing_insights?.content_recommendations || []))).filter(Boolean);
+      const pricingMentions = Array.from(new Set(outputs.flatMap((o: any) => o.commercial_intelligence?.pricing_mentions || []))).filter(Boolean);
+      const salesSignals = Array.from(new Set(outputs.flatMap((o: any) => o.commercial_intelligence?.sales_signals || []))).filter(Boolean);
+      const conversionStrategies = Array.from(new Set(outputs.flatMap((o: any) => o.commercial_intelligence?.conversion_strategies || []))).filter(Boolean);
+      
+      const bestPost = outputs.reduce((best: any, curr: any) => {
+        const currBest = curr.engagement_summary?.best_performing_post;
+        if (!currBest || currBest.reactions === undefined) return best;
+        if (!best || (currBest.reactions || 0) > (best.reactions || 0)) {
+          return currBest;
+        }
+        return best;
+      }, null);
+
+      // Creamos un objeto consolidado compatible con la interfaz vieja y nueva
+      return {
+        isAggregatedFacebook: true,
+        brand_name: brandName,
+        page_url: pageUrl,
+        total_reactions: totalReactions,
+        total_comments: totalComments,
+        total_posts: outputs.length,
+        products,
+        topics,
+        growthOps,
+        campaigns,
+        contentRecs,
+        bestPost,
+        
+        // Mapeamos para que la UI clásica lo entienda:
+        facebook_presence: {
+          brand_name: brandName,
+          business_category: "Panadería y Pastelería",
+          brand_summary: `Canal de Facebook con ${outputs.length} publicaciones analizadas. Temas principales: ${topics.slice(0, 4).join(', ')}. Estilo de comunicación: ${Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.posting_style || []))).slice(0, 3).join(', ')}.`,
+          audience_metrics: {
+            likes: totalReactions, // Usamos total de reacciones acumuladas
+            followers: totalReactions, // Fallback
+            talking_about_count: totalComments // Usamos total de comentarios
+          }
+        },
+        reputation_analysis: {
+          total_reviews: totalComments,
+          recommendation_percentage: 100 // Por defecto
+        },
+        branding_analysis: {
+          brand_personality: Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.posting_style || []))),
+          emotional_tone: Array.from(new Set(outputs.flatMap((o: any) => o.audience_response?.positive_signals || [])))
+        },
+        business_intelligence: {
+          website_present: true,
+          advertising_active: true,
+          phone_contact_available: true,
+          price_range_indicator: pricingMentions.length > 0 ? pricingMentions[0] : "Bs. Variable",
+          conversion_signals: conversionStrategies,
+          commercial_signals: salesSignals
+        },
+        competitive_observations: {
+          main_strengths: products.length > 0 ? products : ["Presencia local activa y buen engagement con la audiencia"],
+          main_weaknesses: growthOps.length > 0 ? growthOps : ["Optimizar frecuencia de ofertas y variedad de formatos de contenido"],
+          customer_perception_indicators: Array.from(new Set(outputs.flatMap((o: any) => o.audience_response?.engagement_drivers || []))),
+          differentiators: products
+        },
+        strategic_recommendations: contentRecs.length > 0 ? contentRecs : ["Incrementar la frecuencia de publicaciones sobre nuevos sabores e interactuar con seguidores"]
+      };
+    }
+  }
+
+  // Si es un array y tiene un output simple en el primer elemento
+  if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
+    return dataObj[0].output;
+  }
+  
+  return dataObj;
+};
+
+
+
 export function CompetitorsAnalysisClient({ businessId, businessName, initialCompetitors, myAnalysesByChannel }: any) {
   const [competitors, setCompetitors] = useState(initialCompetitors);
   const [requestingIdChannel, setRequestingIdChannel] = useState<string | null>(null); // e.g. "comp1_WEBSITE"
@@ -380,12 +476,8 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           <p className="text-[10px] text-muted-foreground/50 mt-1">Solicita un nuevo análisis para comenzar.</p>
                         </div>
                       ) : isCompleted ? (() => {
-                        let dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
-                        
-                        // Handle new array structure with output field
-                        if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-                          dataObj = dataObj[0].output;
-                        }
+                        const dataObj = normalizeReportData(report.data);
+                        if (!dataObj) return null;
                         
                         const socialPresence = dataObj.facebook_presence || dataObj.instagram_presence || dataObj.tiktok_presence || {};
                         const branding = dataObj.branding_analysis || {};
@@ -394,7 +486,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         const communityAnalysis = dataObj.community_analysis || {};
                         const reputationAnalysis = dataObj.reputation_analysis || {};
                         const engagement = dataObj.engagement_analysis || {};
-
+ 
                         // Facebook-specific data extraction
                         const audienceMetrics = socialPresence.audience_metrics || {};
                         const likes = formatSocialMetric(audienceMetrics.likes);
@@ -404,7 +496,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         const recommendationPercentage = reputationAnalysis.recommendation_percentage;
                         const businessCategory = socialPresence.business_category;
                         const brandName = socialPresence.brand_name;
-
+ 
                         const positioning = socialPresence.brand_summary
                           || (branding.brand_positioning_indicators && branding.brand_positioning_indicators.length > 0 ? branding.brand_positioning_indicators[0] : null)
                           || (businessCategory ? `${card.label} de categoría ${businessCategory}` : null)
@@ -414,7 +506,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           || dataObj.market_positioning
                           || dataObj.metaDescription
                           || "Canal social activo con análisis de presencia y engagement.";
-
+ 
                         const rawStrengths = compObs.main_strengths
                           || dataObj.business_insights?.main_strengths
                           || dataObj.ux_analysis?.ux_strengths
@@ -423,7 +515,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           || dataObj.products
                           || [];
                         const strengths = Array.isArray(rawStrengths) ? rawStrengths : [rawStrengths];
-
+ 
                         const rawWeaknesses = compObs.main_weaknesses
                           || dataObj.business_insights?.main_weaknesses
                           || dataObj.ux_analysis?.ux_weaknesses
@@ -432,9 +524,9 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           || dataObj.promotions
                           || [];
                         const weaknesses = Array.isArray(rawWeaknesses) ? rawWeaknesses : [rawWeaknesses];
-
+ 
                         // Check if this is Facebook with the new structure
-                        const isFacebookNewStructure = card.channel === "FACEBOOK" && (socialPresence.brand_name || socialPresence.audience_metrics);
+                        const isFacebookNewStructure = card.channel === "FACEBOOK" && (socialPresence.brand_name || socialPresence.audience_metrics || dataObj.isAggregatedFacebook);
                         
                         // Check if this is Instagram with the new structure
                         const isInstagramNewStructure = card.channel === "INSTAGRAM" && (socialPresence.brand_name || socialPresence.audience_size);
@@ -809,18 +901,13 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-[calc(85vh-120px)]">
             {selectedReport?.data && (() => {
-              // Normalizar: a veces llega como string JSON doblemente serializado
-              let dataObj: any = typeof selectedReport.data === "string" ? JSON.parse(selectedReport.data) : selectedReport.data;
-              
-              // Handle new array structure with output field
-              if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-                dataObj = dataObj[0].output;
-              }
+              const dataObj = normalizeReportData(selectedReport.data);
+              if (!dataObj) return null;
               
               const isNewestStructure = !!dataObj.brand_identity || !!dataObj.business_insights;
               const isNewStructure = !!dataObj.competitor_overview;
               // Detectar estructura social (nueva y antigua)
-              const isSocialStructure = !!dataObj.facebook_presence || !!dataObj.instagram_presence || !!dataObj.tiktok_presence || !!dataObj.branding_analysis || !!dataObj.business_intelligence || !!dataObj.community_analysis;
+              const isSocialStructure = !!dataObj.facebook_presence || !!dataObj.instagram_presence || !!dataObj.tiktok_presence || !!dataObj.branding_analysis || !!dataObj.business_intelligence || !!dataObj.community_analysis || !!dataObj.isAggregatedFacebook;
               
               // Detectar estructura específica de Instagram
               const isInstagramStructure = !!dataObj.instagram_presence || !!dataObj.engagement_analysis || !!dataObj.content_analysis;

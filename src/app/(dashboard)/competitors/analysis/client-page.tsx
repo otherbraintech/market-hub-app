@@ -227,8 +227,92 @@ const normalizeReportData = (rawReportData: any) => {
   }
 
   // Si es un array y tiene un output simple en el primer elemento
-  if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-    return dataObj[0].output;
+  if (Array.isArray(dataObj) && dataObj.length > 0) {
+    dataObj = dataObj[0].output || dataObj[0];
+  }
+
+  // Si es la estructura de TikTok nueva
+  if (dataObj && dataObj.profile && (dataObj.engagement || dataObj.business_signals)) {
+    const profile = dataObj.profile || {};
+    const engagement = dataObj.engagement || {};
+    const bizSignals = dataObj.business_signals || {};
+    const content = dataObj.content_analysis || {};
+    const compInsights = dataObj.competitive_insights || {};
+    const dQuality = dataObj.data_quality || {};
+
+    const generatedRecommendations: string[] = [];
+    if (bizSignals.whatsapp_present === false) {
+      generatedRecommendations.push("Vincular un enlace directo a WhatsApp en el perfil de TikTok para facilitar la conversión directa.");
+    }
+    if (bizSignals.website_present === false) {
+      generatedRecommendations.push("Agregar un enlace al sitio web oficial en la bio para derivar tráfico cualificado.");
+    }
+    if (engagement.engagement_level === "low" || engagement.engagement_level === "bajo") {
+      generatedRecommendations.push("Mejorar la tasa de interacción usando ganchos en los primeros 3 segundos y respondiendo comentarios con videos.");
+    } else {
+      generatedRecommendations.push("Mantener la consistencia en los pilares de contenido identificados para consolidar el engagement actual.");
+    }
+    if (bizSignals.contact_cta === false) {
+      generatedRecommendations.push("Habilitar los botones de contacto en el perfil de creador/empresa para consultas comerciales.");
+    }
+    if (Array.isArray(content.hashtags) && content.hashtags.length < 5) {
+      generatedRecommendations.push("Diversificar el uso de hashtags locales y de nicho para optimizar el posicionamiento en el algoritmo de búsqueda.");
+    } else {
+      generatedRecommendations.push("Optimizar la descripción de los videos (SEO de TikTok) incluyendo palabras clave en los primeros caracteres.");
+    }
+
+    dataObj = {
+      ...dataObj,
+      tiktok_presence: {
+        brand_name: profile.display_name || profile.username,
+        brand_summary: profile.bio || "Perfil de TikTok",
+        followers: profile.followers,
+        likes: profile.total_likes,
+        videos_count: profile.total_videos,
+        username: profile.username
+      },
+      branding_analysis: {
+        brand_positioning_indicators: [profile.bio || "Perfil de TikTok"],
+        brand_personality: [],
+        emotional_tone: []
+      },
+      business_intelligence: {
+        website_present: bizSignals.website_present,
+        whatsapp_present: bizSignals.whatsapp_present,
+        advertising_active: false,
+        phone_contact_available: bizSignals.whatsapp_present,
+        price_range_indicator: "N/D",
+        conversion_signals: [
+          `Sitio Web: ${bizSignals.website_present ? "Sí" : "No"}`,
+          `WhatsApp: ${bizSignals.whatsapp_present ? "Sí" : "No"}`,
+          `CTA de Contacto: ${bizSignals.contact_cta ? "Sí" : "No"}`
+        ],
+        commercial_signals: bizSignals.commercial_signals || []
+      },
+      community_analysis: {
+        current_activity_level: engagement.engagement_level,
+        audience_loyalty_indicators: []
+      },
+      engagement_analysis: {
+        engagement_level: engagement.engagement_level,
+        social_proof_signals: [
+          `Likes: ${engagement.likes || 0}`,
+          `Views: ${engagement.views || 0}`,
+          `Comments: ${engagement.comments || 0}`
+        ]
+      },
+      competitive_observations: {
+        main_strengths: compInsights.strengths || [],
+        main_weaknesses: compInsights.weaknesses || [],
+        differentiators: compInsights.opportunities || []
+      },
+      data_quality: {
+        confidence_score: dQuality.confidence_score || 1.0,
+        missing_information: [],
+        analysis_limitations: []
+      },
+      strategic_recommendations: generatedRecommendations
+    };
   }
   
   return dataObj;
@@ -1021,8 +1105,8 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                 let dataObj: any = null;
                 if (report?.data) {
                   dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
-                  if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-                    dataObj = dataObj[0].output;
+                  if (Array.isArray(dataObj) && dataObj.length > 0) {
+                    dataObj = dataObj[0].output || dataObj[0];
                   }
                 }
 
@@ -1059,6 +1143,17 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     if (tiktokLikes === "N/D") tiktokLikes = dataObj.tiktok_presence.likes?.toString() || "N/D";
                     if (tiktokVideos === "N/D") tiktokVideos = dataObj.tiktok_presence.videos_count?.toString() || "N/D";
                     tiktokUsername = dataObj.tiktok_presence.username || "N/D";
+                  }
+
+                  if (dataObj?.profile) {
+                    if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.profile.followers !== undefined ? dataObj.profile.followers.toLocaleString() : "N/D";
+                    if (tiktokLikes === "N/D") tiktokLikes = dataObj.profile.total_likes !== undefined ? dataObj.profile.total_likes.toLocaleString() : "N/D";
+                    if (tiktokVideos === "N/D") tiktokVideos = dataObj.profile.total_videos !== undefined ? dataObj.profile.total_videos.toLocaleString() : "N/D";
+                    if (tiktokUsername === "N/D") tiktokUsername = dataObj.profile.username || "N/D";
+                  }
+
+                  if (dataObj?.engagement) {
+                    if (tiktokAverageViews === "N/D") tiktokAverageViews = dataObj.engagement.views !== undefined ? dataObj.engagement.views.toLocaleString() : "N/D";
                   }
 
                   if (tiktokFollowers === "N/D" || tiktokLikes === "N/D" || tiktokVideos === "N/D" || tiktokUsername === "N/D") {
@@ -1168,23 +1263,34 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                             <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
                               <Heart className={`h-4 w-4 ${theme.text}`} />
-                              <span>Me gusta</span>
+                              <span>Me gusta totales</span>
                             </div>
                             <span className="font-semibold text-foreground text-right">{tiktokLikes}</span>
                           </div>
                           <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                             <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                              <FileText className={`h-4 w-4 ${theme.text}`} />
-                              <span>Videos</span>
+                              <Activity className={`h-4 w-4 ${theme.text}`} />
+                              <span>Engagement</span>
                             </div>
-                            <span className="font-semibold text-foreground text-right">{tiktokVideos}</span>
+                            <span className="font-semibold text-foreground text-right capitalize">
+                              {dataObj?.engagement?.engagement_level || "N/D"}
+                            </span>
                           </div>
                           <div className="flex items-start justify-between text-sm gap-4">
                             <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                              <Eye className={`h-4 w-4 ${theme.text}`} />
-                              <span>Vistas Promedio</span>
+                              <Globe className={`h-4 w-4 ${theme.text}`} />
+                              <span>Enlaces</span>
                             </div>
-                            <span className="font-semibold text-foreground text-right">{tiktokAverageViews}</span>
+                            <span className="font-semibold text-foreground text-right text-xs">
+                              {(() => {
+                                const web = dataObj?.business_signals?.website_present;
+                                const wa = dataObj?.business_signals?.whatsapp_present;
+                                if (web && wa) return "Web y WhatsApp";
+                                if (web) return "Solo Web";
+                                if (wa) return "Solo WhatsApp";
+                                return "Ninguno";
+                              })()}
+                            </span>
                           </div>
                         </div>
                       ) : isFacebookStructure && isCompleted ? (
@@ -1614,7 +1720,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
               const isSocialStructure = !!dataObj.facebook_presence || !!dataObj.instagram_presence || !!dataObj.tiktok_presence || !!dataObj.branding_analysis || !!dataObj.business_intelligence || !!dataObj.community_analysis || !!dataObj.isAggregatedFacebook;
               
               // Detectar estructura específica de Instagram
-              const isInstagramStructure = !!dataObj.instagram_presence || !!dataObj.engagement_analysis || !!dataObj.content_analysis;
+              const isInstagramStructure = (!!dataObj.instagram_presence || !!dataObj.engagement_analysis || !!dataObj.content_analysis) && selectedReport?.channel !== "TIKTOK";
 
               if (isNewestStructure || isNewStructure || isSocialStructure) {
                 let overview: any = {};
@@ -1866,7 +1972,46 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
                       {/* MÉTRICAS PRINCIPALES */}
                       <div className={`grid grid-cols-2 ${selectedReport?.channel === "FACEBOOK" ? "md:grid-cols-3" : "md:grid-cols-4"} gap-3`}>
-                        {isInstagramStructure ? (
+                        {selectedReport?.channel === "TIKTOK" ? (
+                          <>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Users className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.followers)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Heart className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Me gusta</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.likes)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <FileText className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Videos</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.videos_count)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <TikTokIcon className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Username</span>
+                              </div>
+                              <p className="text-sm font-semibold text-foreground truncate mt-0.5">
+                                @{socialPresence.username || "N/D"}
+                              </p>
+                            </div>
+                          </>
+                        ) : isInstagramStructure ? (
                           <>
                             <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
                               <div className="flex items-center gap-1.5 mb-1">

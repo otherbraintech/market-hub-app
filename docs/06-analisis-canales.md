@@ -56,7 +56,7 @@ Si es verídico, los datos son mapeados dinámicamente y de forma robusta hacia 
 Para el canal de **TikTok**, se ha implementado un flujo de extracción dedicado para alinear su visualización con el resto de redes sociales (evitando el comportamiento por defecto de Sitio Web):
 1. **Extracción Dinámica**: 
    - El sistema busca primero en `seo_signals` del reporte (donde el agente de n8n guarda cadenas como `"Seguidores en TikTok: 815"`, `"Me gusta totales del perfil: 6,949"`, etc.) e interpreta mediante filtros y parseos numéricos las métricas de **Seguidores**, **Me gusta**, y **Videos**.
-   - Como respaldo, busca en la estructura `tiktok_presence` (proporcionada por el análisis estructurado) o en el objeto `authorMeta` (que contiene campos del scraper de Apify como `fans`, `heart`, `video`, `name`).
+   - Como respaldo, busca en la estructura `tiktok_presence`, en la nueva estructura con los objetos `profile` (para followers, total_likes, total_videos, username) y `engagement` (para views, likes, shares, comments, engagement_level), o en el objeto `authorMeta` (que contiene campos del scraper de Apify como `fans`, `heart`, `video`, `name`).
 2. **Visualización en Dashboard**: Las tarjetas de redes sociales en el Panel de Análisis muestran de manera interactiva:
    - **TikTok**: Seguidores (con icono `Users`), Me gusta (con icono `Heart`), Videos (con icono `FileText`) y **Vistas Promedio** (con icono `Eye` para mostrar rendimiento).
    - **Instagram**: Seguidores (con icono `Users`), Publicaciones (con icono `FileText`), Siguiendo (con icono `Users`) y **Engagement** (con icono `Activity` para medir interacción).

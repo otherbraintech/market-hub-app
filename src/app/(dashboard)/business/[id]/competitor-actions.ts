@@ -8,13 +8,13 @@ export async function upsertCompetitorAction(
   competitorId: string | undefined,
   data: {
     name: string
-    website?: string
-    facebook?: string
-    instagram?: string
-    tiktok?: string
-    linkedin?: string
-    youtube?: string
-    seoGoogle?: string
+    website?: string | null
+    facebook?: string | null
+    instagram?: string | null
+    tiktok?: string | null
+    linkedin?: string | null
+    youtube?: string | null
+    seoGoogle?: string | null
   }
 ) {
   try {

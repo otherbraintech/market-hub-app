@@ -161,6 +161,7 @@ export async function updateCalendarContentAction(
     type?: any;
     format?: any;
     channel?: any;
+    channels?: string[];
     body?: string;
     caption?: string;
     promptUsed?: string;
@@ -169,13 +170,59 @@ export async function updateCalendarContentAction(
   businessId: string
 ) {
   try {
-    const content = await updateContent(id, {
-      ...data,
-      scheduledAt: data.scheduledAt === null ? undefined : data.scheduledAt,
-    } as any);
+    const channels = data.channels || (data.channel ? [data.channel] : ["INSTAGRAM"]);
+    const firstChannel = channels[0];
+
+    // 1. Actualizar la publicación original con el primer canal
+    const content = await prisma.content.update({
+      where: { id },
+      data: {
+        title: data.title,
+        type: data.type,
+        format: data.format,
+        channel: firstChannel as any,
+        body: data.body,
+        caption: data.caption,
+        promptUsed: data.promptUsed,
+        scheduledAt: data.scheduledAt === null ? null : (data.scheduledAt || undefined),
+      }
+    });
+
+    // 2. Para canales adicionales, duplicar el contenido
+    if (channels.length > 1) {
+      const original = await prisma.content.findUnique({
+        where: { id }
+      });
+
+      if (original) {
+        const otherChannels = channels.slice(1);
+        await prisma.$transaction(
+          otherChannels.map(ch => {
+            return prisma.content.create({
+              data: {
+                campaignId: original.campaignId,
+                productId: original.productId,
+                socialAccountId: original.socialAccountId,
+                title: data.title || original.title,
+                type: (data.type || original.type) as any,
+                format: (data.format || original.format) as any,
+                channel: ch as any,
+                body: data.body ?? original.body,
+                caption: data.caption ?? original.caption,
+                promptUsed: data.promptUsed ?? original.promptUsed,
+                scheduledAt: data.scheduledAt === null ? null : (data.scheduledAt || original.scheduledAt),
+                status: original.status,
+                metadata: original.metadata || undefined,
+              }
+            });
+          })
+        );
+      }
+    }
+
     revalidatePath(`/business/${businessId}`);
     revalidatePath("/calendar");
-    return { success: true, message: "Publicación actualizada correctamente", content };
+    return { success: true, message: "Publicaciones actualizadas correctamente", content };
   } catch (error: any) {
     console.error("Error al actualizar contenido:", error);
     return { success: false, error: error.message || "Error al actualizar la publicación" };

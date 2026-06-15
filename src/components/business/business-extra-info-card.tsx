@@ -89,15 +89,16 @@ export function BusinessExtraInfoCard({
 
     setLoading(true)
     try {
+      const activePlatforms = selectedPlatforms[index] || ['website']
       const result = await upsertCompetitorAction(businessId, comp.id || undefined, {
         name: comp.name,
-        website: comp.website || undefined,
-        facebook: comp.facebook || undefined,
-        instagram: comp.instagram || undefined,
-        tiktok: comp.tiktok || undefined,
-        linkedin: comp.linkedin || undefined,
-        youtube: comp.youtube || undefined,
-        seoGoogle: comp.seoGoogle || undefined
+        website: activePlatforms.includes('website') && comp.website?.trim() ? comp.website.trim() : null,
+        facebook: activePlatforms.includes('facebook') && comp.facebook?.trim() ? comp.facebook.trim() : null,
+        instagram: activePlatforms.includes('instagram') && comp.instagram?.trim() ? comp.instagram.trim() : null,
+        tiktok: activePlatforms.includes('tiktok') && comp.tiktok?.trim() ? comp.tiktok.trim() : null,
+        linkedin: activePlatforms.includes('linkedin') && comp.linkedin?.trim() ? comp.linkedin.trim() : null,
+        youtube: activePlatforms.includes('youtube') && comp.youtube?.trim() ? comp.youtube.trim() : null,
+        seoGoogle: activePlatforms.includes('seoGoogle') && comp.seoGoogle?.trim() ? comp.seoGoogle.trim() : null
       })
       if (result.success) {
         toast.success('Competidor guardado')

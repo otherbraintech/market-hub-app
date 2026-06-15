@@ -35,7 +35,8 @@ import {
   HelpCircle,
   Sparkles,
   RefreshCw,
-  TrendingUp
+  TrendingUp,
+  Compass
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BuyerPersonaForm } from "./buyer-persona-form";
@@ -60,7 +61,16 @@ interface StrategyFormProps {
 export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyFormProps) {
   const [loading, setLoading] = useState(false);
   const [generatingStrategy, setGeneratingStrategy] = useState(false);
-  const [aiMode, setAiMode] = useState(true);
+  const [aiMode, setAiMode] = useState(() => {
+    if (defaultValues && (
+      (defaultValues.objectives && Array.isArray(defaultValues.objectives) && defaultValues.objectives.length > 0) ||
+      (defaultValues.personas && Array.isArray(defaultValues.personas) && defaultValues.personas.length > 0) ||
+      (defaultValues.channels && Array.isArray(defaultValues.channels) && defaultValues.channels.length > 0)
+    )) {
+      return false;
+    }
+    return true;
+  });
   const [currentStep, setCurrentStep] = useState(1);
   const [focuses, setFocuses] = useState<Array<{ 
     name: string; 
@@ -863,55 +873,133 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
 
             {watchedObjectives.length > 0 && (
               <div className="grid gap-6 md:grid-cols-2">
+                {/* Objetivos SMART */}
                 <Card className="border border-violet-100/50 bg-violet-50/5">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-violet-800">
-                      <Target className="h-4 w-4" />
-                      Objetivos SMART sugeridos
-                    </CardTitle>
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2 text-violet-800">
+                        <Target className="h-4 w-4" />
+                        Objetivos SMART sugeridos
+                      </CardTitle>
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] font-bold" onClick={() => { setEditingIndex(null); setOpenObjectiveDialog(true); }}>
+                        <Plus className="h-3 w-3 mr-1" /> Añadir
+                      </Button>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
+                  <CardContent className="space-y-2.5 max-h-[300px] overflow-y-auto">
                     {watchedObjectives.map((obj: any, index: number) => (
-                      <div key={index} className="text-xs border-b pb-2 last:border-0 last:pb-0">
-                        <span className="font-semibold">{obj.name}:</span> {obj.specific}
-                        <div className="text-[10px] text-muted-foreground mt-1">Meta: {obj.targetValue} {obj.unit} • Plazo: {obj.deadline}</div>
+                      <div key={index} className="text-xs border-b pb-2 last:border-0 last:pb-0 flex justify-between items-start gap-2 group">
+                        <div className="flex-1">
+                          <span className="font-semibold">{obj.name}:</span> {obj.specific}
+                          <div className="text-[10px] text-muted-foreground mt-1">Meta: {obj.targetValue} {obj.unit} • Plazo: {obj.deadline}</div>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingIndex(index); setOpenObjectiveDialog(true); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeObjective(index)}>
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </CardContent>
                 </Card>
 
+                {/* Buyer Personas */}
                 <Card className="border border-indigo-100/50 bg-indigo-50/5">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-indigo-800">
-                      <Users className="h-4 w-4" />
-                      Público Objetivo (Buyer Personas)
-                    </CardTitle>
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2 text-indigo-800">
+                        <Users className="h-4 w-4" />
+                        Público Objetivo (Buyer Personas)
+                      </CardTitle>
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] font-bold" onClick={() => { setEditingIndex(null); setOpenPersonaDialog(true); }}>
+                        <Plus className="h-3 w-3 mr-1" /> Añadir
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3 max-h-[300px] overflow-y-auto">
                     {watchedPersonas.map((p: any, index: number) => (
-                      <div key={index} className="text-xs border-b pb-2 last:border-0 last:pb-0">
-                        <div className="font-semibold text-indigo-950">{p.name}</div>
-                        <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{p.demographics}</p>
+                      <div key={index} className="text-xs border-b pb-2 last:border-0 last:pb-0 flex justify-between items-start gap-2 group">
+                        <div className="flex-1">
+                          <div className="font-semibold text-indigo-950">{p.name}</div>
+                          <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{p.demographics}</p>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingIndex(index); setOpenPersonaDialog(true); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removePersona(index)}>
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </CardContent>
                 </Card>
 
+                {/* Funnel Stages */}
+                <Card className="md:col-span-2 border border-slate-150 bg-slate-50/10">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-800">
+                        <Compass className="h-4 w-4 text-violet-600" />
+                        Fases del Funnel de Ventas
+                      </CardTitle>
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] font-bold" onClick={() => { setEditingIndex(null); setOpenFunnelDialog(true); }}>
+                        <Plus className="h-3 w-3 mr-1" /> Añadir
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2.5 max-h-[300px] overflow-y-auto">
+                    {funnelFields.map((field: any, index: number) => (
+                      <div key={field.id} className="text-xs border-b pb-2 last:border-0 last:pb-0 flex justify-between items-start gap-4 group">
+                        <div className="flex-1">
+                          <span className="font-bold text-violet-750">{index + 1}. {field.name}:</span> <span className="text-slate-700">{field.description}</span>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingIndex(index); setOpenFunnelDialog(true); }}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeFunnel(index)}>
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Canales */}
                 <Card className="md:col-span-2 border border-violet-100/50 bg-violet-50/5">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-violet-800">
-                      <Megaphone className="h-4 w-4" />
-                      Plan de Canales y Frecuencia de Publicación
-                    </CardTitle>
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-sm font-semibold flex items-center gap-2 text-violet-800">
+                        <Megaphone className="h-4 w-4" />
+                        Plan de Canales y Frecuencia de Publicación
+                      </CardTitle>
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] font-bold" onClick={() => { setEditingIndex(null); setOpenChannelDialog(true); }}>
+                        <Plus className="h-3 w-3 mr-1" /> Añadir
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {watchedChannels.map((ch: any, index: number) => (
-                      <div key={index} className="text-xs bg-white p-3 border rounded-xl flex items-center justify-between shadow-sm">
-                        <div>
+                    {channelFields.map((ch: any, index: number) => (
+                      <div key={ch.id} className="text-xs bg-white p-3 border rounded-xl flex items-center justify-between shadow-sm group relative overflow-hidden min-h-[72px]">
+                        <div className="pr-8">
                           <div className="font-semibold text-slate-800">{ch.name}</div>
                           <div className="text-[10px] text-muted-foreground mt-0.5">{ch.frequency}</div>
+                          <span className="inline-block mt-1 text-[9px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{ch.type || 'ORGANIC'}</span>
                         </div>
-                        <span className="text-[9px] bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{ch.type}</span>
+                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity absolute right-1.5 top-1/2 -translate-y-1/2 bg-white/95 border p-0.5 rounded-md shadow-sm">
+                          <Button type="button" variant="ghost" size="icon" className="h-6.5 w-6.5 p-0" onClick={() => { setEditingIndex(index); setOpenChannelDialog(true); }}>
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon" className="h-6.5 w-6.5 p-0 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => removeChannel(index)}>
+                            <Trash className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </CardContent>

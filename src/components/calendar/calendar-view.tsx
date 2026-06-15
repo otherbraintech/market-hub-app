@@ -50,7 +50,8 @@ import { toast } from "sonner";
 import { 
   deleteContentAction, 
   updateCalendarContentAction, 
-  generateCampaignCalendarAction 
+  generateCampaignCalendarAction,
+  createContentAction
 } from "@/actions/content";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
@@ -157,7 +158,7 @@ export function CalendarView({
   // Estado local para formulario de edición
   const [editForm, setEditForm] = useState({
     title: "",
-    channel: "INSTAGRAM",
+    channels: ["INSTAGRAM"] as string[],
     type: "POST",
     format: "IMAGE",
     scheduledAt: "",
@@ -207,7 +208,7 @@ export function CalendarView({
     if (viewingContent) {
       setEditForm({
         title: viewingContent.title,
-        channel: viewingContent.channel || "INSTAGRAM",
+        channels: viewingContent.channel ? [viewingContent.channel] : ["INSTAGRAM"],
         type: viewingContent.type,
         format: viewingContent.format || "IMAGE",
         scheduledAt: viewingContent.scheduledAt 
@@ -217,7 +218,11 @@ export function CalendarView({
         body: viewingContent.body || "",
         promptUsed: viewingContent.promptUsed || "",
       });
-      setIsEditing(false);
+      if (viewingContent.id === "new-draft") {
+        setIsEditing(true);
+      } else {
+        setIsEditing(false);
+      }
     }
   }, [viewingContent]);
 
@@ -232,7 +237,7 @@ export function CalendarView({
         viewingContent.id,
         {
           title: editForm.title,
-          channel: editForm.channel,
+          channels: editForm.channels,
           type: editForm.type,
           format: editForm.format,
           scheduledAt: scheduledD,
@@ -244,7 +249,7 @@ export function CalendarView({
       );
 
       if (res.success && res.content) {
-        toast.success("¡Publicación actualizada correctamente!");
+        toast.success("¡Publicaciones actualizadas correctamente!");
         
         // Actualizar estado local al instante para evitar parpadeos
         setContents(prev => 
@@ -253,7 +258,7 @@ export function CalendarView({
               ? { 
                   ...item, 
                   title: editForm.title,
-                  channel: editForm.channel,
+                  channel: editForm.channels[0] || "INSTAGRAM",
                   type: editForm.type,
                   format: editForm.format,
                   scheduledAt: scheduledD ? scheduledD.toISOString() : null,
@@ -458,10 +463,40 @@ export function CalendarView({
               return true;
             });
 
+            const handleAddPlan = () => {
+              const scheduledDateString = format(cell.date, "yyyy-MM-dd") + "T10:00";
+              setViewingContent({
+                id: "new-draft",
+                campaignId: selectedCampaignId !== "all" ? selectedCampaignId : null,
+                campaign: null,
+                type: "POST",
+                format: "IMAGE",
+                title: "",
+                body: "",
+                caption: "",
+                hashtags: [],
+                scheduledAt: new Date(scheduledDateString).toISOString(),
+                channel: "INSTAGRAM",
+                promptUsed: ""
+              });
+              setEditForm({
+                title: "",
+                channels: ["INSTAGRAM"],
+                type: "POST",
+                format: "IMAGE",
+                scheduledAt: scheduledDateString,
+                caption: "",
+                body: "",
+                promptUsed: ""
+              });
+              setIsEditing(true);
+            };
+
             return (
               <div
                 key={index}
-                className={`border-r border-b p-2 min-h-[100px] flex flex-col gap-1.5 transition-all relative group/cell hover:bg-muted/10 last:border-r-0 ${
+                onClick={handleAddPlan}
+                className={`border-r border-b p-2 min-h-[100px] flex flex-col gap-1.5 transition-all relative group/cell hover:bg-muted/10 last:border-r-0 cursor-pointer ${
                   cell.isCurrentMonth ? "bg-background" : "bg-muted/5 opacity-40"
                 }`}
               >
@@ -469,11 +504,24 @@ export function CalendarView({
                   <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isToday ? "bg-blue-600 text-white shadow-sm" : "text-muted-foreground"}`}>
                     {cell.date.getDate()}
                   </span>
-                  {dayContents.length > 0 && (
-                    <span className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-wider">
-                      {dayContents.length} {dayContents.length === 1 ? "post" : "posts"}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {dayContents.length > 0 && (
+                      <span className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-wider">
+                        {dayContents.length} {dayContents.length === 1 ? "post" : "posts"}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddPlan();
+                      }}
+                      className="opacity-0 group-hover/cell:opacity-100 transition-opacity bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-950 p-1 rounded-md text-[10px] font-bold"
+                      title="Agregar Planificación Diaria"
+                    >
+                      + Plan
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
@@ -485,7 +533,10 @@ export function CalendarView({
                     return (
                       <div
                         key={post.id}
-                        onClick={() => setViewingContent(post)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewingContent(post);
+                        }}
                         className={`group px-2 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center justify-between gap-1.5 cursor-pointer transition-all duration-300 shadow-sm hover:scale-[1.02] hover:shadow ${meta.styles}`}
                         title={`${post.title} (${pubTime})`}
                       >
@@ -514,17 +565,21 @@ export function CalendarView({
               <DialogDescription className="sr-only">Formulario para previsualizar y editar el contenido programado</DialogDescription>
               
               <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className={`text-[9px] font-bold border ${
-                    channelMeta[editForm.channel]?.badge || "bg-pink-100 text-pink-700 border-pink-250"
-                  }`}
-                >
-                  <span className="mr-1">
-                    {channelMeta[editForm.channel]?.icon}
-                  </span>
-                  {editForm.channel}
-                </Badge>
+                {editForm.channels.map((ch) => {
+                  const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
+                  return (
+                    <Badge
+                      key={ch}
+                      variant="outline"
+                      className={`text-[9px] font-bold border ${meta.badge}`}
+                    >
+                      <span className="mr-1">
+                        {meta.icon}
+                      </span>
+                      {ch}
+                    </Badge>
+                  );
+                })}
                 
                 <Badge variant="outline" className="text-[9px] font-bold border-muted-foreground/20 text-muted-foreground bg-muted/10">
                   {editForm.format === "VIDEO" ? (
@@ -532,7 +587,7 @@ export function CalendarView({
                   ) : (
                     <ImageIcon className="h-3 w-3 mr-1" />
                   )}
-                  {editForm.type}
+                  {editForm.type === "CAROUSEL" ? "CAROUSEL (Carrousel)" : editForm.type}
                 </Badge>
 
                 {editForm.scheduledAt && (
@@ -661,23 +716,44 @@ export function CalendarView({
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Red Social</label>
-                      <Select 
-                        value={editForm.channel} 
-                        onValueChange={(val) => setEditForm(p => ({ ...p, channel: val }))}
-                      >
-                        <SelectTrigger className="text-xs h-9 bg-background">
-                          <SelectValue placeholder="Canal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.keys(channelMeta).map((ch) => (
-                            <SelectItem key={ch} value={ch} className="text-xs">
-                              {ch}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="col-span-2 sm:col-span-2">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Redes Sociales (Múltiple)</label>
+                      <div className="flex flex-wrap gap-1.5 p-1.5 bg-muted/20 rounded-lg border border-muted/30">
+                        {Object.keys(channelMeta).map((ch) => {
+                          const meta = channelMeta[ch];
+                          const isSelected = editForm.channels.includes(ch);
+                          return (
+                            <button
+                              key={ch}
+                              type="button"
+                              onClick={() => {
+                                setEditForm(p => {
+                                  let newChannels = [...p.channels];
+                                  if (newChannels.includes(ch)) {
+                                    // Mantener al menos uno seleccionado
+                                    if (newChannels.length > 1) {
+                                      newChannels = newChannels.filter(c => c !== ch);
+                                    } else {
+                                      toast.error("Debes seleccionar al menos un canal.");
+                                    }
+                                  } else {
+                                    newChannels.push(ch);
+                                  }
+                                  return { ...p, channels: newChannels };
+                                });
+                              }}
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold border transition-all select-none ${
+                                isSelected
+                                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                                  : "bg-background text-muted-foreground border-muted-foreground/20 hover:bg-muted/10"
+                              }`}
+                            >
+                              {meta.icon}
+                              {meta.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div>
@@ -687,12 +763,12 @@ export function CalendarView({
                         onValueChange={(val) => setEditForm(p => ({ ...p, type: val }))}
                       >
                         <SelectTrigger className="text-xs h-9 bg-background">
-                          <SelectValue placeholder="Tipo" />
+                           <SelectValue placeholder="Tipo" />
                         </SelectTrigger>
                         <SelectContent>
                           {["POST", "STORY", "REEL", "VIDEO", "CAROUSEL"].map((t) => (
                             <SelectItem key={t} value={t} className="text-xs">
-                              {t}
+                              {t === "CAROUSEL" ? "CAROUSEL (Carrousel)" : t}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -718,7 +794,7 @@ export function CalendarView({
                       </Select>
                     </div>
 
-                    <div>
+                    <div className="col-span-2 sm:col-span-4">
                       <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Programación</label>
                       <Input
                         type="datetime-local"
@@ -763,14 +839,18 @@ export function CalendarView({
             <div className="p-4 border-t border-muted/20 bg-muted/5 flex justify-between items-center shrink-0">
               {!isEditing ? (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteContent(viewingContent.id)}
-                    className="text-xs text-red-650 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold gap-1.5"
-                  >
-                    <Trash2 className="h-4 w-4" /> Eliminar Publicación
-                  </Button>
+                  <div className="flex gap-2">
+                    {viewingContent.id !== "new-draft" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteContent(viewingContent.id)}
+                        className="text-xs text-red-650 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold gap-1.5"
+                      >
+                        <Trash2 className="h-4 w-4" /> Eliminar
+                      </Button>
+                    )}
+                  </div>
 
                   <div className="flex gap-2">
                     <Button
@@ -796,7 +876,13 @@ export function CalendarView({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setIsEditing(false)}
+                    onClick={() => {
+                      if (viewingContent.id === "new-draft") {
+                        setViewingContent(null);
+                      } else {
+                        setIsEditing(false);
+                      }
+                    }}
                     className="text-xs text-muted-foreground hover:text-foreground font-semibold"
                   >
                     Cancelar
@@ -806,7 +892,67 @@ export function CalendarView({
                     variant="default"
                     size="sm"
                     disabled={isSavingEdit || !editForm.title}
-                    onClick={handleSaveEdit}
+                    onClick={async () => {
+                      if (viewingContent.id === "new-draft") {
+                        setIsSavingEdit(true);
+                        try {
+                          const scheduledD = editForm.scheduledAt ? new Date(editForm.scheduledAt) : null;
+                          const campId = selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || "");
+                          
+                          const res = await createContentAction({
+                            title: editForm.title,
+                            type: editForm.type as any,
+                            format: editForm.format as any,
+                            channel: editForm.channels[0] as any,
+                            campaignId: campId,
+                            productId: "",
+                            socialAccountId: "",
+                            body: editForm.body,
+                            caption: editForm.caption,
+                            hashtags: [],
+                            scheduledAt: scheduledD,
+                            status: "DRAFT" as any,
+                            mediaUrl: "",
+                            businessId
+                          });
+
+                          if (res.success && res.content) {
+                            toast.success("¡Planificación diaria creada con éxito!");
+                            
+                            // Si se seleccionaron más canales además del primero
+                            if (editForm.channels.length > 1) {
+                              const otherChannels = editForm.channels.slice(1);
+                              await updateCalendarContentAction(
+                                res.content.id,
+                                {
+                                  title: editForm.title,
+                                  channels: editForm.channels,
+                                  type: editForm.type,
+                                  format: editForm.format,
+                                  scheduledAt: scheduledD,
+                                  caption: editForm.caption,
+                                  body: editForm.body,
+                                  promptUsed: editForm.promptUsed
+                                },
+                                businessId
+                              );
+                            }
+
+                            setViewingContent(null);
+                            setIsEditing(false);
+                            router.refresh();
+                          } else {
+                            toast.error(res.error || "Error al crear la planificación.");
+                          }
+                        } catch (err: any) {
+                          toast.error("Error al guardar planificación.");
+                        } finally {
+                          setIsSavingEdit(false);
+                        }
+                      } else {
+                        await handleSaveEdit();
+                      }
+                    }}
                     className="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shadow-sm"
                   >
                     {isSavingEdit ? (

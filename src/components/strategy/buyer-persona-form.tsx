@@ -17,6 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type PersonaFormValues = z.infer<typeof simplePersonaSchema>;
 
@@ -49,6 +50,61 @@ export function BuyerPersonaForm({ defaultValues, onSave, onCancel }: BuyerPerso
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-1.5 pb-2 border-b">
+          <label className="text-xs font-bold text-indigo-800">Cargar Plantilla Rápida</label>
+          <Select onValueChange={(val) => {
+            const templates: Record<string, Partial<PersonaFormValues>> = {
+              sofia: {
+                name: "Sofía la Organizadora Familiar",
+                demographics: "Mujer de 30-45 años, casada con hijos, residente en zona urbana de nivel socioeconómico medio-alto, profesional ocupada.",
+                painPoints: "Falta de tiempo para planificar eventos, busca opciones de calidad garantizada de forma rápida y confiable.",
+                goals: "Asegurar que las celebraciones familiares salgan perfectas, buscando comodidad, variedad y rapidez en el proceso de compra.",
+                communication: {
+                  tone: "Cálido, Familiar, Confiable",
+                  topics: "Organización de eventos familiares, recetas rápidas, tips de celebración.",
+                  triggers: "Ahorro de tiempo, recomendación social, calidad garantizada."
+                }
+              },
+              alejandro: {
+                name: "Alejandro el Joven Tecnológico",
+                demographics: "Hombre de 22-30 años, soltero, profesional en tecnología, usuario móvil intensivo de redes sociales, busca conveniencia.",
+                painPoints: "Odio por las llamadas telefónicas o los procesos lentos de consulta de catálogo, prefiere respuestas inmediatas.",
+                goals: "Comprar antojos o regalos de forma rápida en menos de 3 clics y recibir confirmación al instante por chat.",
+                communication: {
+                  tone: "Directo, Dinámico, Casual",
+                  topics: "Novedades tecnológicas, gadgets, tendencias de consumo rápido, memes.",
+                  triggers: "Facilidad de compra, inmediatez, ofertas exclusivas."
+                }
+              },
+              carlos: {
+                name: "Carlos el Cazador de Ofertas",
+                demographics: "Hombre o Mujer de 18-35 años, estudiante o joven profesional, sensible a los precios pero busca productos de buen aspecto.",
+                painPoints: "Presupuesto mensual ajustado, miedo a gastar de más en productos que no cumplan sus expectativas visuales.",
+                goals: "Conseguir la mejor relación calidad-precio y promociones especiales para compartir en reuniones sociales.",
+                communication: {
+                  tone: "Promocional, Alegre, Cercano",
+                  topics: "Descuentos, combos especiales, sorteos, contenido detrás de cámara del negocio.",
+                  triggers: "Promociones 2x1, envíos gratis, cupones de descuento."
+                }
+              }
+            };
+            const selected = templates[val];
+            if (selected) {
+              Object.entries(selected).forEach(([key, value]) => {
+                form.setValue(key as any, value);
+              });
+            }
+          }}>
+            <SelectTrigger className="w-full text-xs">
+              <SelectValue placeholder="Selecciona un perfil de Buyer Persona..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sofia">Sofía la Organizadora Familiar (Familiar/Calidad)</SelectItem>
+              <SelectItem value="alejandro">Alejandro el Joven Tecnológico (Casual/Inmediato)</SelectItem>
+              <SelectItem value="carlos">Carlos el Cazador de Ofertas (Promocional/Precio)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <FormField
           control={form.control}
           name="name"

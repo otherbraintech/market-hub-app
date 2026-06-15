@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 import { getSelectedBusinessId } from "@/actions/business";
-
 import { Edit } from "lucide-react";
+import { ViewStrategyDialog } from "@/components/strategy/view-strategy-dialog";
 
 export default async function StrategiesPage() {
   const selectedBusinessId = await getSelectedBusinessId();
@@ -96,11 +96,28 @@ export default async function StrategiesPage() {
                   <div className="text-xs text-muted-foreground font-medium">
                     {strategy.business.name}
                   </div>
-                  <Link href={`/business/${strategy.businessId}`}>
-                    <Button variant="ghost" size="sm" className="group/btn h-8 px-2 text-xs">
-                      Ver Negocio <ArrowRight className="ml-1 h-3 w-3 group-hover/btn:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <ViewStrategyDialog 
+                      strategy={{
+                        id: strategy.id,
+                        name: strategy.name,
+                        description: strategy.description,
+                        isActive: strategy.isActive,
+                        objectives: strategy.objectives,
+                        personas: strategy.personas,
+                        funnelStages: strategy.funnelStages,
+                        channels: strategy.channels,
+                        business: {
+                          name: strategy.business.name
+                        }
+                      }} 
+                    />
+                    <Link href={`/business/${strategy.businessId}`}>
+                      <Button variant="ghost" size="sm" className="group/btn h-8 px-2 text-xs">
+                        Ver Negocio <ArrowRight className="ml-1 h-3 w-3 group-hover/btn:translate-x-1 transition-transform" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>

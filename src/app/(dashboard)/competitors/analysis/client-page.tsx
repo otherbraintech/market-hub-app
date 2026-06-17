@@ -1041,21 +1041,6 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
   const isAnyPending = cards.some((card: any) => card.report?.status === "PENDING" || card.report?.status === "PROCESSING");
   const isAnyAnalyzing = isAnyRequesting || isAnyPending;
 
-  // Polling dinámico inteligente: solo consulta el servidor si hay análisis en progreso (PENDING / PROCESSING)
-  useEffect(() => {
-    if (!isAnyAnalyzing && !generatingReport) return;
-
-    console.log("⏱️ Polling activado: hay análisis de competencia en progreso...");
-    const interval = setInterval(() => {
-      router.refresh(); // Refresca las Server Actions/props
-      fetchReport();    // Refresca el informe general consolidado
-    }, 5000);
-
-    return () => {
-      console.log("⏹️ Polling detenido.");
-      clearInterval(interval);
-    };
-  }, [isAnyAnalyzing, generatingReport, router]);
 
   // Lógica de navegación entre competidores
   const handlePrevCompetitor = () => {

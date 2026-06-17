@@ -29,7 +29,6 @@ const isAnyAnalyzing = isAnyRequesting || isAnyPending;
 * **Card / Fila en Ejecución**: Muestra visualmente un indicador de carga (`Loader2` animado) y su botón de acción se encuentra deshabilitado para evitar clics dobles.
 * **Demás Cards / Filas**: Sus botones para "Analizar canal" o "Reanalizar" se deshabilitan de manera automática (`disabled={isAnyAnalyzing}`). Esto previene que el usuario inicie múltiples ejecuciones en paralelo que saturen el backend o los flujos de n8n, garantizando la consistencia del estado visual.
 * **Restauración**: Tan pronto como la tarea finaliza y se actualiza el estado de la base de datos (o la petición HTTP concluye en caso de error), la interfaz restaura la interactividad de todos los botones de análisis.
-
 ---
 
 ## Estructura de Datos de Redes Sociales y Panel de Métricas

@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { CampaignObjective } from "@prisma/client";
 
 // Configuración de OpenRouter para la SDK de IA
 const openrouter = createOpenAI({

@@ -91,7 +91,7 @@ ESTRATEGIA DE MARKETING DEL NEGOCIO (Las campañas recomendadas DEBEN estar alin
       }
     });
 
-    const competitorIds = competitors.map((c) => c.id);
+    const competitorIds = competitors.map((c: { id: string }) => c.id);
 
     const competitorReports = competitorIds.length > 0 
       ? await prisma.analysisReport.findMany({

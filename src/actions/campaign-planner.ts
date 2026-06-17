@@ -100,7 +100,7 @@ ESTRATEGIA GENERAL VINCULADA:
     const productsContext = products.length > 0
       ? `
 PRODUCTOS DISPONIBLES DE LA MARCA (Promociona o haz referencia a estos productos en algunas publicaciones de manera natural):
-${products.map(p => `- ${p.name}: ${p.description}. Beneficios: ${JSON.stringify(p.benefits)}`).join("\n")}
+${products.map((p: { name: string; description: string | null; benefits: any }) => `- ${p.name}: ${p.description}. Beneficios: ${JSON.stringify(p.benefits)}`).join("\n")}
 `
       : "No hay productos específicos cargados.";
 

@@ -115,7 +115,7 @@ ESTRATEGIA DE MARKETING DEL NEGOCIO (Las campañas recomendadas DEBEN estar alin
     
     // Simplificar reportes para no saturar tokens
     const reportsSummary = businessReports.length > 0
-      ? businessReports.map(r => {
+      ? businessReports.map((r: { channel: string; data: any }) => {
           const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
           return {
             canal: r.channel,
@@ -125,7 +125,7 @@ ESTRATEGIA DE MARKETING DEL NEGOCIO (Las campañas recomendadas DEBEN estar alin
       : [{ canal: "Todos", resumen: "Sin reportes de redes completados aún." }];
 
     const competitorSummary = competitorReports.length > 0
-      ? competitorReports.map(r => {
+      ? competitorReports.map((r: { channel: string; data: any }) => {
           const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
           return {
             canal: r.channel,

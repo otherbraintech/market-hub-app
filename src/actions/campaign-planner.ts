@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
@@ -161,7 +160,7 @@ GENERA EXACTAMENTE 8 PUBLICACIONES DISTRIBUIDAS DE MANERA ESTRATÉGICA EN EL TIE
     });
 
     // 8. Iniciar transacción en la base de datos
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx: any) => {
       // Borrar contenido anterior de esta campaña
       await tx.content.deleteMany({
         where: { campaignId: campaign.id }

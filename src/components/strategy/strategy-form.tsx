@@ -132,12 +132,6 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
     return () => clearInterval(interval);
   }, [generatingStrategy]);
 
-  useEffect(() => {
-    if (aiMode && focuses.length === 0) {
-      fetchFocuses(true); // Siempre pedir datos frescos al montar para variar cada vez
-    }
-  }, [aiMode, businessId]);
-
   const fetchFocuses = async (forceRefresh = false) => {
     try {
       setSelectedFocus(null);
@@ -154,14 +148,28 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
         const data = await res.json();
         if (data.focuses) {
           setFocuses(data.focuses);
+        } else {
+          toast.error("El servidor no devolvió propuestas válidas.");
         }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || "Error al obtener propuestas de enfoque del servidor.");
       }
     } catch (error) {
       console.error("Error fetching focuses:", error);
+      toast.error("Error de conexión al obtener propuestas del servidor.");
     } finally {
       setLoadingFocuses(false);
     }
   };
+
+  useEffect(() => {
+    if (aiMode && focuses.length === 0) {
+      fetchFocuses(true); // Pedir datos frescos al montar para variar cada vez
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiMode, businessId]);
+
 
   const handleSelectFocus = (index: number, focus: any) => {
     setSelectedFocus(index);
@@ -596,7 +604,7 @@ export function StrategyForm({ businessId, defaultValues, onSuccess }: StrategyF
                                   {isSelected && <Badge className="text-[9px] bg-violet-600 dark:bg-violet-500 font-bold text-white">Elegido</Badge>}
                                 </div>
                                 <h5 className="font-bold text-xs text-slate-900 dark:text-slate-100 leading-tight">{focus.name}</h5>
-                                <p className="text-[10px] text-muted-foreground leading-normal line-clamp-4">{focus.description}</p>
+                                <p className="text-[10px] text-muted-foreground leading-relaxed">{focus.description}</p>
                               </CardContent>
                             </Card>
                           );

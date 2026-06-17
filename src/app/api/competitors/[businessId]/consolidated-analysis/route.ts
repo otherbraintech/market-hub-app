@@ -141,6 +141,13 @@ export async function POST(
       }
     });
 
+    // Disparar generación en cascada asíncrona en background
+    import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
+      triggerCascadeGeneration(businessId).catch(err => {
+        console.error('Error in triggerCascadeGeneration background process for competitors:', err);
+      });
+    });
+
     return NextResponse.json({
       analysisId: storedAnalysis.id,
       analysis,

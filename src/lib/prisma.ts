@@ -6,9 +6,16 @@ const connectionString = `${process.env.DATABASE_URL}`;
 
 const globalForPrisma = globalThis as unknown as {
   prisma_db: PrismaClient | undefined;
+  pg_pool: Pool | undefined;
 };
 
-const pool = new Pool({ connectionString });
+// Reutilizar el pool de conexiones en desarrollo para evitar saturar PostgreSQL en cada hot reload
+const pool = globalForPrisma.pg_pool ?? new Pool({ connectionString });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.pg_pool = pool;
+}
+
 const adapter = new PrismaPg(pool);
 
 console.log("Initializing Prisma Client with adapter...");

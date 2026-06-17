@@ -10,6 +10,13 @@ export async function createCampaignAction(businessId: string, data: z.infer<typ
   try {
     const validated = campaignSchema.parse(data);
     
+    const normalizedChannels = (validated.channels || []).map(ch => {
+      if (typeof ch === "string") {
+        return { platform: ch, isActive: true };
+      }
+      return ch;
+    });
+
     const input: CreateCampaignInput = {
       businessId,
       strategyId: validated.strategyId,
@@ -19,7 +26,7 @@ export async function createCampaignAction(businessId: string, data: z.infer<typ
       startDate: validated.startDate,
       endDate: validated.endDate,
       budget: validated.budget,
-      channels: validated.channels,
+      channels: normalizedChannels,
       targeting: validated.targeting,
     };
 
@@ -36,6 +43,13 @@ export async function updateCampaignAction(id: string, businessId: string, data:
   try {
     const validated = campaignSchema.parse(data);
     
+    const normalizedChannels = (validated.channels || []).map(ch => {
+      if (typeof ch === "string") {
+        return { platform: ch, isActive: true };
+      }
+      return ch;
+    });
+
     await updateCampaign(id, {
       name: validated.name,
       description: validated.description,
@@ -43,7 +57,7 @@ export async function updateCampaignAction(id: string, businessId: string, data:
       startDate: validated.startDate,
       endDate: validated.endDate,
       budget: validated.budget,
-      channels: validated.channels,
+      channels: normalizedChannels,
       targeting: validated.targeting,
       status: validated.status as CampaignStatus,
     });

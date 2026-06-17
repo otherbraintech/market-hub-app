@@ -168,6 +168,7 @@ model Business {
   socialAccounts SocialAccount[]
   mediaAssets    MediaAsset[]
   competitors    Competitor[]
+  agentNotifications AgentNotification[]
 
   @@index([slug])
 }
@@ -643,6 +644,19 @@ model AnalysisReport {
   
   @@index([type, entityId, channel])
   @@index([status])
+}
+
+model AgentNotification {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  step        String   // "SCRAPING" | "DIAGNOSTIC" | "STRATEGY" | "CAMPAIGN" | "CALENDAR"
+  status      String   // "PROCESSING" | "COMPLETED" | "FAILED"
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
 }
 
 

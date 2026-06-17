@@ -40,6 +40,36 @@ export async function POST(request: Request) {
       },
     });
 
+    // Notify the user about the start of scraping
+    let resolvedBusinessId = "";
+    if (type === "COMPETITOR") {
+      const competitor = await prisma.competitor.findUnique({
+        where: { id: entityId },
+        select: { businessId: true, name: true }
+      });
+      if (competitor) {
+        competitorName = competitor.name || "";
+        businessId = competitor.businessId;
+        resolvedBusinessId = competitor.businessId;
+      }
+    } else if (type === "MY_BUSINESS") {
+      resolvedBusinessId = entityId;
+      businessId = entityId;
+    }
+
+    if (resolvedBusinessId) {
+      const targetName = type === "COMPETITOR" ? `competidor "${competitorName}"` : "propio negocio";
+      await prisma.agentNotification.create({
+        data: {
+          businessId: resolvedBusinessId,
+          title: "Agente de Extracción",
+          message: `Iniciando reanálisis y extracción del canal ${reportChannel} para el ${targetName}.`,
+          step: "SCRAPING",
+          status: "PROCESSING"
+        }
+      }).catch(err => console.error("Error creating agent notification for analysis request:", err));
+    }
+
     // Trigger external webhook (n8n) - using scrap-negocio for all analysis types
     const n8nWebhookUrl = "https://otherbrain-n8n.c1hohn.easypanel.host/webhook/scrap-negocio";
     
@@ -64,6 +94,17 @@ export async function POST(request: Request) {
         where: { id: report.id },
         data: { status: "ERROR", error: `Error al conectar con n8n: ${error?.message || error}` },
       });
+      if (resolvedBusinessId) {
+        await prisma.agentNotification.create({
+          data: {
+            businessId: resolvedBusinessId,
+            title: "Agente de Extracción",
+            message: `Fallo al iniciar extracción de ${reportChannel} para el ${type === "COMPETITOR" ? `competidor "${competitorName}"` : "propio negocio"}.`,
+            step: "SCRAPING",
+            status: "FAILED"
+          }
+        }).catch(err => console.error(err));
+      }
       return NextResponse.json(
         { error: "Error al iniciar el análisis", details: error?.message || String(error) }, 
         { status: 500 }

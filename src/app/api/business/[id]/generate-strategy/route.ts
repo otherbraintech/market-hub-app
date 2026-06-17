@@ -45,17 +45,9 @@ export async function POST(
     // Group and normalize business reports
     const businessReportsMap = new Map<string, any>();
     businessReports.forEach(report => {
-      if (!businessReportsMap.has(report.channel) || 
-          (report.completedAt && businessReportsMap.get(report.channel)!.completedAt < report.completedAt)) {
-        let dataObj = report.data;
-        if (typeof report.data === 'string') {
-          try {
-            dataObj = JSON.parse(report.data);
-          } catch (e) {
-            console.error('Error parsing report data:', e);
-          }
-        }
-        businessReportsMap.set(report.channel, dataObj);
+      const existing = businessReportsMap.get(report.channel);
+      if (!existing || (report.completedAt && existing.completedAt && existing.completedAt < report.completedAt)) {
+        businessReportsMap.set(report.channel, report);
       }
     });
 
@@ -74,10 +66,20 @@ export async function POST(
         brandVoice: business.brandVoice,
         socialLinks: business.socialLinks,
       },
-      myScrapedChannels: Array.from(businessReportsMap.entries()).map(([channel, data]) => ({
-        channel,
-        data
-      })),
+      myScrapedChannels: Array.from(businessReportsMap.entries()).map(([channel, report]) => {
+        let dataObj = report.data;
+        if (typeof report.data === 'string') {
+          try {
+            dataObj = JSON.parse(report.data);
+          } catch (e) {
+            console.error('Error parsing report data:', e);
+          }
+        }
+        return {
+          channel,
+          data: dataObj
+        };
+      }),
       competitorAnalysis: business.competitorGeneralReport,
       selectedFocusName: name || '',
       selectedFocusDescription: description || '',
@@ -137,9 +139,10 @@ async function generateMarketingStrategyWithAI(context: any) {
     }
 
     const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    const content = data.choices?.[0]?.message?.content;
     
     if (!content) {
+      console.warn('No content returned from OpenRouter choices, using placeholder strategy.');
       return generatePlaceholderStrategy(context);
     }
 

@@ -11,6 +11,24 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
   Select,
   SelectTrigger,
   SelectValue,
@@ -44,14 +62,18 @@ import {
   Loader2,
   Edit,
   Save,
-  X
+  X,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
   deleteContentAction, 
   updateCalendarContentAction, 
   generateCampaignCalendarAction,
-  createContentAction
+  createContentAction,
+  generateSingleContentIdeaAction,
+  previewCampaignCalendarAction,
+  savePlannedCampaignCalendarAction
 } from "@/actions/content";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
@@ -74,7 +96,7 @@ interface ContentItem {
 interface CalendarViewProps {
   businessId: string;
   businessName: string;
-  campaigns: { id: string; name: string }[];
+  campaigns: { id: string; name: string; startDate?: any; endDate?: any; channels?: any }[];
   initialContents: ContentItem[];
 }
 
@@ -165,14 +187,26 @@ export function CalendarView({
     caption: "",
     body: "",
     promptUsed: "",
+    campaignId: "",
   });
+
+  const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
 
   // Estados para planificar con IA
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [planningCampaignId, setPlanningCampaignId] = useState("");
   const [planningQuantity, setPlanningQuantity] = useState(8);
+  const [planningStartDate, setPlanningStartDate] = useState("");
+  const [planningEndDate, setPlanningEndDate] = useState("");
+  const [planningChannels, setPlanningChannels] = useState<string[]>(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
   const [loadingTextIdx, setLoadingTextIdx] = useState(0);
+  const [previewPosts, setPreviewPosts] = useState<any[] | null>(null);
+  const [isSavingPlanned, setIsSavingPlanned] = useState(false);
+  const [activePreviewIdx, setActivePreviewIdx] = useState<number | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [draggedContent, setDraggedContent] = useState<ContentItem | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Sincronizar contenidos del prop cuando cambian en el servidor
   useEffect(() => {
@@ -192,13 +226,37 @@ export function CalendarView({
     return () => clearInterval(interval);
   }, [isPlanning]);
 
-  // Autorelleno de campaña al abrir planificación
+  // Autorelleno de campaña al abrir planificación y auto-selección de fechas
   useEffect(() => {
     if (isPlanModalOpen) {
-      if (selectedCampaignId !== "all") {
-        setPlanningCampaignId(selectedCampaignId);
-      } else if (campaigns.length > 0) {
-        setPlanningCampaignId(campaigns[0].id);
+      const targetCampId = selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || "");
+      if (targetCampId) {
+        setPlanningCampaignId(targetCampId);
+        const camp = campaigns.find(c => c.id === targetCampId);
+        if (camp) {
+          if (camp.startDate) {
+            setPlanningStartDate(format(new Date(camp.startDate), "yyyy-MM-dd"));
+          } else {
+            setPlanningStartDate("");
+          }
+          if (camp.endDate) {
+            setPlanningEndDate(format(new Date(camp.endDate), "yyyy-MM-dd"));
+          } else {
+            setPlanningEndDate("");
+          }
+          
+          if (camp.channels) {
+            try {
+              const parsed = Array.isArray(camp.channels) ? camp.channels : JSON.parse(camp.channels as string);
+              if (Array.isArray(parsed)) {
+                const active = parsed.filter((ch: any) => ch && ch.isActive).map((ch: any) => (ch.platform || "").toUpperCase());
+                setPlanningChannels(active.filter(c => ["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"].includes(c)));
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
       }
     }
   }, [isPlanModalOpen, selectedCampaignId, campaigns]);
@@ -217,6 +275,7 @@ export function CalendarView({
         caption: viewingContent.caption || "",
         body: viewingContent.body || "",
         promptUsed: viewingContent.promptUsed || "",
+        campaignId: viewingContent.campaignId || (selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || "")),
       });
       if (viewingContent.id === "new-draft") {
         setIsEditing(true);
@@ -229,6 +288,29 @@ export function CalendarView({
   // Guardar edición
   const handleSaveEdit = async () => {
     if (!viewingContent) return;
+
+    if (viewingContent.id.startsWith("sim-")) {
+      const idx = activePreviewIdx !== null ? activePreviewIdx : parseInt(viewingContent.id.split("-")[1]);
+      if (!isNaN(idx) && previewPosts) {
+        const scheduledD = editForm.scheduledAt ? new Date(editForm.scheduledAt).toISOString() : null;
+        
+        handleUpdatePreviewPost(idx, "title", editForm.title);
+        handleUpdatePreviewPost(idx, "channel", editForm.channels[0] || "INSTAGRAM");
+        handleUpdatePreviewPost(idx, "type", editForm.type);
+        handleUpdatePreviewPost(idx, "format", editForm.format);
+        handleUpdatePreviewPost(idx, "scheduledAt", scheduledD);
+        handleUpdatePreviewPost(idx, "caption", editForm.caption);
+        handleUpdatePreviewPost(idx, "body", editForm.body);
+        handleUpdatePreviewPost(idx, "promptUsed", editForm.promptUsed);
+        
+        toast.success("¡Publicación simulada actualizada en memoria!");
+        setViewingContent(null);
+        setIsEditing(false);
+        setActivePreviewIdx(null);
+      }
+      return;
+    }
+
     setIsSavingEdit(true);
     try {
       const scheduledD = editForm.scheduledAt ? new Date(editForm.scheduledAt) : null;
@@ -244,12 +326,16 @@ export function CalendarView({
           caption: editForm.caption,
           body: editForm.body,
           promptUsed: editForm.promptUsed,
+          campaignId: editForm.campaignId || null,
         },
         businessId
       );
 
       if (res.success && res.content) {
         toast.success("¡Publicaciones actualizadas correctamente!");
+        
+        // Buscar el nombre de la campaña seleccionada localmente para actualizarlo en la lista
+        const matchingCampaign = campaigns.find(c => c.id === editForm.campaignId);
         
         // Actualizar estado local al instante para evitar parpadeos
         setContents(prev => 
@@ -264,7 +350,9 @@ export function CalendarView({
                   scheduledAt: scheduledD ? scheduledD.toISOString() : null,
                   caption: editForm.caption,
                   body: editForm.body,
-                  promptUsed: editForm.promptUsed
+                  promptUsed: editForm.promptUsed,
+                  campaignId: editForm.campaignId || null,
+                  campaign: matchingCampaign ? { name: matchingCampaign.name } : null
                 } 
               : item
           )
@@ -293,7 +381,9 @@ export function CalendarView({
     try {
       const res = await generateCampaignCalendarAction(planningCampaignId, {
         quantity: Number(planningQuantity),
-        businessId
+        businessId,
+        startDate: planningStartDate || undefined,
+        endDate: planningEndDate || undefined,
       });
 
       if (res.success) {
@@ -308,6 +398,213 @@ export function CalendarView({
     } finally {
       setIsPlanning(false);
     }
+  };
+
+  // Generar la previsualización en memoria del planificador IA
+  const handleGeneratePreview = async () => {
+    if (!planningCampaignId) {
+      toast.error("Por favor, selecciona una campaña.");
+      return;
+    }
+    setIsPlanning(true);
+    setPreviewPosts(null);
+    try {
+      const res = await previewCampaignCalendarAction(planningCampaignId, {
+        quantity: Number(planningQuantity),
+        businessId,
+        startDate: planningStartDate || undefined,
+        endDate: planningEndDate || undefined,
+      });
+
+      if (res.success && res.posts) {
+        const replicateEl = document.getElementById("replicateChannels") as HTMLInputElement;
+        const shouldReplicate = replicateEl ? replicateEl.checked : true;
+
+        if (shouldReplicate) {
+          const activeChannels = planningChannels.filter(c => ["INSTAGRAM", "FACEBOOK", "TIKTOK"].includes(c));
+          
+          let expandedPosts: any[] = [];
+          res.posts.forEach((post: any) => {
+            expandedPosts.push({ ...post });
+            
+            activeChannels.forEach((ch) => {
+              if (ch !== post.channel) {
+                expandedPosts.push({
+                  ...post,
+                  channel: ch,
+                  id: post.id ? `${post.id}-${ch}` : undefined
+                });
+              }
+            });
+          });
+          setPreviewPosts(expandedPosts);
+        } else {
+          setPreviewPosts(res.posts);
+        }
+        // Navegar automáticamente al mes del primer post generado
+        if (res.posts.length > 0 && res.posts[0].scheduledAt) {
+          const firstPostDate = new Date(res.posts[0].scheduledAt);
+          setCurrentDate(firstPostDate);
+        }
+
+        setIsPlanModalOpen(false); // CERRAR MODAL Y VOLVER A LA PÁGINA PRINCIPAL
+        toast.success("¡Previsualización generada! Los posts simulados se muestran en el calendario.");
+      } else {
+        toast.error(res.error || "No se pudo generar la previsualización.");
+      }
+    } catch (err) {
+      toast.error("Error al generar la previsualización con la IA.");
+    } finally {
+      setIsPlanning(false);
+    }
+  };
+
+  // Guardar todas las publicaciones previsualizadas en lote
+  const handleSavePlanned = async () => {
+    if (!previewPosts || previewPosts.length === 0) {
+      toast.error("No hay publicaciones en la previsualización para guardar.");
+      return;
+    }
+    setIsSavingPlanned(true);
+    try {
+      const res = await savePlannedCampaignCalendarAction(businessId, planningCampaignId, previewPosts);
+      if (res.success) {
+        toast.success(res.message);
+        setPreviewPosts(null);
+        setIsPlanModalOpen(false);
+        router.refresh();
+      } else {
+        toast.error(res.error || "Error al aplicar la planificación al calendario.");
+      }
+    } catch (err) {
+      toast.error("Error al conectar con el servidor para guardar.");
+    } finally {
+      setIsSavingPlanned(false);
+    }
+  };
+
+  const handleRemovePreviewPost = (idx: number) => {
+    setPreviewPosts(prev => prev ? prev.filter((_, i) => i !== idx) : null);
+  };
+
+  const handleUpdatePreviewPost = (idx: number, field: string, value: any) => {
+    setPreviewPosts(prev => {
+      if (!prev) return null;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleAddPreviewPost = () => {
+    const defaultDate = planningStartDate 
+      ? new Date(planningStartDate + "T10:00").toISOString() 
+      : new Date().toISOString();
+    
+    const newPost = {
+      title: "Nueva Publicación",
+      type: "POST",
+      format: "IMAGE",
+      channel: "INSTAGRAM",
+      body: "Concepto visual o storyboard de la publicación",
+      caption: "Texto de la publicación (Copy / Caption)",
+      promptUsed: "",
+      scheduledAt: defaultDate
+    };
+    setPreviewPosts(prev => prev ? [...prev, newPost] : [newPost]);
+  };
+
+  // Generar publicación individual con IA
+  const handleGenerateSingleIdea = async () => {
+    if (!editForm.campaignId) {
+      toast.error("Por favor, selecciona una campaña primero para generar la idea con IA.");
+      return;
+    }
+    
+    setIsGeneratingIdea(true);
+    try {
+      const targetChannel = editForm.channels[0] || "INSTAGRAM";
+      const res = await generateSingleContentIdeaAction(
+        editForm.campaignId,
+        businessId,
+        targetChannel,
+        editForm.type,
+        editForm.format
+      );
+      
+      if (res.success && res.idea) {
+        const idea = res.idea;
+        setEditForm(prev => ({
+          ...prev,
+          title: idea.title,
+          type: idea.type,
+          format: idea.format,
+          channels: prev.channels,
+          caption: idea.caption,
+          body: idea.body,
+          promptUsed: idea.promptUsed,
+        }));
+        toast.success("¡Idea de publicación generada con éxito por la IA!");
+      } else {
+        toast.error(res.error || "No se pudo generar la idea de publicación.");
+      }
+    } catch (e) {
+      toast.error("Error de conexión al generar la idea con IA.");
+    } finally {
+      setIsGeneratingIdea(false);
+    }
+  };
+
+  // Agrupar contenidos del mes actual por campaña
+  const getMonthCampaignPlans = () => {
+    const activeMonth = currentDate.getMonth();
+    const activeYear = currentDate.getFullYear();
+
+    // Filtrar publicaciones del mes visible
+    const monthContents = contents.filter(item => {
+      if (!item.scheduledAt) return false;
+      const d = new Date(item.scheduledAt);
+      return d.getMonth() === activeMonth && d.getFullYear() === activeYear;
+    });
+
+    // Agrupar por campaña
+    const grouped: Record<string, { campaignName: string; posts: typeof monthContents }> = {};
+
+    // Inicializar para "Sin campaña vinculada"
+    grouped["no-campaign"] = {
+      campaignName: "Sin campaña vinculada",
+      posts: []
+    };
+
+    // Inicializar campañas del negocio
+    campaigns.forEach(c => {
+      grouped[c.id] = {
+        campaignName: c.name,
+        posts: []
+      };
+    });
+
+    monthContents.forEach(post => {
+      const key = post.campaignId && grouped[post.campaignId] ? post.campaignId : "no-campaign";
+      grouped[key].posts.push(post);
+    });
+
+    // Ordenar los posts de cada campaña por fecha de programación
+    Object.keys(grouped).forEach(key => {
+      grouped[key].posts.sort((a, b) => {
+        const da = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+        const db = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+        return da - db;
+      });
+    });
+
+    // Retornar solo las agrupaciones que tengan posts
+    return Object.entries(grouped)
+      .filter(([_, data]) => data.posts.length > 0)
+      .map(([id, data]) => ({
+        campaignId: id,
+        ...data
+      }));
   };
 
   // Navegación de mes
@@ -330,14 +627,28 @@ export function CalendarView({
     setTimeout(() => setCopiedType(null), 2000);
   };
 
-  const handleDeleteContent = async (id: string) => {
-    const confirmDelete = window.confirm("¿Estás seguro de que deseas eliminar esta publicación?");
-    if (!confirmDelete) return;
+  const handleDeleteContent = (id: string) => {
+    setDeleteTargetId(id);
+  };
+
+  const handleConfirmDeleteContent = async () => {
+    if (!deleteTargetId) return;
+
+    if (deleteTargetId.startsWith("sim-")) {
+      const idx = parseInt(deleteTargetId.split("-")[1]);
+      if (!isNaN(idx)) {
+        handleRemovePreviewPost(idx);
+        toast.success("Publicación simulada eliminada.");
+      }
+      setViewingContent(null);
+      setDeleteTargetId(null);
+      return;
+    }
 
     try {
-      const res = await deleteContentAction(id, businessId);
+      const res = await deleteContentAction(deleteTargetId, businessId);
       if (res.success) {
-        setContents(prev => prev.filter(item => item.id !== id));
+        setContents(prev => prev.filter(item => item.id !== deleteTargetId));
         setViewingContent(null);
         toast.success("Publicación eliminada correctamente.");
       } else {
@@ -345,6 +656,117 @@ export function CalendarView({
       }
     } catch (err) {
       toast.error("Error de base de datos.");
+    } finally {
+      setDeleteTargetId(null);
+    }
+  };
+
+  const handleQuickDelete = async (id: string) => {
+    if (id.startsWith("sim-")) {
+      const idx = parseInt(id.split("-")[1]);
+      if (!isNaN(idx)) {
+        handleRemovePreviewPost(idx);
+        toast.success("Publicación simulada eliminada.");
+      }
+      return;
+    }
+
+    try {
+      const res = await deleteContentAction(id, businessId);
+      if (res.success) {
+        setContents(prev => prev.filter(item => item.id !== id));
+        toast.success("Publicación eliminada correctamente.");
+      } else {
+        toast.error(res.error || "No se pudo eliminar el contenido.");
+      }
+    } catch (err) {
+      toast.error("Error de base de datos.");
+    }
+  };
+
+  // Drag and Drop handlers
+  const handleDragStart = (e: React.DragEvent, content: ContentItem) => {
+    setDraggedContent(content);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", content.id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedContent(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetDate: Date) => {
+    e.preventDefault();
+    
+    if (!draggedContent) return;
+
+    // Si es una publicación simulada
+    if (draggedContent.id.startsWith("sim-")) {
+      const idx = parseInt(draggedContent.id.split("-")[1]);
+      if (!isNaN(idx) && previewPosts) {
+        const newScheduledAt = format(targetDate, "yyyy-MM-dd'T'HH:mm");
+        const originalTime = draggedContent.scheduledAt 
+          ? format(new Date(draggedContent.scheduledAt), "HH:mm") 
+          : "10:00";
+        const newScheduledDateTime = `${format(targetDate, "yyyy-MM-dd")}T${originalTime}`;
+        
+        handleUpdatePreviewPost(idx, "scheduledAt", new Date(newScheduledDateTime).toISOString());
+        toast.success("Publicación simulada movida a nueva fecha.");
+      }
+      setDraggedContent(null);
+      return;
+    }
+
+    // Si es una publicación real de la base de datos
+    try {
+      const originalTime = draggedContent.scheduledAt 
+        ? format(new Date(draggedContent.scheduledAt), "HH:mm") 
+        : "10:00";
+      const newScheduledDateTime = `${format(targetDate, "yyyy-MM-dd")}T${originalTime}`;
+      
+      const res = await updateCalendarContentAction(
+        draggedContent.id,
+        {
+          title: draggedContent.title,
+          channels: draggedContent.channel ? [draggedContent.channel] : ["INSTAGRAM"],
+          type: draggedContent.type,
+          format: draggedContent.format || "IMAGE",
+          scheduledAt: new Date(newScheduledDateTime),
+          caption: draggedContent.caption || "",
+          body: draggedContent.body || "",
+          promptUsed: draggedContent.promptUsed || "",
+          campaignId: draggedContent.campaignId || null,
+        },
+        businessId
+      );
+
+      if (res.success) {
+        toast.success("Publicación movida a nueva fecha.");
+        
+        // Actualizar estado local
+        setContents(prev => 
+          prev.map(item => 
+            item.id === draggedContent.id 
+              ? { 
+                  ...item, 
+                  scheduledAt: new Date(newScheduledDateTime).toISOString()
+                } 
+              : item
+          )
+        );
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo mover la publicación.");
+      }
+    } catch (err) {
+      toast.error("Error al mover la publicación.");
+    } finally {
+      setDraggedContent(null);
     }
   };
 
@@ -383,6 +805,52 @@ export function CalendarView({
 
   return (
     <>
+      {/* BANNER DE PREVISUALIZACIÓN ACTIVA */}
+      {previewPosts && (
+        <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-2 border-dashed border-amber-300 dark:border-amber-800 p-4 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-pulse shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-500/20 p-2 rounded-xl text-amber-600 dark:text-amber-400">
+              <Sparkles className="h-5 w-5 animate-spin duration-3000" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider">Modo Previsualización Activo</h3>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Se han generado <strong>{previewPosts.length}</strong> publicaciones en memoria. Puedes hacer clic en los posts simulados en el calendario para editarlos, arrastrar o borrarlos antes de aplicar.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setPreviewPosts(null);
+                toast.success("Previsualización descartada.");
+              }}
+              className="text-xs font-bold border-amber-300 text-amber-800 hover:bg-amber-100 dark:text-amber-400 dark:border-amber-900"
+            >
+              Descartar
+            </Button>
+            <Button
+              onClick={handleSavePlanned}
+              disabled={isSavingPlanned}
+              className="gradient-primary text-xs font-bold h-9 shadow-md text-white"
+            >
+              {isSavingPlanned ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  Guardando en Base de Datos...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-1.5 h-3.5 w-3.5" />
+                  Confirmar y Guardar ({previewPosts.length})
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
       {/* CABECERA */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
@@ -425,6 +893,103 @@ export function CalendarView({
             </Button>
           </div>
 
+          {/* Botón de Modo Edición */}
+          <Button
+            variant={isEditMode ? "default" : "outline"}
+            size="sm"
+            onClick={() => setIsEditMode(!isEditMode)}
+            className={`h-9 text-xs font-semibold gap-1.5 ${isEditMode ? "bg-red-600 hover:bg-red-700 text-white" : "border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/20"}`}
+          >
+            {isEditMode ? (
+              <>
+                <X className="h-3.5 w-3.5" />
+                Salir de Edición
+              </>
+            ) : (
+              <>
+                <Edit className="h-3.5 w-3.5" />
+                Modo Edición
+              </>
+            )}
+          </Button>
+
+          {/* Drawer de Resumen de Planificación por Campaña */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button 
+                variant="outline"
+                className="h-9 text-xs font-semibold gap-1.5 border-violet-200 text-violet-755 hover:bg-violet-50 dark:border-violet-900 dark:text-violet-305 dark:hover:bg-violet-950/20"
+              >
+                <Layers className="h-4 w-4 text-violet-650" />
+                <span>Resumen de Campañas</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[90%] sm:max-w-md md:max-w-lg overflow-y-auto flex flex-col p-0">
+              <SheetHeader className="p-6 bg-muted/5 border-b border-muted/20 shrink-0">
+                <SheetTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                  <Calendar className="h-4.5 w-4.5 text-violet-600" />
+                  <span>Resumen Editorial: {monthsSpanish[month]} {year}</span>
+                </SheetTitle>
+                <SheetDescription className="text-[11px] text-muted-foreground">
+                  Visualiza la distribución del contenido programado para cada campaña de este mes.
+                </SheetDescription>
+              </SheetHeader>
+              
+              <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+                {getMonthCampaignPlans().length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-2">
+                    <Calendar className="h-8 w-8 opacity-20" />
+                    <span className="text-xs font-bold">Sin publicaciones en este mes</span>
+                    <span className="text-[10px] opacity-80 max-w-[200px]">Usa el asistente IA para generar o añade publicaciones de forma manual.</span>
+                  </div>
+                ) : (
+                  getMonthCampaignPlans().map((group) => (
+                    <div key={group.campaignId} className="space-y-3">
+                      <div className="flex items-center justify-between border-b pb-1">
+                        <span className="text-xs font-black tracking-tight text-foreground uppercase truncate max-w-[250px]">
+                          {group.campaignName}
+                        </span>
+                        <Badge variant="secondary" className="text-[9px] font-black bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 shrink-0">
+                          {group.posts.length} {group.posts.length === 1 ? "publicación" : "publicaciones"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-2 pr-1">
+                        {group.posts.map((post) => {
+                          const ch = (post.channel || "INSTAGRAM").toUpperCase();
+                          const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
+                          const pubDate = post.scheduledAt ? new Date(post.scheduledAt) : null;
+                          const formattedTime = pubDate ? format(pubDate, "d 'de' MMM, HH:mm", { locale: es }) : "Sin fecha";
+                          
+                          return (
+                            <div 
+                              key={post.id} 
+                              onClick={() => {
+                                setViewingContent(post);
+                              }}
+                              className={`flex items-center justify-between p-2.5 rounded-xl border text-[11px] font-semibold transition-all hover:scale-[1.01] hover:shadow-sm cursor-pointer ${meta.styles}`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="shrink-0">{meta.icon}</span>
+                                <div className="truncate leading-tight">
+                                  <p className="font-bold truncate">{post.title}</p>
+                                  <p className="text-[9px] opacity-80 mt-0.5">{post.type} • {post.format || "IMAGE"}</p>
+                                </div>
+                              </div>
+                              <span className="text-[9.5px] font-bold bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-md shrink-0 border border-current/20">
+                                {formattedTime}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+
           {/* Planificar con IA */}
           <Button 
             onClick={() => setIsPlanModalOpen(true)}
@@ -451,6 +1016,8 @@ export function CalendarView({
         <div className="flex-1 grid grid-cols-7 grid-rows-5 overflow-y-auto">
           {gridCells.map((cell, index) => {
             const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+            const cellDateStr = format(cell.date, "yyyy-MM-dd");
+            
             const dayContents = contents.filter((item) => {
               if (!item.scheduledAt) return false;
               const scheduledDate = new Date(item.scheduledAt);
@@ -463,8 +1030,54 @@ export function CalendarView({
               return true;
             });
 
+            const simulatedPosts = previewPosts
+              ? previewPosts.map((p, idx) => ({ ...p, originalIndex: idx })).filter(p => {
+                  if (!p.scheduledAt) return false;
+                  return format(new Date(p.scheduledAt), "yyyy-MM-dd") === cellDateStr;
+                })
+              : [];
+
             const handleAddPlan = () => {
               const scheduledDateString = format(cell.date, "yyyy-MM-dd") + "T10:00";
+              
+              if (previewPosts) {
+                const defaultPost = {
+                  title: "Nueva Publicación",
+                  type: "POST",
+                  format: "IMAGE",
+                  channel: "INSTAGRAM",
+                  body: "Concepto visual o storyboard de la publicación",
+                  caption: "Texto de la publicación (Copy / Caption)",
+                  promptUsed: "",
+                  scheduledAt: new Date(scheduledDateString).toISOString()
+                };
+                
+                setPreviewPosts(prev => {
+                  const next = prev ? [...prev, defaultPost] : [defaultPost];
+                  const newIdx = next.length - 1;
+                  setActivePreviewIdx(newIdx);
+                  
+                  setTimeout(() => {
+                    setViewingContent({
+                      id: `sim-${newIdx}`,
+                      campaignId: planningCampaignId || null,
+                      type: defaultPost.type,
+                      format: defaultPost.format,
+                      title: defaultPost.title,
+                      body: defaultPost.body,
+                      caption: defaultPost.caption,
+                      hashtags: [],
+                      scheduledAt: defaultPost.scheduledAt,
+                      channel: defaultPost.channel,
+                      promptUsed: defaultPost.promptUsed
+                    });
+                  }, 0);
+                  
+                  return next;
+                });
+                return;
+              }
+
               setViewingContent({
                 id: "new-draft",
                 campaignId: selectedCampaignId !== "all" ? selectedCampaignId : null,
@@ -487,27 +1100,32 @@ export function CalendarView({
                 scheduledAt: scheduledDateString,
                 caption: "",
                 body: "",
-                promptUsed: ""
+                promptUsed: "",
+                campaignId: selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || ""),
               });
               setIsEditing(true);
             };
+
+            const totalPostsCount = dayContents.length + simulatedPosts.length;
 
             return (
               <div
                 key={index}
                 onClick={handleAddPlan}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, cell.date)}
                 className={`border-r border-b p-2 min-h-[100px] flex flex-col gap-1.5 transition-all relative group/cell hover:bg-muted/10 last:border-r-0 cursor-pointer ${
                   cell.isCurrentMonth ? "bg-background" : "bg-muted/5 opacity-40"
-                }`}
+                } ${draggedContent ? 'hover:bg-blue-50/50' : ''}`}
               >
                 <div className="flex justify-between items-center select-none">
                   <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isToday ? "bg-blue-600 text-white shadow-sm" : "text-muted-foreground"}`}>
                     {cell.date.getDate()}
                   </span>
                   <div className="flex items-center gap-1">
-                    {dayContents.length > 0 && (
+                    {totalPostsCount > 0 && (
                       <span className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-wider">
-                        {dayContents.length} {dayContents.length === 1 ? "post" : "posts"}
+                        {totalPostsCount} {totalPostsCount === 1 ? "post" : "posts"}
                       </span>
                     )}
                     <button
@@ -525,6 +1143,7 @@ export function CalendarView({
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                  {/* Renderizar posts reales de BBDD */}
                   {dayContents.map((post) => {
                     const ch = (post.channel || "INSTAGRAM").toUpperCase();
                     const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
@@ -533,17 +1152,77 @@ export function CalendarView({
                     return (
                       <div
                         key={post.id}
+                        draggable={!isEditMode}
+                        onDragStart={(e) => !isEditMode && handleDragStart(e, post)}
+                        onDragEnd={handleDragEnd}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setViewingContent(post);
+                          if (isEditMode) {
+                            handleQuickDelete(post.id);
+                          } else {
+                            setViewingContent(post);
+                          }
                         }}
-                        className={`group px-2 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center justify-between gap-1.5 cursor-pointer transition-all duration-300 shadow-sm hover:scale-[1.02] hover:shadow ${meta.styles}`}
-                        title={`${post.title} (${pubTime})`}
+                        className={`group/item px-2 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center justify-between gap-1.5 cursor-pointer transition-all duration-300 shadow-sm hover:scale-[1.02] hover:shadow ${meta.styles} ${draggedContent?.id === post.id ? 'opacity-50' : ''} ${isEditMode ? 'hover:bg-red-100 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800' : ''}`}
+                        title={`${isEditMode ? 'Click para eliminar' : `${post.title} (${pubTime})`}`}
                       >
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="shrink-0 opacity-80">{meta.icon}</span>
-                          <span className="font-bold text-foreground/80 shrink-0">{pubTime}</span>
+                          <span className="font-bold opacity-90 shrink-0">{pubTime}</span>
                           <span className="truncate leading-none">{post.title}</span>
+                        </div>
+                        {isEditMode && (
+                          <Trash2 className="h-3 w-3 text-red-500 shrink-0" />
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Renderizar posts de Simulación / Previsualización */}
+                  {simulatedPosts.map((post) => {
+                    const ch = (post.channel || "INSTAGRAM").toUpperCase();
+                    const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
+                    const pubTime = post.scheduledAt ? format(new Date(post.scheduledAt), "HH:mm") : "";
+                    const simulatedContent = {
+                      id: `sim-${post.originalIndex}`,
+                      campaignId: planningCampaignId || null,
+                      type: post.type,
+                      format: post.format || "IMAGE",
+                      title: post.title,
+                      body: post.body || "",
+                      caption: post.caption || "",
+                      hashtags: [],
+                      scheduledAt: post.scheduledAt || null,
+                      channel: post.channel || "INSTAGRAM",
+                      promptUsed: post.promptUsed || ""
+                    };
+
+                    return (
+                      <div
+                        key={`sim-${post.originalIndex}`}
+                        draggable={!isEditMode}
+                        onDragStart={(e) => !isEditMode && handleDragStart(e, simulatedContent)}
+                        onDragEnd={handleDragEnd}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isEditMode) {
+                            handleQuickDelete(`sim-${post.originalIndex}`);
+                          } else {
+                            setActivePreviewIdx(post.originalIndex);
+                            setViewingContent(simulatedContent);
+                          }
+                        }}
+                        className={`group/item px-2 py-1.5 rounded-lg border text-[10px] font-bold flex items-center justify-between gap-1.5 cursor-pointer transition-all duration-300 shadow-md hover:scale-[1.02] hover:shadow-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 animate-pulse ${draggedContent?.id === `sim-${post.originalIndex}` ? 'opacity-50' : ''} ${isEditMode ? 'hover:bg-red-100 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800' : ''}`}
+                        title={`${isEditMode ? 'Click para eliminar' : `[Simulado] ${post.title} (${pubTime})`}`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="shrink-0 text-amber-500">{meta.icon}</span>
+                          <span className="font-bold opacity-95 shrink-0 text-amber-700 dark:text-amber-400">{pubTime}</span>
+                          <span className="truncate leading-none">{post.title}</span>
+                        </div>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          {!isEditMode && <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />}
+                          {isEditMode && <Trash2 className="h-3 w-3 text-red-500 shrink-0" />}
                         </div>
                       </div>
                     );
@@ -656,56 +1335,150 @@ export function CalendarView({
 
                   {/* PROMPT */}
                   {(() => {
-                    const hasValidPrompt = (() => {
-                      if (!editForm.promptUsed) return false;
-                      const clean = editForm.promptUsed.trim().toLowerCase();
-                      if (
-                        clean === "" || 
-                        clean === "n/a" || 
-                        clean === "n/a." || 
-                        clean === "n.a." || 
-                        clean === "none" || 
-                        clean === "none." || 
-                        clean === "no aplica" || 
-                        clean === "no aplica." || 
-                        clean === "no disponible" || 
-                        clean === "no disponible." || 
-                        clean === "n / a" ||
-                        clean.startsWith("n/a") ||
-                        clean.startsWith("no aplica")
-                      ) {
-                        return false;
+                    const getPromptsArray = (promptText: string | null) => {
+                      if (!promptText) return [];
+                      const text = promptText.trim();
+                      
+                      // Detect slide-based prompt
+                      const regex = /(?:Slide|Diapositiva|Paso|Imagen)?\s*(\d+)\s*[:.-]\s*([\s\S]*?)(?=(?:Slide|Diapositiva|Paso|Imagen)?\s*\d+\s*[:.-]|$)/gi;
+                      const matches = [...text.matchAll(regex)];
+                      
+                      if (matches.length > 0) {
+                        return matches.map(m => ({
+                          label: `Slide ${m[1]}`,
+                          prompt: m[2].trim()
+                        })).filter(item => item.prompt.length > 0);
                       }
-                      return true;
-                    })();
+                      
+                      // Try splitting by lines starting with numbers
+                      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+                      const numberedLines = lines.filter(l => /^\d+[\s.:-]/.test(l));
+                      if (numberedLines.length > 1) {
+                        return numberedLines.map((line, idx) => {
+                          const clean = line.replace(/^\d+[\s.:-]\s*/, '').trim();
+                          return {
+                            label: `Slide ${idx + 1}`,
+                            prompt: clean
+                          };
+                        });
+                      }
+
+                      // Fallback to single prompt
+                      const clean = text.toLowerCase();
+                      if (["", "n/a", "none", "no aplica", "n.a.", "no disponible", "n / a", "none."].includes(clean)) {
+                        return [];
+                      }
+                      return [{ label: "Imagen de Portada / Post", prompt: text }];
+                    };
+
+                    const prompts = getPromptsArray(editForm.promptUsed);
+                    const isCarousel = editForm.type === "CAROUSEL";
                     
-                    return hasValidPrompt ? (
-                      <div className="space-y-2 bg-blue-500/5 dark:bg-blue-950/10 p-4 rounded-xl border border-blue-500/10">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1">
-                            <Sparkles className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
-                            AI Image Generation Prompt (Midjourney / DALL-E)
+                    return (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center border-b border-muted/25 pb-1">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">
+                            {isCarousel ? "Prompts de Generación para Carrusel" : "Prompt de Generación para Imagen (IA)"}
                           </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCopyToClipboard(editForm.promptUsed || "", "prompt")}
-                            className="h-7 text-[10px] font-semibold gap-1 text-blue-655 hover:bg-blue-100/50"
-                          >
-                            {copiedType === "prompt" ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
-                            {copiedType === "prompt" ? "Copiado" : "Copiar Prompt"}
-                          </Button>
                         </div>
-                        <div className="bg-background border p-3 rounded-lg text-xs leading-relaxed text-foreground/80 italic font-mono select-all mt-1">
-                          {editForm.promptUsed}
-                        </div>
+                        
+                        {prompts.length === 0 ? (
+                          // Prompt no disponible / vacío
+                          <div className="bg-amber-500/5 dark:bg-amber-950/10 border border-amber-500/10 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-4.5 w-4.5 text-amber-500 shrink-0" />
+                              <div className="text-left">
+                                <p className="text-xs font-bold text-foreground">Sin Prompt asignado</p>
+                                <p className="text-[10px] text-muted-foreground">Esta publicación no cuenta con un prompt de imagen por IA detallado.</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setIsEditing(true);
+                              }}
+                              className="text-[10px] font-bold h-8 border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                            >
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Editar y Generar Prompt
+                            </Button>
+                          </div>
+                        ) : (
+                          // Render prompts list
+                          <div className="space-y-3">
+                            {prompts.map((p, idx) => (
+                              <div key={idx} className="bg-blue-500/5 dark:bg-blue-950/10 p-3.5 rounded-xl border border-blue-500/10 space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[9.5px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
+                                    <Sparkles className="h-3 w-3 text-amber-500 animate-pulse" />
+                                    {p.label}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleCopyToClipboard(p.prompt, "prompt")}
+                                    className="h-6 text-[9.5px] font-semibold gap-1 text-blue-655 hover:bg-blue-100/50 px-1.5"
+                                  >
+                                    {copiedType === "prompt" ? <Check className="h-2.5 w-2.5 text-green-650" /> : <Copy className="h-2.5 w-2.5" />}
+                                    Copiar Prompt
+                                  </Button>
+                                </div>
+                                <div className="bg-background border p-2.5 rounded-lg text-xs leading-relaxed text-foreground/80 italic font-mono select-all">
+                                  {p.prompt}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ) : null;
+                    );
                   })()}
                 </div>
               ) : (
                 // MODO EDICIÓN DINÁMICA
                 <div className="space-y-4">
+                  {/* Vincular campaña y Generación IA */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end p-3.5 bg-violet-500/5 border border-violet-500/10 rounded-xl">
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-violet-750 dark:text-violet-300 block mb-1">
+                        Campaña de Referencia
+                      </label>
+                      <Select 
+                        value={editForm.campaignId} 
+                        onValueChange={(val) => setEditForm(p => ({ ...p, campaignId: val }))}
+                      >
+                        <SelectTrigger className="text-xs h-9 bg-background border-violet-200/50">
+                          <SelectValue placeholder="Selecciona una campaña..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {campaigns.map((camp) => (
+                            <SelectItem key={camp.id} value={camp.id} className="text-xs">
+                              {camp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleGenerateSingleIdea}
+                      disabled={isGeneratingIdea || !editForm.campaignId}
+                      className="w-full text-xs font-semibold h-9 gradient-primary border-0 shadow-sm relative overflow-hidden group gap-1.5"
+                    >
+                      {isGeneratingIdea ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Generando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
+                          Generar con IA
+                        </>
+                      )}
+                    </Button>
+                  </div>
                   <div>
                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Título de la publicación</label>
                     <Input
@@ -873,20 +1646,32 @@ export function CalendarView({
                 </>
               ) : (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (viewingContent.id === "new-draft") {
-                        setViewingContent(null);
-                      } else {
-                        setIsEditing(false);
-                      }
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground font-semibold"
-                  >
-                    Cancelar
-                  </Button>
+                  <div className="flex gap-2">
+                    {viewingContent.id !== "new-draft" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteContent(viewingContent.id)}
+                        className="text-xs text-red-650 hover:text-red-750 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold gap-1.5"
+                      >
+                        <Trash2 className="h-4 w-4" /> Eliminar
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (viewingContent.id === "new-draft") {
+                          setViewingContent(null);
+                        } else {
+                          setIsEditing(false);
+                        }
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground font-semibold"
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
 
                   <Button
                     variant="default"
@@ -975,8 +1760,12 @@ export function CalendarView({
       </Dialog>
 
       {/* DIÁLOGO GENERACIÓN CALENDARIO CON IA */}
-      <Dialog open={isPlanModalOpen} onOpenChange={(open) => !open && setIsPlanModalOpen(false)}>
-        <DialogContent className="max-w-md border border-muted/20 rounded-2xl shadow-2xl p-0 bg-background flex flex-col">
+      <Dialog open={isPlanModalOpen && !previewPosts} onOpenChange={(open) => {
+        if (!open) {
+          setIsPlanModalOpen(false);
+        }
+      }}>
+        <DialogContent className="max-w-md border border-muted/20 rounded-2xl shadow-2xl p-0 bg-background flex flex-col transition-all duration-300">
           {isPlanning ? (
             // PANTALLA DE CARGA PLANIFICADOR IA
             <div className="flex flex-col items-center justify-center p-12 min-h-[350px] text-center space-y-6">
@@ -1020,7 +1809,17 @@ export function CalendarView({
               <div className="p-6 space-y-4">
                 <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Campaña de Referencia</label>
-                  <Select value={planningCampaignId} onValueChange={setPlanningCampaignId}>
+                  <Select 
+                    value={planningCampaignId} 
+                    onValueChange={(val) => {
+                      setPlanningCampaignId(val);
+                      const camp = campaigns.find(c => c.id === val);
+                      if (camp) {
+                        setPlanningStartDate(camp.startDate ? format(new Date(camp.startDate), "yyyy-MM-dd") : "");
+                        setPlanningEndDate(camp.endDate ? format(new Date(camp.endDate), "yyyy-MM-dd") : "");
+                      }
+                    }}
+                  >
                     <SelectTrigger className="text-xs h-9 bg-background">
                       <SelectValue placeholder="Selecciona una campaña" />
                     </SelectTrigger>
@@ -1035,25 +1834,107 @@ export function CalendarView({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Número de Publicaciones a generar</label>
-                  <Select 
-                    value={planningQuantity.toString()} 
-                    onValueChange={(val) => setPlanningQuantity(Number(val))}
-                  >
-                    <SelectTrigger className="text-xs h-9 bg-background">
-                      <SelectValue placeholder="Selecciona cantidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[5, 8, 12, 15, 20].map((num) => (
-                        <SelectItem key={num} value={num.toString()} className="text-xs">
-                          {num} publicaciones distribuidas
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <span className="text-[10px] text-muted-foreground/80 mt-1 block">
-                    Se distribuirán uniformemente a lo largo de las fechas definidas de la campaña.
-                  </span>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Canales de Difusión</label>
+                  <div className="flex flex-wrap gap-1.5 p-1.5 bg-muted/20 rounded-lg border border-muted/30">
+                    {["INSTAGRAM", "FACEBOOK", "TIKTOK", "LINKEDIN", "YOUTUBE"].map((ch) => {
+                      const meta = channelMeta[ch];
+                      const isChecked = planningChannels.includes(ch);
+                      return (
+                        <button
+                          key={ch}
+                          type="button"
+                          onClick={() => {
+                            setPlanningChannels(prev => 
+                              prev.includes(ch) 
+                                ? (prev.length > 1 ? prev.filter(c => c !== ch) : prev) 
+                                : [...prev, ch]
+                            );
+                          }}
+                          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-all select-none ${
+                            isChecked
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                              : "bg-background text-muted-foreground border-muted-foreground/20 hover:bg-muted/10"
+                          }`}
+                        >
+                          {meta?.icon}
+                          {meta?.label || ch}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Fecha de Inicio (Opcional)</label>
+                    <Input
+                      type="date"
+                      value={planningStartDate}
+                      onChange={(e) => setPlanningStartDate(e.target.value)}
+                      className="text-xs h-9 focus-visible:ring-blue-600 px-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Fecha Fin (Opcional)</label>
+                    <Input
+                      type="date"
+                      value={planningEndDate}
+                      onChange={(e) => setPlanningEndDate(e.target.value)}
+                      className="text-xs h-9 focus-visible:ring-blue-600 px-2"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Nº Publicaciones a Generar</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={planningQuantity}
+                      onChange={(e) => setPlanningQuantity(Math.max(1, Number(e.target.value)))}
+                      className="text-xs h-9 focus-visible:ring-blue-600 px-2"
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (planningStartDate && planningEndDate) {
+                          const days = Math.max(1, Math.round((new Date(planningEndDate).getTime() - new Date(planningStartDate).getTime()) / (1000 * 60 * 60 * 24))) + 1;
+                          setPlanningQuantity(days);
+                          toast.success(`Establecido a 1 publicación por día (${days} posts en total)`);
+                        } else {
+                          toast.error("Por favor, selecciona Fecha de Inicio y Fecha Fin primero.");
+                        }
+                      }}
+                      className="text-[10px] h-9 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold"
+                    >
+                      Autocalcular 1 post/día
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-950/30 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <span className="text-[10.5px] font-bold text-foreground block">
+                        Replicar en múltiples canales
+                      </span>
+                      <span className="text-[9.5px] text-muted-foreground block">
+                        Duplica cada publicación generada en todos los canales activos de la campaña
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="replicateChannels"
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                      defaultChecked={true}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1067,18 +1948,44 @@ export function CalendarView({
                   Cancelar
                 </Button>
                 <Button 
-                  onClick={handlePlanCalendarWithIA}
+                  onClick={handleGeneratePreview}
                   disabled={!planningCampaignId}
                   className="gradient-primary text-xs font-semibold h-9 shadow-sm"
                 >
                   <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-300 shrink-0" />
-                  Generar Calendario IA
+                  Previsualizar Planificación
                 </Button>
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE CONFIRMACIÓN SHADCN DE ELIMINACIÓN */}
+      <AlertDialog open={!!deleteTargetId} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent className="border border-muted/20 rounded-2xl shadow-2xl bg-background">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+              ¿Estás completamente seguro?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground">
+              Esta acción no se puede deshacer. Se eliminará permanentemente esta publicación del calendario editorial y de la base de datos de tu negocio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="text-xs font-semibold rounded-lg h-9">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteContent}
+              className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg h-9 shadow-sm"
+            >
+              Eliminar publicación
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

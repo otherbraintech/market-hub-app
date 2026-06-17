@@ -27,7 +27,7 @@ export default async function CalendarPage() {
 
   const campaigns = await prisma.campaign.findMany({
     where: { businessId: selectedBusinessId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, startDate: true, endDate: true, channels: true },
     orderBy: { name: "asc" }
   });
 

@@ -12,12 +12,41 @@ export async function updateUserLimitAction(
 ) {
   try {
     const session = await getSession();
-    // ... logic ...
-    await prisma.user.update({
+    if (!session) {
+      return { success: false, error: 'No autorizado' }
+    }
+
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { maxBusinesses, maxCompetitors }
     })
+
+    // Si el usuario editado es el que tiene la sesión activa, actualizamos la cookie de sesión
+    const currentUserId = session.userId || session.user?.id;
+    if (currentUserId === userId) {
+      const { cookies } = await import("next/headers");
+      const { encrypt } = await import("@/lib/auth");
+      const newSessionPayload = {
+        ...session,
+        user: {
+          ...session.user,
+          maxBusinesses,
+          maxCompetitors
+        }
+      };
+      const expires = new Date(Date.now() + 120 * 60 * 1000); // 2 hours
+      const encryptedSession = await encrypt(newSessionPayload);
+      (await cookies()).set("session", encryptedSession, {
+        expires,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/"
+      });
+    }
+
     revalidatePath('/settings/users')
+    revalidatePath('/business')
     return { success: true }
   } catch (error) {
     console.error('Error updating user limit:', error)

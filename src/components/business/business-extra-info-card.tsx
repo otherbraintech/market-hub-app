@@ -1,6 +1,6 @@
 'use client'
-
-import { useState } from 'react'
+ 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,8 +9,16 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { updateBusinessExtraInfo } from "@/app/(dashboard)/business/[id]/actions"
 import { upsertCompetitorAction, deleteCompetitorAction } from "@/app/(dashboard)/business/[id]/competitor-actions"
 import { toast } from "sonner"
-import { Facebook, Instagram, Globe, Phone, Save, Loader2, Users, Plus, Trash2, MapPin, Pencil, X, Linkedin, Youtube, Search } from "lucide-react"
+import { Facebook, Instagram, Globe, Phone, Save, Loader2, Users, Plus, Trash2, MapPin, Pencil, X, Linkedin, Youtube, Search, AlertTriangle, Check } from "lucide-react"
 import { SocialLinks } from '@/modules/business/types'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface Competitor {
   id: string
@@ -50,6 +58,7 @@ export function BusinessExtraInfoCard({
   const [socialLinks, setSocialLinks] = useState<SocialLinks>(initialSocialLinks || {})
   
   // States for Competitors
+  const [showNameAlert, setShowNameAlert] = useState(false)
   const [editingCompIndex, setEditingCompIndex] = useState<number | null>(null)
   const [selectedPlatforms, setSelectedPlatforms] = useState<Record<number, string[]>>(() => {
     const initial: Record<number, string[]> = {}
@@ -60,9 +69,82 @@ export function BusinessExtraInfoCard({
     })
     return initial
   })
-  const [competitors, setCompetitors] = useState<Partial<Competitor>[]>(
-    initialCompetitors.length > 0 ? initialCompetitors : [{ id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' }]
-  )
+  const [competitors, setCompetitors] = useState<Partial<Competitor>[]>(initialCompetitors)
+
+  // Dialog Nuevo Competidor
+  const [isNewCompOpen, setIsNewCompOpen] = useState(false)
+  const [newCompData, setNewCompData] = useState<Partial<Competitor>>({
+    name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: ''
+  })
+  const [newCompPlatforms, setNewCompPlatforms] = useState<string[]>(['website'])
+  
+  // Mapa de estados de scraping en tiempo real
+  const [scrapingStatusMap, setScrapingStatusMap] = useState<Record<string, Record<string, { status: string; error?: string | null }>>>({})
+
+  // Polling dinámico de estados de scraping de competidores cada 5 segundos
+  useEffect(() => {
+    if (competitors.length === 0) return
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`/api/business/${businessId}/competitor-scraping-status`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.statusMap) {
+            setScrapingStatusMap(data.statusMap)
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching scraping status:", e)
+      }
+    }
+
+    fetchStatus()
+    const interval = setInterval(fetchStatus, 5000)
+    return () => clearInterval(interval)
+  }, [businessId, competitors])
+
+  const getScrapingIndicator = (competitorId?: string, platformKey?: string) => {
+    if (!competitorId || !platformKey) return null;
+    
+    let channelName = platformKey.toUpperCase();
+    if (platformKey === 'seoGoogle') {
+      channelName = 'SEO_GOOGLE';
+    }
+
+    const compStatus = scrapingStatusMap[competitorId]?.[channelName];
+    if (!compStatus) return null;
+
+    switch (compStatus.status) {
+      case 'PENDING':
+      case 'PROCESSING':
+        return (
+          <span className="flex items-center gap-1 text-[9px] text-blue-600 font-bold bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded animate-pulse">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            <span>Analizando...</span>
+          </span>
+        );
+      case 'COMPLETED':
+        return (
+          <span className="flex items-center gap-1 text-[9px] text-green-600 font-bold bg-green-50 dark:bg-green-950/40 px-1.5 py-0.5 rounded">
+            <Check className="h-2.5 w-2.5 text-green-600" />
+            <span>Listo</span>
+          </span>
+        );
+      case 'ERROR':
+        return (
+          <span 
+            className="flex items-center gap-1 text-[9px] text-red-650 font-bold bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded cursor-help"
+            title={compStatus.error || 'Error en scraping'}
+          >
+            <AlertTriangle className="h-2.5 w-2.5 text-red-600" />
+            <span>Fallo</span>
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
 
   const handleSaveContact = async () => {
     setLoading(true)
@@ -85,7 +167,10 @@ export function BusinessExtraInfoCard({
 
   const handleSaveCompetitor = async (index: number) => {
     const comp = competitors[index]
-    if (!comp.name) return toast.error('El nombre del competidor es requerido')
+    if (!comp.name || !comp.name.trim()) {
+      setShowNameAlert(true)
+      return
+    }
 
     setLoading(true)
     try {
@@ -137,10 +222,45 @@ export function BusinessExtraInfoCard({
         toast.error(`Has alcanzado el límite de ${maxCompetitors} competidores`)
         return
     }
-    const newIdx = competitors.length
-    setCompetitors(prev => [...prev, { id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' }])
-    setSelectedPlatforms(prev => ({ ...prev, [newIdx]: ['website'] }))
-    setEditingCompIndex(newIdx)
+    setNewCompData({ name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' })
+    setNewCompPlatforms(['website'])
+    setIsNewCompOpen(true)
+  }
+
+  const handleCreateCompetitor = async () => {
+    if (!newCompData.name || !newCompData.name.trim()) {
+      toast.error('Por favor, ingresa el nombre del competidor')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const result = await upsertCompetitorAction(businessId, undefined, {
+        name: newCompData.name,
+        website: newCompPlatforms.includes('website') && newCompData.website?.trim() ? newCompData.website.trim() : null,
+        facebook: newCompPlatforms.includes('facebook') && newCompData.facebook?.trim() ? newCompData.facebook.trim() : null,
+        instagram: newCompPlatforms.includes('instagram') && newCompData.instagram?.trim() ? newCompData.instagram.trim() : null,
+        tiktok: newCompPlatforms.includes('tiktok') && newCompData.tiktok?.trim() ? newCompData.tiktok.trim() : null,
+        linkedin: newCompPlatforms.includes('linkedin') && newCompData.linkedin?.trim() ? newCompData.linkedin.trim() : null,
+        youtube: newCompPlatforms.includes('youtube') && newCompData.youtube?.trim() ? newCompData.youtube.trim() : null,
+        seoGoogle: newCompPlatforms.includes('seoGoogle') && newCompData.seoGoogle?.trim() ? newCompData.seoGoogle.trim() : null
+      })
+
+      if (result.success && result.competitor) {
+        toast.success('Competidor añadido exitosamente')
+        setCompetitors(prev => [...prev, result.competitor])
+        // Añadir plataformas seleccionadas para la edición posterior si es necesario
+        const newIdx = competitors.length
+        setSelectedPlatforms(prev => ({ ...prev, [newIdx]: newCompPlatforms }))
+        setIsNewCompOpen(false)
+      } else {
+        toast.error(result.error || 'Error al guardar competidor')
+      }
+    } catch (e) {
+      toast.error('Error al conectar con el servidor')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const updateCompField = (index: number, field: keyof Competitor, value: string) => {
@@ -161,6 +281,19 @@ export function BusinessExtraInfoCard({
     })
   }
 
+  const toggleNewPlatform = (platform: string) => {
+    setNewCompPlatforms(current => {
+      if (current.includes(platform)) {
+        if (current.length > 1) {
+          return current.filter(p => p !== platform)
+        }
+        return current
+      } else {
+        return [...current, platform]
+      }
+    })
+  }
+
   const platforms = [
     { key: 'website', label: 'Sitio Web', icon: Globe },
     { key: 'facebook', label: 'Facebook', icon: Facebook },
@@ -172,7 +305,8 @@ export function BusinessExtraInfoCard({
   ]
 
   return (
-    <Card className="card-shadow overflow-hidden border-none">
+    <>
+      <Card className="card-shadow overflow-hidden border-none">
       <CardHeader className="bg-muted/30 pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
           <Globe className="h-5 w-5 text-primary" />
@@ -394,10 +528,11 @@ export function BusinessExtraInfoCard({
                               href={url} 
                               target="_blank" 
                               rel="noreferrer"
-                              className="text-blue-500 hover:underline truncate"
+                              className="text-blue-500 hover:underline truncate max-w-[200px]"
                             >
                               {url}
                             </a>
+                            {getScrapingIndicator(comp.id, platform.key)}
                           </div>
                         )
                       })}
@@ -410,6 +545,109 @@ export function BusinessExtraInfoCard({
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={isNewCompOpen} onOpenChange={setIsNewCompOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-orange-600">
+            <Plus className="h-5 w-5" />
+            <span>Nuevo Competidor</span>
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Registra un nuevo competidor para rastrear y analizar su presencia digital.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="grid gap-1.5">
+            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nombre del Competidor</Label>
+            <Input 
+              placeholder="Ej. Competidor Local S.A." 
+              value={newCompData.name || ''}
+              onChange={(e) => setNewCompData(p => ({ ...p, name: e.target.value }))}
+              className="h-9 text-xs bg-background"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-bold uppercase text-muted-foreground">Plataformas a analizar</Label>
+            <div className="flex flex-wrap gap-2">
+              {platforms.map((platform) => {
+                const PlatformIcon = platform.icon
+                const isSelected = newCompPlatforms.includes(platform.key)
+                return (
+                  <button
+                    key={platform.key}
+                    type="button"
+                    onClick={() => toggleNewPlatform(platform.key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${
+                      isSelected 
+                        ? 'bg-orange-50 border-orange-300 text-orange-700' 
+                        : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50'
+                    }`}
+                  >
+                    <PlatformIcon className="h-3 w-3" />
+                    {platform.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            {newCompPlatforms.map((platformKey) => {
+              const platform = platforms.find(p => p.key === platformKey)
+              if (!platform) return null
+              const PlatformIcon = platform.icon
+              return (
+                <div key={platform.key} className="grid gap-1.5">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                    <PlatformIcon className="h-2.5 w-2.5" />
+                    Enlace de {platform.label}
+                  </Label>
+                  <Input 
+                    placeholder="https://..." 
+                    value={(newCompData as any)[platform.key] || ''}
+                    onChange={(e) => setNewCompData(p => ({ ...p, [platform.key]: e.target.value }))}
+                    className="h-9 text-xs bg-background"
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={() => setIsNewCompOpen(false)} className="text-xs h-9">
+            Cancelar
+          </Button>
+          <Button onClick={handleCreateCompetitor} disabled={loading} className="bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs h-9">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+            Agregar Competidor
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showNameAlert} onOpenChange={setShowNameAlert}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-amber-600 text-sm font-bold">
+            <AlertTriangle className="h-4.5 w-4.5" />
+            <span>Nombre Requerido</span>
+          </DialogTitle>
+          <DialogDescription className="text-xs text-slate-600">
+            Por favor, añade un nombre para el competidor antes de poder guardar los cambios.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button onClick={() => setShowNameAlert(false)} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs w-full h-9">
+            Entendido
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
   )
 }
 

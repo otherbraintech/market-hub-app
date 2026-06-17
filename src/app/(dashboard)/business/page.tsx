@@ -10,12 +10,15 @@ export const dynamic = "force-dynamic";
 export default async function BusinessPage() {
   const session = await getSession();
   
+  const userId = session?.userId || session?.user?.id;
+  
   const [businesses, user] = await Promise.all([
     prisma.business.findMany({
+      where: userId ? { userId } : {},
       orderBy: { createdAt: "desc" },
     }),
-    session?.user?.id ? prisma.user.findUnique({
-      where: { id: session.user.id },
+    userId ? prisma.user.findUnique({
+      where: { id: userId },
       select: { maxBusinesses: true }
     }) : null
   ]);

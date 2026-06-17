@@ -68,6 +68,17 @@ export async function POST(
   try {
     const { businessId } = await params;
 
+    // Notificar al monitor del inicio de la etapa de diagnóstico
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Diagnóstico y Estrategia",
+        message: "Iniciando consolidación de análisis web y de competencia para formular el diagnóstico.",
+        step: "DIAGNOSTIC",
+        status: "PROCESSING"
+      }
+    }).catch(err => console.error("Error al crear la notificación del Agente de Diagnóstico:", err));
+
     const rawKey = process.env.OPEN_ROUTER_KEY;
     const key = rawKey ? rawKey.replace(/"/g, '').trim() : null;
     const obscuredKey = key ? `${key.substring(0, 12)}...${key.substring(key.length - 8)}` : 'NO CARGADO / INDEFINIDO';
@@ -648,6 +659,17 @@ REGLAS CRÍTICAS:
       }
     });
 
+    // Notificar al monitor del éxito de la etapa de diagnóstico
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Diagnóstico y Estrategia",
+        message: `¡Diagnóstico consolidado con éxito! Se analizó la presencia de ${competitors.length} competidores.`,
+        step: "DIAGNOSTIC",
+        status: "COMPLETED"
+      }
+    }).catch(err => console.error("Error al crear la notificación del Agente de Diagnóstico (Éxito):", err));
+
     return NextResponse.json({
       success: true,
       report: generalReport,
@@ -655,6 +677,20 @@ REGLAS CRÍTICAS:
     });
   } catch (error) {
     console.error('Error generating competitor general report:', error);
+    try {
+      const { businessId } = await params;
+      await prisma.agentNotification.create({
+        data: {
+          businessId,
+          title: "Agente de Diagnóstico y Estrategia",
+          message: `Error al consolidar el diagnóstico de competencia: ${error instanceof Error ? error.message : String(error)}`,
+          step: "DIAGNOSTIC",
+          status: "FAILED"
+        }
+      });
+    } catch (e) {
+      console.error("Error al crear notificación de error del Agente de Diagnóstico:", e);
+    }
     return NextResponse.json({ error: 'Failed to generate general report' }, { status: 500 });
   }
 }

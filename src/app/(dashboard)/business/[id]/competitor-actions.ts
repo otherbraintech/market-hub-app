@@ -18,8 +18,10 @@ export async function upsertCompetitorAction(
   }
 ) {
   try {
+    let dbCompetitor;
+
     if (competitorId) {
-      await prisma.competitor.update({
+      dbCompetitor = await prisma.competitor.update({
         where: { id: competitorId },
         data
       })
@@ -36,13 +38,57 @@ export async function upsertCompetitorAction(
         return { success: false, error: `Límite alcanzado (${user.maxCompetitors})` }
       }
 
-      await prisma.competitor.create({
+      dbCompetitor = await prisma.competitor.create({
         data: { ...data, businessId }
       })
+
+      // Notificar al usuario sobre el inicio del scraping
+      await prisma.agentNotification.create({
+        data: {
+          businessId,
+          title: "Agente de Scraping y Auditoría",
+          message: `Iniciando extracción y auditoría digital para el nuevo competidor: "${data.name}".`,
+          step: "SCRAPING",
+          status: "PROCESSING"
+        }
+      }).catch(err => console.error("Error creating competitor scraping notification:", err))
+    }
+
+    // Disparar scraping automático para todos los canales que tengan URL
+    if (dbCompetitor) {
+      const channelUrls = [
+        { name: "WEBSITE", url: dbCompetitor.website },
+        { name: "FACEBOOK", url: dbCompetitor.facebook },
+        { name: "INSTAGRAM", url: dbCompetitor.instagram },
+        { name: "TIKTOK", url: dbCompetitor.tiktok },
+        { name: "LINKEDIN", url: dbCompetitor.linkedin },
+        { name: "YOUTUBE", url: dbCompetitor.youtube },
+        { name: "SEO_GOOGLE", url: dbCompetitor.seoGoogle },
+      ];
+
+      const appUrl = process.env.APP_URL || "http://localhost:3000";
+
+      // Disparar en segundo plano sin bloquear el hilo principal
+      channelUrls.forEach((ch) => {
+        if (ch.url && ch.url.trim() !== "") {
+          fetch(`${appUrl}/api/analysis/request`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "COMPETITOR",
+              entityId: dbCompetitor.id,
+              channel: ch.name,
+              url: ch.url,
+            }),
+          }).catch((err) => {
+            console.error(`Error al disparar scraping automático de competidor para canal ${ch.name}:`, err);
+          });
+        }
+      });
     }
 
     revalidatePath(`/business/${businessId}`)
-    return { success: true }
+    return { success: true, competitor: dbCompetitor }
   } catch (error) {
     console.error('Competitor Action Error:', error)
     return { success: false, error: 'Error al procesar competidor' }

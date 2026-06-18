@@ -67,7 +67,7 @@ export async function POST(request: Request) {
           step: "SCRAPING",
           status: "PROCESSING"
         }
-      }).catch(err => console.error("Error creating agent notification for analysis request:", err));
+      }).catch((err: any) => console.error("Error creating agent notification for analysis request:", err));
     }
 
     // Trigger external webhook (n8n) - using scrap-negocio for all analysis types

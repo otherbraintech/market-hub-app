@@ -103,7 +103,7 @@ export async function POST(request: Request) {
             step: "SCRAPING",
             status: "FAILED"
           }
-        }).catch(err => console.error(err));
+        }).catch((err: any) => console.error(err));
       }
       return NextResponse.json(
         { error: "Error al iniciar el análisis", details: error?.message || String(error) }, 

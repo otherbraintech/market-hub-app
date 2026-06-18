@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { BusinessHeader } from "@/components/business/business-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,11 @@ export default async function BusinessDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+
+  if (!session || !session.userId) {
+    redirect("/login");
+  }
 
   const business = await prisma.business.findUnique({
     where: { id },
@@ -38,6 +44,11 @@ export default async function BusinessDetailPage({
 
   if (!business) {
     notFound();
+  }
+
+  // Authorization check: ensure the business belongs to the current user
+  if (business.userId !== session.userId) {
+    redirect("/business");
   }
 
   // Fetch products, campaigns, social accounts and contents sequentially to prevent DB pool connection failures

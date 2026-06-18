@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { BusinessAnalysisClient } from "../../analysis/client-page";
 
 export default async function BusinessAnalysisPage({ 
@@ -8,6 +9,11 @@ export default async function BusinessAnalysisPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+
+  if (!session || !session.userId) {
+    redirect("/login");
+  }
 
   const business = await prisma.business.findUnique({
     where: { id },
@@ -16,11 +22,17 @@ export default async function BusinessAnalysisPage({
       name: true,
       website: true,
       socialLinks: true,
+      userId: true,
     }
   });
 
   if (!business) {
     notFound();
+  }
+
+  // Authorization check: ensure the business belongs to the current user
+  if (business.userId !== session.userId) {
+    redirect("/business");
   }
 
   // Get all analysis reports for this business (MY_BUSINESS type)

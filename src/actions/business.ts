@@ -147,7 +147,27 @@ export async function setSelectedBusinessAction(id: string) {
 
 export async function getSelectedBusinessId() {
   const { cookies } = await import("next/headers");
-  return (await cookies()).get("selectedBusinessId")?.value;
+  const { getSession } = await import("@/lib/auth");
+  
+  const session = await getSession();
+  const selectedId = (await cookies()).get("selectedBusinessId")?.value;
+  
+  if (!selectedId || !session || !session.userId) {
+    return null;
+  }
+  
+  // Verify that the selected business belongs to the current user
+  const business = await prisma.business.findUnique({
+    where: { id: selectedId },
+  });
+  
+  if (!business || business.userId !== session.userId) {
+    // Clear the invalid cookie
+    (await cookies()).delete("selectedBusinessId");
+    return null;
+  }
+  
+  return selectedId;
 }
 
 export async function getBusinessAction(id: string) {

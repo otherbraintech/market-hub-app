@@ -36,19 +36,19 @@ export default async function JobsPage() {
         <Card className="bg-blue-50/50 dark:bg-blue-900/10">
           <CardContent className="pt-6">
             <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">Activos</p>
-            <h3 className="text-2xl font-bold">{jobs.filter(j => j.status === 'PROCESSING').length}</h3>
+            <h3 className="text-2xl font-bold">{jobs.filter((j: any) => j.status === 'PROCESSING').length}</h3>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-widest mb-1">Últimas 24h</p>
-            <h3 className="text-2xl font-bold">{jobs.filter(j => j.status === 'SUCCESS').length}</h3>
+            <h3 className="text-2xl font-bold">{jobs.filter((j: any) => j.status === 'SUCCESS').length}</h3>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-widest mb-1">Fallas</p>
-            <h3 className="text-2xl font-bold">{jobs.filter(j => j.status === 'FAILED').length}</h3>
+            <h3 className="text-2xl font-bold">{jobs.filter((j: any) => j.status === 'FAILED').length}</h3>
           </CardContent>
         </Card>
         <Card>

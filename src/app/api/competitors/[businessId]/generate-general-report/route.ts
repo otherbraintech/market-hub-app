@@ -77,7 +77,7 @@ export async function POST(
         step: "DIAGNOSTIC",
         status: "PROCESSING"
       }
-    }).catch(err => console.error("Error al crear la notificación del Agente de Diagnóstico:", err));
+    }).catch((err: any) => console.error("Error al crear la notificación del Agente de Diagnóstico:", err));
 
     const rawKey = process.env.OPEN_ROUTER_KEY;
     const key = rawKey ? rawKey.replace(/"/g, '').trim() : null;

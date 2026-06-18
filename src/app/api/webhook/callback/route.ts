@@ -46,7 +46,7 @@ export async function POST(request: Request) {
             step: "SCRAPING",
             status: "FAILED"
           }
-        }).catch(err => console.error("Error creating agent notification for callback error:", err));
+        }).catch((err: any) => console.error("Error creating agent notification for callback error:", err));
       }
 
       return NextResponse.json({ success: true, report });
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
           step: "SCRAPING",
           status: "COMPLETED"
         }
-      }).catch(err => console.error("Error creating agent notification for callback success:", err));
+      }).catch((err: any) => console.error("Error creating agent notification for callback success:", err));
     }
 
     // Si el reporte completado es de tipo COMPETITOR, actualizar automáticamente el Diagnóstico y el Informe General del Negocio

@@ -64,7 +64,7 @@ export async function POST(
         brandVoice: business.brandVoice,
         socialLinks: business.socialLinks,
       },
-      businessAnalysis: normalizedBusinessReports.map(r => ({
+      businessAnalysis: normalizedBusinessReports.map((r: any) => ({
         channel: r.channel,
         url: r.url,
         data: r.data,

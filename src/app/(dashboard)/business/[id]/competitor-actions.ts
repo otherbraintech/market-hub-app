@@ -51,7 +51,7 @@ export async function upsertCompetitorAction(
           step: "SCRAPING",
           status: "PROCESSING"
         }
-      }).catch(err => console.error("Error creating competitor scraping notification:", err))
+      }).catch((err: any) => console.error("Error creating competitor scraping notification:", err))
     }
 
     // Disparar scraping automático para todos los canales que tengan URL

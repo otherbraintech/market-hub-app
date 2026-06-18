@@ -131,10 +131,10 @@ export async function getPersonasForBusinessAction(businessId: string) {
       select: { personas: true }
     });
 
-    const personas = strategies.flatMap(s => (s.personas as any[]) || []);
+    const personas = strategies.flatMap((s: { personas: any }) => (s.personas as any[]) || []);
     
     // De-duplicate by name
-    const uniquePersonas = Array.from(new Map(personas.map(p => [p.name, p])).values());
+    const uniquePersonas = Array.from(new Map(personas.map((p: { name: string }) => [p.name, p])).values());
 
     return { success: true, personas: uniquePersonas };
   } catch (error) {

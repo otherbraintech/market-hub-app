@@ -163,7 +163,6 @@ export async function generateMediaAction(
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { ContentStatus, ContentType, ContentFormat, SocialChannel } from "@prisma/client";
 import { addDays, format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 
@@ -390,14 +389,14 @@ Por favor, genera la lista de publicaciones de forma creativa e inteligente.`;
           data: {
             campaignId: campaign.id,
             title: post.title,
-            type: post.type as ContentType,
-            format: post.format as ContentFormat,
-            channel: post.channel as SocialChannel,
+            type: post.type as any,
+            format: post.format as any,
+            channel: post.channel as any,
             body: post.body,
             caption: post.caption,
             promptUsed: post.promptUsed,
             scheduledAt: scheduledDate,
-            status: ContentStatus.DRAFT,
+            status: "DRAFT",
             metadata: { source: "ai_generated" },
           }
         });
@@ -692,14 +691,14 @@ export async function savePlannedCampaignCalendarAction(
           data: {
             campaignId: campaignId || null,
             title: post.title,
-            type: post.type as ContentType,
-            format: post.format as ContentFormat,
-            channel: post.channel as SocialChannel,
+            type: post.type as any,
+            format: post.format as any,
+            channel: post.channel as any,
             body: post.body,
             caption: post.caption,
             promptUsed: post.promptUsed,
             scheduledAt: post.scheduledAt ? new Date(post.scheduledAt) : null,
-            status: ContentStatus.DRAFT,
+            status: "DRAFT",
             metadata: { source: "ai_generated_preview" },
           }
         });

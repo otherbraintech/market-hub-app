@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { campaignSchema } from "@/lib/schemas/campaign";
 import { createCampaign, updateCampaign, deleteCampaign, CreateCampaignInput } from "@/modules/campaigns";
 import { z } from "zod";
-import { CampaignObjective, CampaignStatus } from "@prisma/client";
 
 export async function createCampaignAction(businessId: string, data: z.infer<typeof campaignSchema>) {
   try {
@@ -22,7 +21,7 @@ export async function createCampaignAction(businessId: string, data: z.infer<typ
       strategyId: validated.strategyId,
       name: validated.name,
       description: validated.description,
-      objective: validated.objective as CampaignObjective,
+      objective: validated.objective as any,
       startDate: validated.startDate,
       endDate: validated.endDate,
       budget: validated.budget,
@@ -53,13 +52,13 @@ export async function updateCampaignAction(id: string, businessId: string, data:
     await updateCampaign(id, {
       name: validated.name,
       description: validated.description,
-      objective: validated.objective as CampaignObjective,
+      objective: validated.objective as any,
       startDate: validated.startDate,
       endDate: validated.endDate,
       budget: validated.budget,
       channels: normalizedChannels,
       targeting: validated.targeting,
-      status: validated.status as CampaignStatus,
+      status: validated.status as any,
     });
 
     revalidatePath(`/business/${businessId}`);

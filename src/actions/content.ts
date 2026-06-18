@@ -565,7 +565,7 @@ export async function previewCampaignCalendarAction(
       where: { businessId: options.businessId, isActive: true },
       select: { channel: true }
     });
-    const registeredChannels = socialAccounts.map(sa => sa.channel.toUpperCase());
+    const registeredChannels = socialAccounts.map((sa: { channel: string }) => sa.channel.toUpperCase());
 
     const campaignChannels = campaign.channels as Array<{ platform: string; isActive: boolean; budget?: number }>;
     const campaignActiveChannels = campaignChannels

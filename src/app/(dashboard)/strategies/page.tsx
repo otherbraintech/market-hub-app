@@ -42,7 +42,7 @@ export default async function StrategiesPage() {
   const businessName = business?.name || "";
 
   // Normalizar para eliminar fechas complejas antes de pasar al componente cliente
-  const serializedStrategies = strategies.map(s => ({
+  const serializedStrategies = strategies.map((s: any) => ({
     id: s.id,
     businessId: s.businessId,
     name: s.name,

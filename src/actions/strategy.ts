@@ -32,7 +32,7 @@ export async function upsertStrategyAction(businessId: string, data: z.infer<typ
       ]);
       if (campaignsCount < 8 || strategiesCount < 8) {
         import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-          triggerCascadeGeneration(businessId).catch(err => {
+          triggerCascadeGeneration(businessId).catch((err: any) => {
             console.error('[CASCADE] Error en triggerCascadeGeneration desde actualización de estrategia:', err);
           });
         });
@@ -62,7 +62,7 @@ export async function upsertStrategyAction(businessId: string, data: z.infer<typ
       ]);
       if (campaignsCount < 8 || strategiesCount < 8) {
         import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-          triggerCascadeGeneration(businessId).catch(err => {
+          triggerCascadeGeneration(businessId).catch((err: any) => {
             console.error('[CASCADE] Error en triggerCascadeGeneration desde upsert de estrategia:', err);
           });
         });

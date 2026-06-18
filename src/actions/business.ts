@@ -68,6 +68,21 @@ export async function createBusinessWithAI(data: {
 
 export async function updateBusiness(id: string, data: z.infer<typeof businessSchema>) {
   try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    
+    if (!session || !session.userId) {
+      return { success: false, error: "No autorizado" };
+    }
+    
+    const business = await prisma.business.findUnique({
+      where: { id },
+    });
+    
+    if (!business || business.userId !== session.userId) {
+      return { success: false, error: "No autorizado" };
+    }
+    
     const { updateBusiness: updateBusinessService } = await import("@/modules/business/services");
     const validated = businessSchema.parse(data);
     
@@ -82,6 +97,21 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
 
 export async function deleteBusiness(id: string) {
   try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    
+    if (!session || !session.userId) {
+      return { success: false, error: "No autorizado" };
+    }
+    
+    const business = await prisma.business.findUnique({
+      where: { id },
+    });
+    
+    if (!business || business.userId !== session.userId) {
+      return { success: false, error: "No autorizado" };
+    }
+    
     await prisma.business.delete({
       where: { id },
     });
@@ -92,7 +122,15 @@ export async function deleteBusiness(id: string) {
   }
 }
 export async function getBusinesses() {
+  const { getSession } = await import("@/lib/auth");
+  const session = await getSession();
+  
+  if (!session || !session.userId) {
+    return [];
+  }
+  
   return prisma.business.findMany({
+    where: { userId: session.userId },
     orderBy: { name: "asc" },
   });
 }
@@ -113,7 +151,20 @@ export async function getSelectedBusinessId() {
 }
 
 export async function getBusinessAction(id: string) {
-  return prisma.business.findUnique({
+  const { getSession } = await import("@/lib/auth");
+  const session = await getSession();
+  
+  if (!session || !session.userId) {
+    return null;
+  }
+  
+  const business = await prisma.business.findUnique({
     where: { id },
   });
+  
+  if (!business || business.userId !== session.userId) {
+    return null;
+  }
+  
+  return business;
 }

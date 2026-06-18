@@ -35,11 +35,11 @@ export async function GET(
     // Agrupar los reportes más recientes por competidor y canal
     const statusMap: Record<string, Record<string, { status: string; error?: string | null }>> = {};
 
-    competitorIds.forEach(id => {
+    competitorIds.forEach((id: string) => {
       statusMap[id] = {};
     });
 
-    reports.forEach(report => {
+    reports.forEach((report: any) => {
       // Como ordenamos desc por fecha, el primero que encontremos por canal es el más reciente
       if (!statusMap[report.entityId][report.channel]) {
         statusMap[report.entityId][report.channel] = {

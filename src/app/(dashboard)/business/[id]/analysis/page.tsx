@@ -34,7 +34,7 @@ export default async function BusinessAnalysisPage({
 
   // Group analyses by channel
   const myAnalysesByChannel: Record<string, any> = {};
-  myAnalyses.forEach(analysis => {
+  myAnalyses.forEach((analysis: { channel: string }) => {
     if (!myAnalysesByChannel[analysis.channel]) {
       myAnalysesByChannel[analysis.channel] = analysis;
     }

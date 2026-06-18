@@ -63,7 +63,7 @@ export async function GET(
 
     // Group business reports by channel and normalize data
     const businessReportsMap = new Map<string, any>();
-    businessReports.forEach(report => {
+    businessReports.forEach((report: any) => {
       // Keep only the latest report per channel
       if (!businessReportsMap.has(report.channel) || 
           (report.completedAt && businessReportsMap.get(report.channel)!.completedAt < report.completedAt)) {

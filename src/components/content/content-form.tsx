@@ -3,12 +3,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { 
-  ContentType, 
-  ContentFormat, 
-  SocialChannel, 
-  ContentStatus 
-} from "@prisma/client";
 import { contentSchema, ContentFormValues } from "@/lib/schemas/content";
 
 import { createContentAction, updateContentAction } from "@/actions/content";
@@ -43,7 +37,7 @@ interface ContentFormProps {
   businessId: string;
   campaigns: { id: string, name: string }[];
   products: { id: string, name: string }[];
-  socialAccounts: { id: string, accountName: string, channel: SocialChannel }[];
+  socialAccounts: { id: string, accountName: string, channel: any }[];
   defaultValues?: Partial<ContentFormValues> & { id?: string };
   onSuccess?: () => void;
 }
@@ -62,8 +56,8 @@ export function ContentForm({
     resolver: zodResolver(contentSchema),
     defaultValues: {
       title: defaultValues?.title || "",
-      type: defaultValues?.type || ContentType.POST,
-      format: defaultValues?.format || ContentFormat.IMAGE,
+      type: defaultValues?.type || "POST",
+      format: defaultValues?.format || "IMAGE",
       channel: defaultValues?.channel || undefined,
       campaignId: defaultValues?.campaignId || "",
       productId: defaultValues?.productId || "",
@@ -72,7 +66,7 @@ export function ContentForm({
       caption: defaultValues?.caption || "",
       hashtags: defaultValues?.hashtags || [],
       scheduledAt: defaultValues?.scheduledAt ? new Date(defaultValues.scheduledAt) : null,
-      status: defaultValues?.status || ContentStatus.IDEA,
+      status: defaultValues?.status || "IDEA",
       mediaUrl: defaultValues?.mediaUrl || "",
     },
   });
@@ -132,7 +126,7 @@ export function ContentForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Object.values(ContentType).map((type) => (
+                    {(["POST", "STORY", "REEL", "CAROUSEL"] as any[]).map((type) => (
                       <SelectItem key={type} value={type}>{type}</SelectItem>
                     ))}
                   </SelectContent>
@@ -155,7 +149,7 @@ export function ContentForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Object.values(ContentFormat).map((format) => (
+                    {(["IMAGE", "VIDEO", "CAROUSEL", "STORY"] as any[]).map((format) => (
                       <SelectItem key={format} value={format}>{format}</SelectItem>
                     ))}
                   </SelectContent>
@@ -180,7 +174,7 @@ export function ContentForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Object.values(SocialChannel).map((channel) => (
+                    {(["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"] as any[]).map((channel) => (
                       <SelectItem key={channel} value={channel}>{channel}</SelectItem>
                     ))}
                   </SelectContent>

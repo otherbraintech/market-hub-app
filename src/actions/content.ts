@@ -31,7 +31,7 @@ export async function createContentAction(data: ContentFormValues & { businessId
     if (channels.length > 1) {
       const otherChannels = channels.slice(1);
       await prisma.$transaction(
-        otherChannels.map(ch => {
+        otherChannels.map((ch: string) => {
           return prisma.content.create({
             data: {
               campaignId: content.campaignId,
@@ -230,7 +230,7 @@ export async function updateCalendarContentAction(
       if (original) {
         const otherChannels = channels.slice(1);
         await prisma.$transaction(
-          otherChannels.map(ch => {
+          otherChannels.map((ch: string) => {
             return prisma.content.create({
               data: {
                 campaignId: original.campaignId,
@@ -313,7 +313,7 @@ export async function generateCampaignCalendarAction(
     // Determinar los canales activos de la campaña
     const campaignChannels = campaign.channels as Array<{ platform: string; isActive: boolean; budget?: number }>;
     const activeChannels = campaignChannels
-      ? campaignChannels.filter(c => c.isActive).map(c => c.platform)
+      ? campaignChannels.filter((c: any) => c.isActive).map((c: any) => c.platform)
       : [];
 
     const allowedChannelsStr = activeChannels.length > 0 

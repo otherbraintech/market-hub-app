@@ -58,7 +58,7 @@ export async function POST(
 
     // Agrupar y normalizar reportes del negocio - consulta ya viene ordenada por completedAt DESC
     const businessReportsMap = new Map<string, any>();
-    businessReports.forEach(report => {
+    businessReports.forEach((report: typeof businessReports[number]) => {
       if (!businessReportsMap.has(report.channel)) {
         let dataObj = report.data;
         if (typeof report.data === 'string') {

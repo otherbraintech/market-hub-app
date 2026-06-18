@@ -17,7 +17,7 @@ export default async function CompetitorsAnalysisPage() {
 
   // Fetch all analysis reports for competitors
   const competitorsWithReports = await Promise.all(
-    competitors.map(async (comp) => {
+    competitors.map(async (comp: { id: string }) => {
       const reportsRaw = await prisma.analysisReport.findMany({
         where: { entityId: comp.id, type: "COMPETITOR" },
         orderBy: { createdAt: "desc" },

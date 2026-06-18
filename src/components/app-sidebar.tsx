@@ -32,11 +32,10 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Business } from "@prisma/client"
 import { logout } from "@/app/(auth)/login/actions"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  businesses: Business[]
+  businesses: any[]
   selectedId?: string
   session?: any
 }

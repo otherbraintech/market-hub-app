@@ -165,7 +165,7 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
       if (listRes.success && listRes.strategies) {
         setStrategies(listRes.strategies);
         
-        const active = listRes.strategies.find(s => s.isActive);
+        const active = listRes.strategies.find((s: any) => s.isActive);
         if (active) {
           setActiveStrategyId(active.id);
           setSelectedStrategyId(active.id);

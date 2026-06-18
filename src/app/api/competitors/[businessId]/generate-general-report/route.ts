@@ -118,13 +118,13 @@ export async function POST(
       }
     });
 
-    console.log(`👥 Competidores encontrados: ${competitors.length} (${competitors.map(c => c.name).join(', ')})`);
+    console.log(`👥 Competidores encontrados: ${competitors.length} (${competitors.map((c: typeof competitors[number]) => c.name).join(', ')})`);
 
     // Get all analysis reports for competitors
     const competitorReports = await prisma.analysisReport.findMany({
       where: {
         type: 'COMPETITOR',
-        entityId: { in: competitors.map(c => c.id) },
+        entityId: { in: competitors.map((c: typeof competitors[number]) => c.id) },
         status: 'COMPLETED'
       },
       orderBy: { completedAt: 'desc' }
@@ -186,7 +186,7 @@ export async function POST(
     if (openRouterKey) {
       try {
         // Build a comprehensive prompt for AI with detailed scraped data
-        const competitorData = competitors.map(comp => {
+        const competitorData = competitors.map((comp: typeof competitors[number]) => {
           const reports = competitorReportsMap.get(comp.id) || [];
           
           let reportDetailsText = '';
@@ -331,7 +331,7 @@ REGLAS CRÍTICAS:
 5. En "estrategiaContenidos.frecuenciaCanal", recomienda frecuencias únicamente para los canales reales analizados. Si no hay datos de redes sociales, sugiere optimizar el sitio web o blog y su frecuencia de publicación.`;
         console.log(`\n======================================================`);
         console.log(`🤖 INICIANDO ANÁLISIS DE IA PARA NEGOCIO: "${business.name}"`);
-        console.log(`📊 Competidores detectados: ${competitors.map(c => c.name).join(', ')}`);
+        console.log(`📊 Competidores detectados: ${competitors.map((c: typeof competitors[number]) => c.name).join(', ')}`);
         console.log(`📡 Enviando datos del scraping consolidado a OpenRouter...`);
         console.log(`📝 PROMPT COMPLETO Y DATOS ENVIADOS:\n`, prompt);
         console.log(`======================================================\n`);
@@ -409,7 +409,7 @@ REGLAS CRÍTICAS:
       executiveSummary: executiveSummary,
       
       // Competitors with enhanced extracted data
-      competitors: competitors.map(competitor => {
+      competitors: competitors.map((competitor: typeof competitors[number]) => {
         const competitorReports = competitorReportsMap.get(competitor.id) || [];
         
         // Extract key insights from all reports
@@ -646,7 +646,7 @@ REGLAS CRÍTICAS:
       metadata: {
         totalCompetitors: competitors.length,
         totalCompetitorReports: competitorReports.length,
-        channelsAnalyzed: Array.from(new Set(competitorReports.map(r => r.channel)))
+        channelsAnalyzed: Array.from(new Set(competitorReports.map((r: typeof competitorReports[number]) => r.channel)))
       }
     };
 

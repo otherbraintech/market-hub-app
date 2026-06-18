@@ -91,7 +91,7 @@ export async function GET(
     }
     if (business.socialLinks && typeof business.socialLinks === 'object' && business.socialLinks !== null) {
       const links = business.socialLinks as Record<string, any>;
-      Object.values(links).forEach(val => {
+      Object.values(links).forEach((val: any) => {
         if (typeof val === 'string' && val.trim() !== '') {
           activeChannelsCount++;
         }

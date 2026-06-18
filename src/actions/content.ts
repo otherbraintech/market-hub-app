@@ -645,7 +645,7 @@ Por favor, genera la lista de publicaciones de forma creativa e inteligente.`;
       maxOutputTokens: 8192
     });
 
-    const posts = object.posts.map(post => {
+    const posts = object.posts.map((post: any) => {
       const scheduledDate = addDays(new Date(startDateStr), post.suggestedOffsetDays);
       scheduledDate.setHours(10, 0, 0, 0);
       return {
@@ -686,7 +686,7 @@ export async function savePlannedCampaignCalendarAction(
 ) {
   try {
     const createdContents = await prisma.$transaction(
-      posts.map(post => {
+      posts.map((post: any) => {
         return prisma.content.create({
           data: {
             campaignId: campaignId || null,

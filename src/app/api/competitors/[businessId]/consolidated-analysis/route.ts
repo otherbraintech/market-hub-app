@@ -57,14 +57,14 @@ export async function POST(
     const competitorReports = await prisma.analysisReport.findMany({
       where: {
         type: 'COMPETITOR',
-        entityId: { in: competitors.map(c => c.id) },
+        entityId: { in: competitors.map((c: typeof competitors[number]) => c.id) },
         status: 'COMPLETED'
       },
       orderBy: { completedAt: 'desc' }
     });
 
     // Normalize all data
-    const normalizedBusinessReports = businessReports.map(report => {
+    const normalizedBusinessReports = businessReports.map((report: typeof businessReports[number]) => {
       let dataObj = report.data;
       if (typeof report.data === 'string') {
         try {
@@ -76,7 +76,7 @@ export async function POST(
       return { ...report, data: dataObj };
     });
 
-    const normalizedCompetitorReports = competitorReports.map(report => {
+    const normalizedCompetitorReports = competitorReports.map((report: typeof competitorReports[number]) => {
       let dataObj = report.data;
       if (typeof report.data === 'string') {
         try {
@@ -99,7 +99,7 @@ export async function POST(
         targetAudience: business.targetAudience,
         brandVoice: business.brandVoice,
       },
-      competitors: competitors.map(c => ({
+      competitors: competitors.map((c: typeof competitors[number]) => ({
         name: c.name,
         website: c.website,
         channels: {
@@ -111,13 +111,13 @@ export async function POST(
           seoGoogle: c.seoGoogle,
         }
       })),
-      businessAnalysis: normalizedBusinessReports.map(r => ({
+      businessAnalysis: normalizedBusinessReports.map((r: (typeof normalizedBusinessReports)[number]) => ({
         channel: r.channel,
         url: r.url,
         data: r.data,
         completedAt: r.completedAt
       })),
-      competitorAnalysis: normalizedCompetitorReports.map(r => ({
+      competitorAnalysis: normalizedCompetitorReports.map((r: (typeof normalizedCompetitorReports)[number]) => ({
         channel: r.channel,
         url: r.url,
         data: r.data,

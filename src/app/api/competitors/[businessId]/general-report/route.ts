@@ -55,7 +55,7 @@ export async function GET(
     const competitorReports = await prisma.analysisReport.findMany({
       where: {
         type: 'COMPETITOR',
-        entityId: { in: competitors.map(c => c.id) },
+        entityId: { in: competitors.map((c: typeof competitors[number]) => c.id) },
         status: 'COMPLETED'
       },
       orderBy: { completedAt: 'desc' }
@@ -95,7 +95,7 @@ export async function GET(
       businessName: business.name,
       generatedAt: new Date().toISOString(),
       executiveSummary: '', // Empty for on-demand reports, only filled when saved
-      competitors: competitors.map(competitor => {
+      competitors: competitors.map((competitor: typeof competitors[number]) => {
         const competitorReports = competitorReportsMap.get(competitor.id) || [];
         
         // Extract key insights from all reports
@@ -327,7 +327,7 @@ export async function GET(
       metadata: {
         totalCompetitors: competitors.length,
         totalCompetitorReports: competitorReports.length,
-        channelsAnalyzed: Array.from(new Set(competitorReports.map(r => r.channel)))
+        channelsAnalyzed: Array.from(new Set(competitorReports.map((r: typeof competitorReports[number]) => r.channel)))
       }
     };
 

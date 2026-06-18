@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Business } from "@prisma/client";
 import { deleteBusiness, setSelectedBusinessAction } from "@/actions/business";
 import { BusinessForm } from "./business-form";
 import { Button } from "@/components/ui/button";
@@ -34,11 +33,11 @@ import { toast } from "sonner";
 import Link from "next/link";
 
 interface BusinessListProps {
-  businesses: Business[];
+  businesses: any[];
 }
 
 export function BusinessList({ businesses }: BusinessListProps) {
-  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+  const [editingBusiness, setEditingBusiness] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   async function handleDelete(id: string) {

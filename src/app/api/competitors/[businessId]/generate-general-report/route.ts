@@ -668,7 +668,7 @@ REGLAS CRÍTICAS:
         step: "DIAGNOSTIC",
         status: "COMPLETED"
       }
-    }).catch(err => console.error("Error al crear la notificación del Agente de Diagnóstico (Éxito):", err));
+    }).catch((err: any) => console.error("Error al crear la notificación del Agente de Diagnóstico (Éxito):", err));
 
     return NextResponse.json({
       success: true,

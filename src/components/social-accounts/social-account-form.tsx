@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { SocialChannel } from "@prisma/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -40,7 +39,7 @@ export function SocialAccountForm({ businessId, defaultValues, onSuccess }: Soci
   const form = useForm<SocialAccountFormValues>({
     resolver: zodResolver(socialAccountSchema),
     defaultValues: {
-      channel: defaultValues?.channel || SocialChannel.INSTAGRAM,
+      channel: defaultValues?.channel || "INSTAGRAM",
       accountName: defaultValues?.accountName || "",
       accountId: defaultValues?.accountId || "",
       accountUrl: defaultValues?.accountUrl || "",
@@ -89,7 +88,7 @@ export function SocialAccountForm({ businessId, defaultValues, onSuccess }: Soci
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {Object.values(SocialChannel).map((channel) => (
+                  {(["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"] as any[]).map((channel) => (
                     <SelectItem key={channel} value={channel}>
                       {channel}
                     </SelectItem>

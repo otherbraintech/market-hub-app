@@ -8,7 +8,6 @@ import {
   disconnectSocialAccount 
 } from "@/modules/publishing";
 import { SocialAccountFormValues } from "@/lib/schemas/social-account";
-import { SocialChannel } from "@prisma/client";
 
 export async function createSocialAccountAction(data: SocialAccountFormValues & { businessId: string }) {
   try {

@@ -44,7 +44,7 @@ export async function POST(
 
     // Group and normalize business reports
     const businessReportsMap = new Map<string, any>();
-    businessReports.forEach(report => {
+    businessReports.forEach((report: any) => {
       const existing = businessReportsMap.get(report.channel);
       if (!existing || (report.completedAt && existing.completedAt && existing.completedAt < report.completedAt)) {
         businessReportsMap.set(report.channel, report);

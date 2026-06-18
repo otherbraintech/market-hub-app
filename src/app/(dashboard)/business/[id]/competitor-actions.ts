@@ -87,11 +87,65 @@ export async function upsertCompetitorAction(
       });
     }
 
+    // Trigger automatic consolidated analysis if conditions are met
+    await triggerAutomaticConsolidatedAnalysis(businessId);
+
     revalidatePath(`/business/${businessId}`)
     return { success: true, competitor: dbCompetitor }
   } catch (error) {
     console.error('Competitor Action Error:', error)
     return { success: false, error: 'Error al procesar competidor' }
+  }
+}
+
+async function triggerAutomaticConsolidatedAnalysis(businessId: string) {
+  try {
+    // Check if business has enough data to trigger analysis
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        socialAccounts: true,
+        competitors: true
+      }
+    });
+
+    if (!business) return;
+
+    // Check if there's at least 1 social account and 1 competitor
+    if (business.socialAccounts.length >= 1 && business.competitors.length >= 1) {
+      // Check if consolidated analysis already exists
+      const existingConsolidated = await prisma.analysisReport.findFirst({
+        where: {
+          type: 'MY_BUSINESS',
+          channel: 'CONSOLIDATED',
+          entityId: businessId,
+          status: 'COMPLETED'
+        }
+      });
+
+      if (!existingConsolidated) {
+        // Trigger consolidated analysis API in background
+        const appUrl = process.env.APP_URL || "http://localhost:3000";
+        
+        // Trigger business consolidated analysis
+        fetch(`${appUrl}/api/business/${businessId}/consolidated-analysis`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }).catch((err) => {
+          console.error('Error triggering business consolidated analysis:', err);
+        });
+
+        // Trigger competitor consolidated analysis
+        fetch(`${appUrl}/api/competitors/${businessId}/consolidated-analysis`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }).catch((err) => {
+          console.error('Error triggering competitor consolidated analysis:', err);
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error in triggerAutomaticConsolidatedAnalysis:', error);
   }
 }
 

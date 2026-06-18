@@ -79,7 +79,7 @@ export default async function JobsPage() {
                   </td>
                 </tr>
               ) : (
-                jobs.map((job) => (
+                jobs.map((job: any) => (
                   <tr key={job.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">

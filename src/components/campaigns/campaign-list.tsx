@@ -33,7 +33,6 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CampaignFormValues } from "@/lib/schemas/campaign";
-import { CampaignStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
 
 interface CampaignListProps {
@@ -77,7 +76,7 @@ export function CampaignList({ businessId, campaigns }: CampaignListProps) {
     } : undefined
   });
 
-  const getStatusColor = (status: CampaignStatus) => {
+  const getStatusColor = (status: any) => {
     switch (status) {
       case "ACTIVE": return "bg-green-500/10 text-green-700 hover:bg-green-500/20";
       case "DRAFT": return "text-muted-foreground";

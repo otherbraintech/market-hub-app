@@ -40,7 +40,7 @@ export async function POST(
     });
 
     // Normalize all data
-    const normalizedBusinessReports = businessReports.map(report => {
+    const normalizedBusinessReports = businessReports.map((report: any) => {
       let dataObj = report.data;
       if (typeof report.data === 'string') {
         try {

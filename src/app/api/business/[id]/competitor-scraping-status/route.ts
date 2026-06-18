@@ -14,7 +14,7 @@ export async function GET(
       select: { id: true }
     });
 
-    const competitorIds = competitors.map(c => c.id);
+    const competitorIds = competitors.map((c: { id: string }) => c.id);
 
     // Obtener los reportes de análisis para estos competidores
     const reports = await prisma.analysisReport.findMany({

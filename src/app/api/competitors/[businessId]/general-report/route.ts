@@ -63,7 +63,7 @@ export async function GET(
 
     // Group competitor reports by competitorId and normalize data
     const competitorReportsMap = new Map<string, any[]>();
-    competitorReports.forEach(report => {
+    competitorReports.forEach((report: typeof competitorReports[number]) => {
       if (!competitorReportsMap.has(report.entityId)) {
         competitorReportsMap.set(report.entityId, []);
       }
@@ -140,7 +140,7 @@ export async function GET(
         };
         
         // Process each report to extract insights
-        competitorReports.forEach(report => {
+        competitorReports.forEach((report: typeof competitorReports[number]) => {
           const data = report.data;
           const channel = report.channel;
           

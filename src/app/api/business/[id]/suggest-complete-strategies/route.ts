@@ -98,7 +98,7 @@ export async function POST(
           data: true
         }
       });
-      compReports.forEach(rep => {
+      compReports.forEach((rep: typeof compReports[number]) => {
         let parsedData = rep.data;
         if (typeof rep.data === 'string') {
           try { parsedData = JSON.parse(rep.data); } catch(e) {}

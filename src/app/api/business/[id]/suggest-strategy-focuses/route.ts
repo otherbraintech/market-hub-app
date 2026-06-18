@@ -58,7 +58,7 @@ export async function POST(
 
     // Group and normalize business reports - query already ordered by completedAt DESC so first wins
     const businessReportsMap = new Map<string, any>();
-    businessReports.forEach(report => {
+    businessReports.forEach((report: typeof businessReports[number]) => {
       if (!businessReportsMap.has(report.channel)) {
         let dataObj = report.data;
         if (typeof report.data === 'string') {

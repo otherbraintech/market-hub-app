@@ -112,7 +112,7 @@ export async function triggerCascadeGeneration(businessId: string) {
         where: { type: 'MY_BUSINESS', entityId: businessId, status: 'COMPLETED', NOT: { channel: 'CONSOLIDATED' } }
       });
       const businessReportsMap = new Map<string, any>();
-      businessReports.forEach(report => {
+      businessReports.forEach((report: typeof businessReports[number]) => {
         const existing = businessReportsMap.get(report.channel);
         if (!existing || (report.completedAt && existing.completedAt && existing.completedAt < report.completedAt)) {
           businessReportsMap.set(report.channel, report);
@@ -129,7 +129,7 @@ export async function triggerCascadeGeneration(businessId: string) {
         const compReports = await prisma.analysisReport.findMany({
           where: { type: 'COMPETITOR', entityId: comp.id, status: 'COMPLETED' }
         });
-        compReports.forEach(rep => {
+        compReports.forEach((rep: typeof compReports[number]) => {
           let parsedData = rep.data;
           if (typeof rep.data === 'string') {
             try { parsedData = JSON.parse(rep.data); } catch(e) {}

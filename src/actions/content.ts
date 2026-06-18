@@ -380,7 +380,7 @@ Por favor, genera la lista de publicaciones de forma creativa e inteligente.`;
 
     // 4. Crear las publicaciones en la base de datos de Prisma
     const createdContents = await prisma.$transaction(
-      posts.map(post => {
+      posts.map((post: any) => {
         const scheduledDate = addDays(new Date(campaign.startDate), post.suggestedOffsetDays);
         // Ajustar la hora a las 10:00 AM para que sea una hora de publicación por defecto coherente
         scheduledDate.setHours(10, 0, 0, 0);
@@ -569,18 +569,18 @@ export async function previewCampaignCalendarAction(
 
     const campaignChannels = campaign.channels as Array<{ platform: string; isActive: boolean; budget?: number }>;
     const campaignActiveChannels = campaignChannels
-      ? campaignChannels.filter(c => c.isActive).map(c => c.platform.toUpperCase())
+      ? campaignChannels.filter((c: any) => c.isActive).map((c: any) => c.platform.toUpperCase())
       : [];
 
     let activeChannels = campaignActiveChannels;
     if (registeredChannels.length > 0) {
-      activeChannels = campaignActiveChannels.filter(ch => registeredChannels.includes(ch));
+      activeChannels = campaignActiveChannels.filter((ch: string) => registeredChannels.includes(ch));
       if (activeChannels.length === 0) {
         activeChannels = registeredChannels;
       }
     }
 
-    activeChannels = activeChannels.filter(ch => ["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"].includes(ch));
+    activeChannels = activeChannels.filter((ch: string) => ["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"].includes(ch));
 
     if (activeChannels.length === 0) {
       activeChannels = ["INSTAGRAM", "FACEBOOK", "TIKTOK"];

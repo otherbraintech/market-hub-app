@@ -137,7 +137,7 @@ export async function POST(
 
     // Group competitor reports by competitorId and normalize data
     const competitorReportsMap = new Map<string, any[]>();
-    competitorReports.forEach(report => {
+    competitorReports.forEach((report: typeof competitorReports[number]) => {
       if (!competitorReportsMap.has(report.entityId)) {
         competitorReportsMap.set(report.entityId, []);
       }
@@ -190,7 +190,7 @@ export async function POST(
           const reports = competitorReportsMap.get(comp.id) || [];
           
           let reportDetailsText = '';
-          reports.forEach(report => {
+          reports.forEach((report: (typeof reports)[number]) => {
             const data = report.data;
             const channel = report.channel;
             
@@ -454,7 +454,7 @@ REGLAS CRÍTICAS:
         };
         
         // Process each report to extract insights
-        competitorReports.forEach(report => {
+        competitorReports.forEach((report: typeof competitorReports[number]) => {
           const data = report.data;
           const channel = report.channel;
           

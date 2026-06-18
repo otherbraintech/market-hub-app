@@ -2,7 +2,6 @@ import { prisma } from './prisma';
 import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
-import { CampaignObjective, CampaignStatus, ContentType, SocialChannel, ContentStatus } from '@prisma/client';
 
 const openrouter = createOpenAI({
   apiKey: process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim(),
@@ -248,10 +247,10 @@ export async function triggerCascadeGeneration(businessId: string) {
             name: camp.name,
             slug: camp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
             description: camp.description,
-            objective: (camp.objective as CampaignObjective) || CampaignObjective.AWARENESS,
+            objective: (camp.objective as any) || "AWARENESS",
             startDate: new Date(camp.startDate),
             endDate: new Date(camp.endDate),
-            status: CampaignStatus.SCHEDULED,
+            status: "SCHEDULED",
             channels: camp.channels || ['INSTAGRAM'],
             budget: camp.budget || 100,
           }
@@ -263,12 +262,12 @@ export async function triggerCascadeGeneration(businessId: string) {
             await prisma.content.create({
               data: {
                 campaignId: createdCampaign.id,
-                type: (post.type as ContentType) || ContentType.POST,
+                type: (post.type as any) || "POST",
                 title: post.title,
                 body: post.body || '',
                 caption: post.caption || '',
-                channel: (post.channel as SocialChannel) || SocialChannel.INSTAGRAM,
-                status: ContentStatus.SCHEDULED,
+                channel: (post.channel as any) || "INSTAGRAM",
+                status: "SCHEDULED",
                 scheduledAt: new Date(post.scheduledAt),
               }
             });
@@ -493,7 +492,7 @@ function getFallbackCampaigns(business: any, strategies: any[], count: number) {
   };
 
   const campaigns = [];
-  const objectives = [CampaignObjective.AWARENESS, CampaignObjective.ENGAGEMENT, CampaignObjective.SALES, CampaignObjective.RETENTION, CampaignObjective.TRAFFIC, CampaignObjective.LEADS];
+  const objectives = ["AWARENESS", "ENGAGEMENT", "SALES", "RETENTION", "TRAFFIC", "LEADS"];
 
   for (let i = 0; i < count; i++) {
     const stratIdx = i % strategies.length;

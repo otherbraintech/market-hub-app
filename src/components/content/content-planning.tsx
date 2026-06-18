@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Content, ContentStatus, SocialChannel, ContentType } from "@prisma/client";
 import { deleteContentAction, updateContentStatusAction } from "@/actions/content";
 import { ContentForm } from "./content-form";
 import { Button } from "@/components/ui/button";
@@ -57,13 +56,13 @@ import {
 interface ContentPlanningProps {
   businessId: string;
   strategyId: string | null;
-  contents: (Content & { campaign?: { name: string } | null, socialAccount?: { accountName: string } | null })[];
+  contents: (any & { campaign?: { name: string } | null, socialAccount?: { accountName: string } | null })[];
   campaigns: { id: string, name: string }[];
   products: { id: string, name: string }[];
-  socialAccounts: { id: string, accountName: string, channel: SocialChannel }[];
+  socialAccounts: { id: string, accountName: string, channel: any }[];
 }
 
-const statusColors: Record<ContentStatus, string> = {
+const statusColors: Record<any, string> = {
   IDEA: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   DRAFT: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
   REVIEW: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -76,7 +75,7 @@ const statusColors: Record<ContentStatus, string> = {
   ARCHIVED: "bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400",
 };
 
-const statusLabels: Record<ContentStatus, string> = {
+const statusLabels: Record<any, string> = {
   IDEA: "Idea",
   DRAFT: "Borrador",
   REVIEW: "En Revisión",
@@ -145,7 +144,7 @@ export function ContentPlanning({
     }
   }
 
-  async function handleStatusChange(id: string, status: ContentStatus) {
+  async function handleStatusChange(id: string, status: any) {
     const result = await updateContentStatusAction(id, status, businessId);
     if (result.success) {
       toast.success(result.message);
@@ -384,7 +383,7 @@ function ContentList({
   items: any[], 
   onEdit: (item: any) => void, 
   onDelete: (id: string) => void, 
-  onStatusChange: (id: string, s: ContentStatus) => void,
+  onStatusChange: (id: string, s: any) => void,
   onGenerateCopy: (id: string) => void,
   onGenerateMedia: (id: string) => void
 }) {
@@ -395,8 +394,8 @@ function ContentList({
           <div className="flex flex-col sm:flex-row">
             <div className="flex-1 p-5">
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <Badge variant="outline" className={statusColors[item.status as ContentStatus]}>
-                  {statusLabels[item.status as ContentStatus]}
+                <Badge variant="outline" className={statusColors[item.status as any]}>
+                  {statusLabels[item.status as any]}
                 </Badge>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
@@ -450,10 +449,10 @@ function ContentList({
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>Cambiar Estado</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => onStatusChange(item.id, ContentStatus.APPROVED)}>
+                    <DropdownMenuItem onClick={() => onStatusChange(item.id, "APPROVED")}>
                       <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" /> Aprobar
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onStatusChange(item.id, ContentStatus.SCHEDULED)}>
+                    <DropdownMenuItem onClick={() => onStatusChange(item.id, "SCHEDULED")}>
                       <Clock className="mr-2 h-4 w-4 text-purple-500" /> Programar
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
@@ -469,11 +468,11 @@ function ContentList({
               
               <div className="flex flex-col gap-2">
                 {item.status === "IDEA" || item.status === "DRAFT" ? (
-                  <Button variant="secondary" size="sm" className="w-full text-xs" onClick={() => onStatusChange(item.id, ContentStatus.REVIEW)}>
+                  <Button variant="secondary" size="sm" className="w-full text-xs" onClick={() => onStatusChange(item.id, "REVIEW")}>
                     <Send className="mr-2 h-3 w-3" /> Enviar a Revisión
                   </Button>
                 ) : item.status === "APPROVED" ? (
-                  <Button variant="outline" size="sm" className="w-full text-xs text-purple-600 border-purple-200" onClick={() => onStatusChange(item.id, ContentStatus.SCHEDULED)}>
+                  <Button variant="outline" size="sm" className="w-full text-xs text-purple-600 border-purple-200" onClick={() => onStatusChange(item.id, "SCHEDULED")}>
                     <Clock className="mr-2 h-3 w-3" /> Programar Publicación
                   </Button>
                 ) : null}

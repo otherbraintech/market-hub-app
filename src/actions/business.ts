@@ -153,7 +153,7 @@ export async function getSelectedBusinessId() {
   const selectedId = (await cookies()).get("selectedBusinessId")?.value;
   
   if (!selectedId || !session || !session.userId) {
-    return null;
+    return undefined;
   }
   
   // Verify that the selected business belongs to the current user
@@ -164,7 +164,7 @@ export async function getSelectedBusinessId() {
   if (!business || business.userId !== session.userId) {
     // Clear the invalid cookie
     (await cookies()).delete("selectedBusinessId");
-    return null;
+    return undefined;
   }
   
   return selectedId;

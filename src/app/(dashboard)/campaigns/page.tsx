@@ -34,7 +34,7 @@ export default async function CampaignsPage() {
   });
   const businessName = business?.name || "";
 
-  const campaigns = rawCampaigns.map((c) => ({
+  const campaigns = rawCampaigns.map((c: any) => ({
     ...c,
     budget: c.budget ? Number(c.budget.toString()) : null,
     startDate: c.startDate.toISOString(),

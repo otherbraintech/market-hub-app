@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/form";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type FunnelFormValues = z.infer<typeof funnelStageSchema>;
 
@@ -62,6 +63,65 @@ export function FunnelStageForm({ defaultValues, onSave, onCancel }: FunnelStage
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-1.5 pb-2 border-b">
+          <label className="text-xs font-bold text-violet-800">Cargar Plantilla Rápida</label>
+          <Select onValueChange={(val) => {
+            const templates: Record<string, Partial<FunnelFormValues>> = {
+              tofu: {
+                name: "1. Descubrimiento (TOFU)",
+                description: "Llamar la atención de audiencias locales que aún no conocen el negocio y generar conciencia de marca.",
+                contentTypes: ["Reels", "Stories", "Posts educativos"],
+                channels: ["Instagram", "Facebook", "TikTok"],
+                goals: ["Alcance", "Impresiones"],
+                kpis: ["Reach", "Reproducciones de video"],
+                ctas: ["Ver catálogo", "Síguenos para más"]
+              },
+              mofu: {
+                name: "2. Consideración (MOFU)",
+                description: "Demostrar la calidad, frescura e ingredientes de los productos para generar antojo, confianza e interacción con los prospectos.",
+                contentTypes: ["Detrás de cámaras", "Testimonios", "Carruseles de beneficios"],
+                channels: ["Instagram", "Facebook"],
+                goals: ["Interacción", "Consultas recibidas"],
+                kpis: ["Engagement rate", "Comentarios", "Mensajes directos"],
+                ctas: ["Preguntar por WhatsApp", "Comentar para info"]
+              },
+              bofu: {
+                name: "3. Conversión (BOFU)",
+                description: "Facilitar el cierre rápido de la compra, resolver objeciones y asegurar pedidos directos.",
+                contentTypes: ["Ofertas por tiempo limitado", "Combos especiales", "Proceso de pedido"],
+                channels: ["Instagram DM", "Facebook Messenger", "WhatsApp"],
+                goals: ["Ventas", "Pedidos cerrados"],
+                kpis: ["Conversion rate", "Número de pedidos"],
+                ctas: ["Hacer pedido ahora", "Comprar en 1 clic"]
+              },
+              fidelizacion: {
+                name: "4. Fidelización (Post-venta)",
+                description: "Fomentar la recompra, recopilar testimonios positivos y premiar la lealtad de los clientes existentes.",
+                contentTypes: ["Promociones exclusivas clientes", "Agradecimientos", "Programas de puntos"],
+                channels: ["Email", "WhatsApp", "Instagram Stories"],
+                goals: ["Recompra", "Recomendaciones"],
+                kpis: ["Tasa de recompra", "NPS / Reseñas positivas"],
+                ctas: ["Unirse al club", "Dejar una reseña"]
+              }
+            };
+            const selected = templates[val];
+            if (selected) {
+              Object.entries(selected).forEach(([key, value]) => {
+                form.setValue(key as any, value);
+              });
+            }
+          }}>
+            <SelectTrigger className="w-full text-xs">
+              <SelectValue placeholder="Selecciona una fase del funnel..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tofu">1. Descubrimiento (TOFU)</SelectItem>
+              <SelectItem value="mofu">2. Consideración (MOFU)</SelectItem>
+              <SelectItem value="bofu">3. Conversión (BOFU)</SelectItem>
+              <SelectItem value="fidelizacion">4. Fidelización (Post-venta)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <FormField
           control={form.control}
           name="name"

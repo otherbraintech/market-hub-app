@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SocialAccount, SocialChannel } from "@prisma/client";
 import { deleteSocialAccountAction } from "@/actions/social-account";
 import { SocialAccountForm } from "./social-account-form";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface SocialAccountsListProps {
   businessId: string;
-  accounts: SocialAccount[];
+  accounts: any[];
 }
 
 const channelIcons: Record<string, any> = {
@@ -60,7 +59,7 @@ const channelIcons: Record<string, any> = {
 };
 
 export function SocialAccountsList({ businessId, accounts }: SocialAccountsListProps) {
-  const [editingAccount, setEditingAccount] = useState<SocialAccount | null>(null);
+  const [editingAccount, setEditingAccount] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   async function handleDelete(id: string) {

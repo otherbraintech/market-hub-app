@@ -29,7 +29,6 @@ const isAnyAnalyzing = isAnyRequesting || isAnyPending;
 * **Card / Fila en Ejecución**: Muestra visualmente un indicador de carga (`Loader2` animado) y su botón de acción se encuentra deshabilitado para evitar clics dobles.
 * **Demás Cards / Filas**: Sus botones para "Analizar canal" o "Reanalizar" se deshabilitan de manera automática (`disabled={isAnyAnalyzing}`). Esto previene que el usuario inicie múltiples ejecuciones en paralelo que saturen el backend o los flujos de n8n, garantizando la consistencia del estado visual.
 * **Restauración**: Tan pronto como la tarea finaliza y se actualiza el estado de la base de datos (o la petición HTTP concluye en caso de error), la interfaz restaura la interactividad de todos los botones de análisis.
-
 ---
 
 ## Estructura de Datos de Redes Sociales y Panel de Métricas
@@ -56,7 +55,7 @@ Si es verídico, los datos son mapeados dinámicamente y de forma robusta hacia 
 Para el canal de **TikTok**, se ha implementado un flujo de extracción dedicado para alinear su visualización con el resto de redes sociales (evitando el comportamiento por defecto de Sitio Web):
 1. **Extracción Dinámica**: 
    - El sistema busca primero en `seo_signals` del reporte (donde el agente de n8n guarda cadenas como `"Seguidores en TikTok: 815"`, `"Me gusta totales del perfil: 6,949"`, etc.) e interpreta mediante filtros y parseos numéricos las métricas de **Seguidores**, **Me gusta**, y **Videos**.
-   - Como respaldo, busca en la estructura `tiktok_presence` (proporcionada por el análisis estructurado) o en el objeto `authorMeta` (que contiene campos del scraper de Apify como `fans`, `heart`, `video`, `name`).
+   - Como respaldo, busca en la estructura `tiktok_presence`, en la nueva estructura con los objetos `profile` (para followers, total_likes, total_videos, username) y `engagement` (para views, likes, shares, comments, engagement_level), o en el objeto `authorMeta` (que contiene campos del scraper de Apify como `fans`, `heart`, `video`, `name`).
 2. **Visualización en Dashboard**: Las tarjetas de redes sociales en el Panel de Análisis muestran de manera interactiva:
    - **TikTok**: Seguidores (con icono `Users`), Me gusta (con icono `Heart`), Videos (con icono `FileText`) y **Vistas Promedio** (con icono `Eye` para mostrar rendimiento).
    - **Instagram**: Seguidores (con icono `Users`), Publicaciones (con icono `FileText`), Siguiendo (con icono `Users`) y **Engagement** (con icono `Activity` para medir interacción).

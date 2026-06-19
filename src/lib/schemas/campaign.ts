@@ -24,7 +24,7 @@ export const campaignSchema = z.object({
   }),
   endDate: z.date().optional(),
   budget: z.coerce.number().min(0).optional(),
-  channels: z.array(campaignChannelSchema).default([]),
+  channels: z.array(z.union([z.string(), campaignChannelSchema])).default([]),
   targeting: campaignTargetingSchema.optional(),
   status: z.enum(["DRAFT", "SCHEDULED", "ACTIVE", "PAUSED", "COMPLETED", "CANCELLED"]).default("DRAFT")
 });

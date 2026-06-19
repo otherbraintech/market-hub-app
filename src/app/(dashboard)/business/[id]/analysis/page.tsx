@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import { BusinessAnalysisClient } from "./client-page";
+import { notFound, redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
+import { BusinessAnalysisClient } from "../../analysis/client-page";
 
 export default async function BusinessAnalysisPage({ 
   params,
@@ -8,6 +9,11 @@ export default async function BusinessAnalysisPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+
+  if (!session || !session.userId) {
+    redirect("/login");
+  }
 
   const business = await prisma.business.findUnique({
     where: { id },
@@ -16,11 +22,17 @@ export default async function BusinessAnalysisPage({
       name: true,
       website: true,
       socialLinks: true,
+      userId: true,
     }
   });
 
   if (!business) {
     notFound();
+  }
+
+  // Authorization check: ensure the business belongs to the current user
+  if (business.userId !== session.userId) {
+    redirect("/business");
   }
 
   // Get all analysis reports for this business (MY_BUSINESS type)
@@ -34,31 +46,17 @@ export default async function BusinessAnalysisPage({
 
   // Group analyses by channel
   const myAnalysesByChannel: Record<string, any> = {};
-  myAnalyses.forEach(analysis => {
+  myAnalyses.forEach((analysis: { channel: string }) => {
     if (!myAnalysesByChannel[analysis.channel]) {
       myAnalysesByChannel[analysis.channel] = analysis;
     }
   });
 
-  // Extract social links from JSON
-  const socialLinks = business.socialLinks as any || {};
-
   return (
     <BusinessAnalysisClient 
       businessId={business.id}
-      businessName={business.name}
-      business={{
-        id: business.id,
-        name: business.name,
-        website: business.website,
-        facebook: socialLinks.facebook,
-        instagram: socialLinks.instagram,
-        tiktok: socialLinks.tiktok,
-        linkedin: socialLinks.linkedin,
-        youtube: socialLinks.youtube,
-        seoGoogle: socialLinks.seoGoogle,
-      }}
-      myAnalysesByChannel={myAnalysesByChannel}
+      business={business}
+      initialAnalyses={myAnalysesByChannel}
     />
   );
 }

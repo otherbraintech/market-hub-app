@@ -40,7 +40,7 @@ export async function POST(
     });
 
     // Normalize all data
-    const normalizedBusinessReports = businessReports.map(report => {
+    const normalizedBusinessReports = businessReports.map((report: any) => {
       let dataObj = report.data;
       if (typeof report.data === 'string') {
         try {
@@ -64,7 +64,7 @@ export async function POST(
         brandVoice: business.brandVoice,
         socialLinks: business.socialLinks,
       },
-      businessAnalysis: normalizedBusinessReports.map(r => ({
+      businessAnalysis: normalizedBusinessReports.map((r: any) => ({
         channel: r.channel,
         url: r.url,
         data: r.data,
@@ -86,6 +86,14 @@ export async function POST(
         data: analysis,
         completedAt: new Date()
       }
+    });
+
+    // Disparar generación en cascada asíncrona en background
+    // (no se espera con await para no retrasar el request)
+    import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
+      triggerCascadeGeneration(business.id).catch(err => {
+        console.error('Error in triggerCascadeGeneration background process:', err);
+      });
     });
 
     return NextResponse.json({

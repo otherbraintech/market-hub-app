@@ -70,8 +70,61 @@ function normalizeReportData(data: any): ReportData {
 
   // Handle new array structure with output field
   let processedData = data;
-  if (Array.isArray(data) && data.length > 0 && data[0].output) {
-    processedData = data[0].output;
+  if (Array.isArray(data) && data.length > 0) {
+    processedData = data[0].output || data[0];
+  }
+
+  // Verificar si es estructura de TikTok
+  const isTikTokStructure = !!processedData.profile && (!!processedData.engagement || !!processedData.business_signals || !!processedData.content_analysis);
+
+  if (isTikTokStructure) {
+    const profile = processedData.profile || {};
+    const engagement = processedData.engagement || {};
+    const bizSignals = processedData.business_signals || {};
+    const content = processedData.content_analysis || {};
+    const compInsights = processedData.competitive_insights || {};
+    const dQuality = processedData.data_quality || {};
+
+    const generatedRecommendations: string[] = [];
+    if (bizSignals.whatsapp_present === false) {
+      generatedRecommendations.push("Vincular un enlace directo a WhatsApp en el perfil de TikTok para facilitar la conversión directa.");
+    }
+    if (bizSignals.website_present === false) {
+      generatedRecommendations.push("Agregar un enlace al sitio web oficial en la bio para derivar tráfico cualificado.");
+    }
+    if (engagement.engagement_level === "low" || engagement.engagement_level === "bajo") {
+      generatedRecommendations.push("Mejorar la tasa de interacción usando ganchos en los primeros 3 segundos y respondiendo comentarios con videos.");
+    } else {
+      generatedRecommendations.push("Mantener la consistencia en los pilares de contenido identificados para consolidar el engagement actual.");
+    }
+    if (bizSignals.contact_cta === false) {
+      generatedRecommendations.push("Habilitar los botones de contacto en el perfil de creador/empresa para consultas comerciales.");
+    }
+    if (Array.isArray(content.hashtags) && content.hashtags.length < 5) {
+      generatedRecommendations.push("Diversificar el uso de hashtags locales y de nicho para optimizar el posicionamiento en el algoritmo de búsqueda.");
+    } else {
+      generatedRecommendations.push("Optimizar la descripción de los videos (SEO de TikTok) incluyendo palabras clave en los primeros caracteres.");
+    }
+
+    return {
+      strengths: Array.isArray(compInsights.strengths) ? compInsights.strengths : [],
+      weaknesses: Array.isArray(compInsights.weaknesses) ? compInsights.weaknesses : [],
+      seo_signals: Array.isArray(content.hashtags) ? content.hashtags.map((h: string) => `#${h}`) : [],
+      opportunities: Array.isArray(compInsights.opportunities) ? compInsights.opportunities : [],
+      emotional_tone: [],
+      target_audience: Array.isArray(content.primary_topics) ? content.primary_topics : [],
+      ux_observations: [
+        `Sitio Web: ${bizSignals.website_present ? "Presente en perfil" : "No enlazado"}`,
+        `WhatsApp: ${bizSignals.whatsapp_present ? "Enlazado" : "No enlazado"}`,
+        `Cuenta Comercial: ${bizSignals.commerce_account ? "Sí" : "No"}`,
+        `CTA de Contacto: ${bizSignals.contact_cta ? "Habilitado" : "No habilitado"}`
+      ],
+      confidence_score: typeof dQuality.confidence_score === "number" ? dQuality.confidence_score : 1.0,
+      brand_personality: [],
+      marketing_tactics: Array.isArray(bizSignals.commercial_signals) ? bizSignals.commercial_signals : [],
+      market_positioning: profile.bio || "Perfil de TikTok",
+      strategic_recommendations: generatedRecommendations
+    };
   }
 
   // Verificar si es estructura de Instagram
@@ -103,9 +156,58 @@ function normalizeReportData(data: any): ReportData {
   }
 
   // Verificar si es la estructura de Facebook
-  const isFacebookStructure = !!processedData.social_intelligence || !!processedData.brand_positioning || !!processedData.strategic_diagnostics;
+  const isFacebookStructure = !!processedData.social_intelligence || 
+                              !!processedData.brand_positioning || 
+                              !!processedData.strategic_diagnostics ||
+                              !!processedData.facebook_presence;
   
   if (isFacebookStructure) {
+    if (processedData.facebook_presence) {
+      const fbPres = processedData.facebook_presence || {};
+      const community = processedData.community_analysis || {};
+      const reputation = processedData.reputation_analysis || {};
+      const bizIntel = processedData.business_intelligence || {};
+      const compObs = processedData.competitive_observations || {};
+      const dQuality = processedData.data_quality || {};
+
+      const followers = fbPres.audience_metrics?.followers || "N/D";
+      const adsActivos = bizIntel.advertising_active ? "Sí" : "No";
+      
+      const recs: string[] = [];
+      if (bizIntel.phone_contact_available === false) {
+        recs.push("Añadir un número de teléfono de contacto visible en la página de Facebook.");
+      }
+      if (bizIntel.website_present === false) {
+        recs.push("Enlazar el sitio web oficial en la sección de información del perfil.");
+      }
+      if (Array.isArray(reputation.trust_signals) && reputation.trust_signals.length === 0) {
+        recs.push("Incentivar a tus clientes actuales a dejar opiniones positivas en tu página.");
+      }
+      if (recs.length === 0) {
+        recs.push("Publicar contenido interactivo de manera constante para aumentar el nivel de interacción actual.");
+        recs.push("Aprovechar la presencia comercial activa y anuncios para dirigir tráfico al canal de conversión principal.");
+      }
+
+      return {
+        strengths: Array.isArray(compObs.main_strengths) ? compObs.main_strengths : [],
+        weaknesses: Array.isArray(compObs.main_weaknesses) ? compObs.main_weaknesses : [],
+        seo_signals: [
+          `Seguidores: ${followers}`,
+          `Anuncios Activos: ${adsActivos}`,
+          `Categoría: ${fbPres.business_category || 'N/D'}`
+        ],
+        opportunities: Array.isArray(compObs.differentiators) ? compObs.differentiators : [],
+        emotional_tone: [],
+        target_audience: [],
+        ux_observations: Array.isArray(fbPres.brand_maturity_indicators) ? fbPres.brand_maturity_indicators : [],
+        confidence_score: typeof dQuality.confidence_score === "number" ? dQuality.confidence_score : 0.8,
+        brand_personality: [],
+        marketing_tactics: Array.isArray(bizIntel.commercial_signals) ? bizIntel.commercial_signals : [],
+        market_positioning: fbPres.brand_summary || fbPres.brand_name || "Perfil de Facebook",
+        strategic_recommendations: recs
+      };
+    }
+
     const socialIntel = processedData.social_intelligence || {};
     const brandPos = processedData.brand_positioning || {};
     const channels = processedData.conversion_channels || {};
@@ -254,13 +356,13 @@ export function ScrapingReportDialog({
 }) {
   // Handle new array structure with output field
   let processedRawData = rawData;
-  if (Array.isArray(rawData) && rawData.length > 0 && rawData[0].output) {
-    processedRawData = rawData[0].output;
+  if (Array.isArray(rawData) && rawData.length > 0) {
+    processedRawData = rawData[0].output || rawData[0];
   }
 
   const data = normalizeReportData(rawData);
-  const isInstagramStructure = !!processedRawData?.instagram_presence || !!processedRawData?.engagement_analysis || !!processedRawData?.content_analysis;
-  const isFacebookStructure = !!processedRawData?.social_intelligence || !!processedRawData?.brand_positioning || !!processedRawData?.strategic_diagnostics;
+  const isInstagramStructure = (!!processedRawData?.instagram_presence || !!processedRawData?.engagement_analysis || !!processedRawData?.content_analysis) && channel !== "TIKTOK";
+  const isFacebookStructure = (!!processedRawData?.social_intelligence || !!processedRawData?.brand_positioning || !!processedRawData?.strategic_diagnostics) && channel !== "TIKTOK";
   const isTikTok = channel === "TIKTOK";
 
   let tiktokFollowers = "N/D";
@@ -297,6 +399,17 @@ export function ScrapingReportDialog({
       tiktokUsername = processedRawData.tiktok_presence.username || "N/D";
     }
 
+    if (processedRawData?.profile) {
+      if (tiktokFollowers === "N/D") tiktokFollowers = processedRawData.profile.followers !== undefined ? processedRawData.profile.followers.toLocaleString() : "N/D";
+      if (tiktokLikes === "N/D") tiktokLikes = processedRawData.profile.total_likes !== undefined ? processedRawData.profile.total_likes.toLocaleString() : "N/D";
+      if (tiktokVideos === "N/D") tiktokVideos = processedRawData.profile.total_videos !== undefined ? processedRawData.profile.total_videos.toLocaleString() : "N/D";
+      if (tiktokUsername === "N/D") tiktokUsername = processedRawData.profile.username || "N/D";
+    }
+
+    if (processedRawData?.engagement) {
+      if (tiktokAverageViews === "N/D") tiktokAverageViews = processedRawData.engagement.views !== undefined ? processedRawData.engagement.views.toLocaleString() : "N/D";
+    }
+
     const firstItem = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : null;
     const author = processedRawData?.authorMeta || firstItem?.authorMeta;
     if (author) {
@@ -316,8 +429,8 @@ export function ScrapingReportDialog({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-slate-50/95 backdrop-blur-md border-slate-200/60 shadow-2xl">
-        <DialogHeader className="border-b border-slate-200/60 pb-4 mb-4">
+      <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[80vh] flex flex-col bg-slate-50/95 backdrop-blur-md border-slate-200/60 shadow-2xl p-0 overflow-hidden">
+        <DialogHeader className="border-b border-slate-200/60 px-6 py-4 shrink-0">
           <div className="flex flex-col gap-2">
             <DialogTitle className="text-2xl font-bold text-slate-800 flex items-center gap-2">
               <Sparkles className="h-6 w-6 text-violet-500" />
@@ -349,11 +462,12 @@ export function ScrapingReportDialog({
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           
           {/* Facebook-specific metrics */}
           {isFacebookStructure && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-blue-50 via-cyan-50 to-white">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-blue-50 via-cyan-50 to-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-blue-600 uppercase tracking-wider flex items-center gap-2">
                   <Facebook className="h-4 w-4" />
@@ -363,22 +477,34 @@ export function ScrapingReportDialog({
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-white rounded-lg p-3 border border-blue-100">
-                    <span className="text-xs text-slate-400 block mb-1">Seguidores / Likes</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.social_intelligence?.audience_size || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.social_intelligence?.engagement_level || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-blue-100">
-                    <span className="text-xs text-slate-400 block mb-1">Anuncios en Meta</span>
-                    <p className={`text-lg font-bold ${processedRawData?.social_intelligence?.active_marketing_ads ? 'text-emerald-600' : 'text-slate-700'}`}>
-                      {processedRawData?.social_intelligence?.active_marketing_ads ? 'Activos' : 'Inactivos'}
+                    <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
+                    <p className="text-lg font-bold text-slate-700">
+                      {processedRawData?.social_intelligence?.audience_size || 
+                       processedRawData?.facebook_presence?.audience_metrics?.followers || 
+                       'N/A'}
                     </p>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <span className="text-xs text-slate-400 block mb-1">Nicho</span>
-                    <p className="text-sm font-bold text-slate-700 truncate">{processedRawData?.brand_positioning?.niche || 'N/A'}</p>
+                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
+                    <p className="text-lg font-bold text-slate-700">
+                      {processedRawData?.social_intelligence?.engagement_level || 
+                       processedRawData?.community_analysis?.current_activity_level || 
+                       'N/A'}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <span className="text-xs text-slate-400 block mb-1">Anuncios en Meta</span>
+                    <p className={`text-lg font-bold ${(processedRawData?.social_intelligence?.active_marketing_ads || processedRawData?.business_intelligence?.advertising_active) ? 'text-emerald-600' : 'text-slate-700'}`}>
+                      {(processedRawData?.social_intelligence?.active_marketing_ads || processedRawData?.business_intelligence?.advertising_active) ? 'Activos' : 'Inactivos'}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
+                    <span className="text-xs text-slate-400 block mb-1">Nicho / Categoría</span>
+                    <p className="text-sm font-bold text-slate-700 truncate">
+                      {processedRawData?.brand_positioning?.niche || 
+                       processedRawData?.facebook_presence?.business_category || 
+                       'N/A'}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -387,39 +513,90 @@ export function ScrapingReportDialog({
 
           {/* TikTok-specific metrics */}
           {isTikTok && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-slate-900/10 via-slate-800/5 to-white dark:from-slate-800/20 dark:via-slate-900/10 dark:to-slate-950/10">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-slate-900/10 via-slate-800/5 to-white dark:from-slate-800/20 dark:via-slate-900/10 dark:to-slate-950/10">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
                   <TikTokIcon className="h-4 w-4" />
                   Métricas de TikTok
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                    <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
-                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokFollowers}</p>
-                  </div>
-                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                    <span className="text-xs text-slate-400 block mb-1">Me gusta</span>
-                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokLikes}</p>
-                  </div>
-                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                    <span className="text-xs text-slate-400 block mb-1">Videos</span>
-                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokVideos}</p>
-                  </div>
-                  <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                    <span className="text-xs text-slate-400 block mb-1">Visualizaciones Promedio</span>
-                    <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokAverageViews}</p>
+              <CardContent className="space-y-4">
+                {/* Métricas de Perfil */}
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Métricas del Perfil</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                      <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
+                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokFollowers}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                      <span className="text-xs text-slate-400 block mb-1">Me gusta totales</span>
+                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokLikes}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                      <span className="text-xs text-slate-400 block mb-1">Videos Publicados</span>
+                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokVideos}</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                      <span className="text-xs text-slate-400 block mb-1">Siguiendo</span>
+                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
+                        {processedRawData?.profile?.following !== undefined ? processedRawData.profile.following.toLocaleString() : "N/D"}
+                      </p>
+                    </div>
                   </div>
                 </div>
+
+                {/* Métricas del Video Analizado */}
+                {processedRawData?.engagement && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Desempeño del Último Contenido</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-400 block mb-1">Visualizaciones</span>
+                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
+                          {processedRawData.engagement.views !== undefined ? processedRawData.engagement.views.toLocaleString() : "N/D"}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-400 block mb-1">Me gusta</span>
+                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
+                          {processedRawData.engagement.likes !== undefined ? processedRawData.engagement.likes.toLocaleString() : "N/D"}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-400 block mb-1">Compartidos</span>
+                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
+                          {processedRawData.engagement.shares !== undefined ? processedRawData.engagement.shares.toLocaleString() : "N/D"}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
+                        <span className="text-xs text-slate-400 block mb-1">Comentarios</span>
+                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
+                          {processedRawData.engagement.comments !== undefined ? processedRawData.engagement.comments.toLocaleString() : "N/D"}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800 col-span-2 md:col-span-1">
+                        <span className="text-xs text-slate-400 block mb-1">Engagement</span>
+                        <p className={`text-sm font-bold uppercase ${
+                          processedRawData.engagement.engagement_level === "high" || processedRawData.engagement.engagement_level === "alto"
+                            ? "text-emerald-600"
+                            : processedRawData.engagement.engagement_level === "medium" || processedRawData.engagement.engagement_level === "medio"
+                              ? "text-blue-600"
+                              : "text-amber-600"
+                        } mt-1`}>
+                          {processedRawData.engagement.engagement_level || "N/D"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
           {/* Instagram-specific metrics */}
           {isInstagramStructure && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-pink-600 uppercase tracking-wider flex items-center gap-2">
                   <Instagram className="h-4 w-4" />
@@ -428,26 +605,50 @@ export function ScrapingReportDialog({
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-white rounded-lg p-3 border border-pink-100">
-                    <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.instagram_presence?.audience_size?.followers || processedRawData?.engagement_analysis?.social_proof_signals?.[0] || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-purple-100">
-                    <span className="text-xs text-slate-400 block mb-1">Publicaciones</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.instagram_presence?.audience_size?.posts_count || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-pink-100">
-                    <span className="text-xs text-slate-400 block mb-1">Siguiendo</span>
-                    <p className="text-lg font-bold text-slate-700">{processedRawData?.instagram_presence?.audience_size?.following || 'N/A'}</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-purple-100">
-                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
-                    <p className="text-sm font-bold text-slate-700 truncate">
-                      {processedRawData?.engagement_analysis?.engagement_level || 
-                       processedRawData?.engagement_analysis?.current_activity_level || 
-                       processedRawData?.community_analysis?.current_activity_level || 'N/A'}
-                    </p>
-                  </div>
+                  {(() => {
+                    const followers = processedRawData?.instagram_presence?.audience_size?.followers || 
+                                      processedRawData?.engagement_analysis?.social_proof_signals?.find((s: string) => s.toLowerCase().includes('seguidor')) ||
+                                      processedRawData?.engagement_analysis?.social_proof_signals?.[0];
+                    const posts = processedRawData?.instagram_presence?.audience_size?.posts_count;
+                    const following = processedRawData?.instagram_presence?.audience_size?.following;
+                    const engagement = processedRawData?.engagement_analysis?.engagement_level || 
+                                       processedRawData?.engagement_analysis?.current_activity_level || 
+                                       processedRawData?.community_analysis?.current_activity_level;
+
+                    const hasFollowers = followers && followers !== 'N/A' && followers !== 'N/D';
+                    const hasPosts = posts && posts !== 'N/A' && posts !== 'N/D';
+                    const hasFollowing = following && following !== 'N/A' && following !== 'N/D';
+                    const hasEngagement = engagement && engagement !== 'N/A' && engagement !== 'N/D';
+
+                    return (
+                      <>
+                        {hasFollowers && (
+                          <div className="bg-white rounded-lg p-3 border border-pink-100">
+                            <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
+                            <p className="text-lg font-bold text-slate-700">{followers}</p>
+                          </div>
+                        )}
+                        {hasPosts && (
+                          <div className="bg-white rounded-lg p-3 border border-purple-100">
+                            <span className="text-xs text-slate-400 block mb-1">Publicaciones</span>
+                            <p className="text-lg font-bold text-slate-700">{posts}</p>
+                          </div>
+                        )}
+                        {hasFollowing && (
+                          <div className="bg-white rounded-lg p-3 border border-pink-100">
+                            <span className="text-xs text-slate-400 block mb-1">Siguiendo</span>
+                            <p className="text-lg font-bold text-slate-700">{following}</p>
+                          </div>
+                        )}
+                        {hasEngagement && (
+                          <div className="bg-white rounded-lg p-3 border border-purple-100">
+                            <span className="text-xs text-slate-400 block mb-1">Engagement</span>
+                            <p className="text-sm font-bold text-slate-700 truncate">{engagement}</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>
@@ -632,7 +833,7 @@ export function ScrapingReportDialog({
 
           {/* Instagram data quality */}
           {isInstagramStructure && processedRawData?.data_quality && (
-            <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-slate-50 via-white to-white border-l-4 border-l-slate-400">
+            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-slate-50 via-white to-white border-l-4 border-l-slate-400">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
@@ -668,7 +869,7 @@ export function ScrapingReportDialog({
           {!isInstagramStructure && !isFacebookStructure && (
             <>
               {/* 1. POSICIONAMIENTO Y PERSONALIDAD */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
+              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
                     <Compass className="h-4 w-4 text-violet-500" />
@@ -817,7 +1018,7 @@ export function ScrapingReportDialog({
               </Card>
 
               {/* 5. RECOMENDACIONES ESTRATÉGICAS */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-violet-50 via-white to-white border-l-4 border-l-violet-500">
+              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-violet-50 via-white to-white border-l-4 border-l-violet-500">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-2">
                     <Lightbulb className="h-4 w-4" />
@@ -825,7 +1026,7 @@ export function ScrapingReportDialog({
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {data.strategic_recommendations.map((item, i) => (
                       <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-violet-100/50 shadow-sm">
                         <span className="bg-violet-100 text-violet-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
@@ -843,59 +1044,65 @@ export function ScrapingReportDialog({
           {isFacebookStructure && (
             <>
               {/* 1. PROPUESTA DE VALOR */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Compass className="h-4 w-4 text-blue-500" />
-                    Propuesta de Valor de Facebook
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg font-semibold text-slate-700 leading-relaxed">
-                    "{data.market_positioning}"
-                  </p>
-                </CardContent>
-              </Card>
+              {data.market_positioning && data.market_positioning !== "Sin posicionamiento especificado" && (
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <Compass className="h-4 w-4 text-blue-500" />
+                      Propuesta de Valor de Facebook
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-base font-semibold text-slate-700 leading-relaxed">
+                      "{data.market_positioning}"
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* 2. FORTALEZAS Y DEBILIDADES */}
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2 bg-emerald-50/50 rounded-t-lg">
-                  <CardTitle className="text-sm font-semibold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Fortalezas Identificadas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <ul className="space-y-3">
-                    {data.strengths.map((item, i) => (
-                      <li key={i} className="text-sm text-slate-600 flex gap-2">
-                        <span className="text-emerald-500 font-bold">•</span> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              {data.strengths.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2 bg-emerald-50/50 rounded-t-lg">
+                    <CardTitle className="text-sm font-semibold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Fortalezas Identificadas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <ul className="space-y-3">
+                      {data.strengths.map((item, i) => (
+                        <li key={i} className="text-sm text-slate-600 flex gap-2">
+                          <span className="text-emerald-500 font-bold">•</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
 
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2 bg-rose-50/50 rounded-t-lg">
-                  <CardTitle className="text-sm font-semibold text-rose-700 uppercase tracking-wider flex items-center gap-2">
-                    <XCircle className="h-4 w-4" />
-                    Debilidades / Áreas de Mejora
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <ul className="space-y-3">
-                    {data.weaknesses.map((item, i) => (
-                      <li key={i} className="text-sm text-slate-600 flex gap-2">
-                        <span className="text-rose-500 font-bold">•</span> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+              {data.weaknesses.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2 bg-rose-50/50 rounded-t-lg">
+                    <CardTitle className="text-sm font-semibold text-rose-700 uppercase tracking-wider flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      Debilidades / Áreas de Mejora
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <ul className="space-y-3">
+                      {data.weaknesses.map((item, i) => (
+                        <li key={i} className="text-sm text-slate-600 flex gap-2">
+                          <span className="text-rose-500 font-bold">•</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* 3. CANALES Y CONVERSIÓN */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-white">
+              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                     <Users className="h-4 w-4 text-cyan-500" />
@@ -906,42 +1113,47 @@ export function ScrapingReportDialog({
                   <div>
                     <span className="text-xs text-slate-400 block mb-1">Fricción de Conversión</span>
                     <Badge variant="secondary" className="mt-1 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 border-none px-2.5 py-0.5 font-medium">
-                      {processedRawData?.conversion_channels?.conversion_friction || "N/D"}
+                      {processedRawData?.conversion_channels?.conversion_friction || 
+                       (processedRawData?.business_intelligence?.conversion_signals?.length > 0 ? "Baja" : "N/D")}
                     </Badge>
                   </div>
                   <div>
                     <span className="text-xs text-slate-400 block mb-1">Canal Principal de Ventas</span>
                     <Badge variant="secondary" className="mt-1 text-sm bg-cyan-50 text-cyan-700 hover:bg-cyan-100 border-none px-2.5 py-0.5 font-medium">
-                      {processedRawData?.conversion_channels?.main_channel || "N/D"}
+                      {processedRawData?.conversion_channels?.main_channel || 
+                       (processedRawData?.business_intelligence?.website_present ? "Sitio Web" : "Facebook Direct")}
                     </Badge>
                   </div>
                 </CardContent>
               </Card>
 
               {/* 5. RECOMENDACIONES ESTRATÉGICAS */}
-              <Card className="col-span-1 md:col-span-2 border-none shadow-sm bg-gradient-to-br from-blue-50 via-white to-white border-l-4 border-l-blue-500">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-blue-700 uppercase tracking-wider flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4" />
-                    Recomendaciones Estratégicas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3">
-                    {data.strategic_recommendations.map((item, i) => (
-                      <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-blue-100/50 shadow-sm">
-                        <span className="bg-blue-100 text-blue-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                          {i + 1}
-                        </span>
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              {data.strategic_recommendations.length > 0 && (
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-blue-50 via-white to-white border-l-4 border-l-blue-500">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-blue-700 uppercase tracking-wider flex items-center gap-2">
+                      <Lightbulb className="h-4 w-4" />
+                      Recomendaciones Estratégicas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {data.strategic_recommendations.map((item, i) => (
+                        <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-blue-100/50 shadow-sm">
+                          <span className="bg-blue-100 text-blue-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                            {i + 1}
+                          </span>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
           
+        </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getSession } from "@/lib/auth";
 import { BusinessHeader } from "@/components/business/business-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +14,19 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Users, Target } from "lucide-react";
 
+import { AgentPipelineMonitor } from "@/components/business/agent-pipeline-monitor";
+
 export default async function BusinessDetailPage({ 
   params,
 }: { 
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+
+  if (!session || !session.userId) {
+    redirect("/login");
+  }
 
   const business = await prisma.business.findUnique({
     where: { id },
@@ -38,20 +46,23 @@ export default async function BusinessDetailPage({
     notFound();
   }
 
-  // Fetch products, campaigns, social accounts and contents in parallel
-  const [productsData, campaignsData, socialAccounts, contents] = await Promise.all([
-    listProductsByBusiness(business.id),
-    listCampaignsByBusiness(business.id),
-    listSocialAccounts(business.id),
-    prisma.content.findMany({
-      where: { campaign: { businessId: business.id } },
-      include: {
-        campaign: { select: { name: true } },
-        socialAccount: { select: { accountName: true } },
-      },
-      orderBy: { scheduledAt: 'asc' }
-    })
-  ]);
+  // Authorization check: ensure the business belongs to the current user
+  if (business.userId !== session.userId) {
+    redirect("/business");
+  }
+
+  // Fetch products, campaigns, social accounts and contents sequentially to prevent DB pool connection failures
+  const productsData = await listProductsByBusiness(business.id);
+  const campaignsData = await listCampaignsByBusiness(business.id);
+  const socialAccounts = await listSocialAccounts(business.id);
+  const contents = await prisma.content.findMany({
+    where: { campaign: { businessId: business.id } },
+    include: {
+      campaign: { select: { name: true } },
+      socialAccount: { select: { accountName: true } },
+    },
+    orderBy: { scheduledAt: 'asc' }
+  });
 
   // Fetch latest analysis report for this business
   const myAnalysis = await prisma.analysisReport.findFirst({
@@ -82,6 +93,9 @@ export default async function BusinessDetailPage({
       <BusinessHeader business={business} />
       
       <div className="flex-1 p-8 pt-6 space-y-8 max-w-[1200px]">
+        {/* Monitor de Pipeline de Agentes IA */}
+        <AgentPipelineMonitor businessId={business.id} />
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
              <h2 className="text-3xl font-black tracking-tight mb-2">Resumen de Negocio</h2>

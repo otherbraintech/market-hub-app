@@ -52,6 +52,69 @@ export function ObjectivesForm({ defaultValues, onSave, onCancel }: ObjectivesFo
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-1.5 pb-2 border-b">
+          <label className="text-xs font-bold text-violet-800">Cargar Plantilla Rápida</label>
+          <Select onValueChange={(val) => {
+            const templates: Record<string, Partial<ObjectiveFormValues>> = {
+              instagram: {
+                name: "Crecer comunidad en Instagram",
+                targetValue: 1000,
+                unit: "seguidores",
+                deadline: "2026-08-31",
+                status: "PENDING",
+                specific: "Incrementar la base de seguidores calificados en la cuenta oficial de Instagram.",
+                measurable: "Contador de seguidores públicos en el perfil de Instagram.",
+                timeBound: "Lograr la meta antes del fin de trimestre."
+              },
+              leads: {
+                name: "Generar Leads en Sitio Web",
+                targetValue: 150,
+                unit: "leads",
+                deadline: "2026-07-31",
+                status: "PENDING",
+                specific: "Capturar leads calificados interesados en nuestros servicios a través del formulario de contacto.",
+                measurable: "Registros únicos en la base de datos de leads.",
+                timeBound: "Conseguir la meta en un plazo de 60 días."
+              },
+              sales: {
+                name: "Incrementar Ventas Comerciales",
+                targetValue: 30,
+                unit: "ventas",
+                deadline: "2026-09-30",
+                status: "PENDING",
+                specific: "Cerrar nuevos contratos de venta de productos directos de catálogo.",
+                measurable: "Número de facturas emitidas pagadas.",
+                timeBound: "Meta a ser alcanzada en un plazo máximo de 90 días."
+              },
+              tiktok: {
+                name: "Aumentar alcance en TikTok",
+                targetValue: 5000,
+                unit: "visualizaciones promedio",
+                deadline: "2026-08-31",
+                status: "PENDING",
+                specific: "Mejorar la retención y alcance viral de los Reels y Videos publicados en TikTok.",
+                measurable: "Métrica de reproducciones promedio según analytics de TikTok.",
+                timeBound: "Lograrlo en un periodo de 3 meses."
+              }
+            };
+            const selected = templates[val];
+            if (selected) {
+              Object.entries(selected).forEach(([key, value]) => {
+                form.setValue(key as any, value);
+              });
+            }
+          }}>
+            <SelectTrigger className="w-full text-xs">
+              <SelectValue placeholder="Selecciona una meta SMART sugerida..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="instagram">Crecer seguidores en Instagram</SelectItem>
+              <SelectItem value="leads">Generar Leads en Sitio Web</SelectItem>
+              <SelectItem value="sales">Incrementar Ventas Comerciales</SelectItem>
+              <SelectItem value="tiktok">Aumentar alcance en TikTok</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <FormField
           control={form.control}
           name="name"

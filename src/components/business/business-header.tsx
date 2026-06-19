@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Business } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Building2, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
@@ -17,7 +16,7 @@ import {
 import { BusinessForm } from "./business-form";
 
 interface BusinessHeaderProps {
-  business: Business & {
+  business: any & {
     _count?: {
       products: number;
       campaigns: number;

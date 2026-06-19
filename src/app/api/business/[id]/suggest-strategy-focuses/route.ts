@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
+
+const openrouter = createOpenAI({
+  apiKey: process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim(),
+  baseURL: 'https://openrouter.ai/api/v1',
+});
 
 export async function POST(
   request: Request,
@@ -48,11 +56,10 @@ export async function POST(
       orderBy: { completedAt: 'desc' }
     });
 
-    // Group and normalize business reports
+    // Group and normalize business reports - query already ordered by completedAt DESC so first wins
     const businessReportsMap = new Map<string, any>();
-    businessReports.forEach(report => {
-      if (!businessReportsMap.has(report.channel) || 
-          (report.completedAt && businessReportsMap.get(report.channel)!.completedAt < report.completedAt)) {
+    businessReports.forEach((report: typeof businessReports[number]) => {
+      if (!businessReportsMap.has(report.channel)) {
         let dataObj = report.data;
         if (typeof report.data === 'string') {
           try {
@@ -106,50 +113,28 @@ async function generateStrategicFocusesWithAI(context: any) {
   try {
     const prompt = buildFocusPrompt(context);
     
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-        'X-Title': 'MarketOps',
-      },
-      body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4.5',
-        messages: [
-          {
-            role: 'system',
-            content: 'Eres un estratega jefe de marketing digital y growth hacker experto. Generas opciones de enfoques estratégicos altamente diferenciadores y específicos basados en el perfil del negocio, sus productos y reportes de competencia. Responde únicamente con un array JSON válido.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: context.isRefresh ? 0.9 : 0.7,
-        max_tokens: 2000,
-      })
+    const { object } = await generateObject({
+      model: openrouter('google/gemini-2.5-flash'),
+      schema: z.object({
+        focuses: z.array(z.object({
+          name: z.string(),
+          description: z.string(),
+          icon: z.enum(['TrendingUp', 'Target', 'Sparkles']),
+          suggestedPillars: z.array(z.string()),
+          suggestedChannels: z.array(z.string()),
+          suggestedTones: z.array(z.string())
+        }))
+      }),
+      system: 'Eres un estratega jefe de marketing digital y growth hacker experto. Generas opciones de enfoques estratégicos altamente diferenciadores y específicos basados en el perfil del negocio, sus productos y reportes de competencia.',
+      prompt: prompt,
+      temperature: context.isRefresh ? 0.9 : 0.7,
     });
 
-    if (!response.ok) {
-      console.error('OpenRouter API error status:', response.status);
-      return generatePlaceholderFocuses(context);
+    if (object && Array.isArray(object.focuses) && object.focuses.length > 0) {
+      return object.focuses;
     }
 
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
-    
-    if (!content) {
-      return generatePlaceholderFocuses(context);
-    }
-
-    try {
-      const parsed = JSON.parse(content.trim());
-      return parsed;
-    } catch (parseError) {
-      console.error('Error parsing focuses JSON response:', parseError);
-      return generatePlaceholderFocuses(context);
-    }
+    return generatePlaceholderFocuses(context);
   } catch (error) {
     console.error('Error in AI focuses execution:', error);
     return generatePlaceholderFocuses(context);

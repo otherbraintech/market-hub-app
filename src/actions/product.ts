@@ -77,7 +77,7 @@ export async function createProductAction(businessId: string, data: z.infer<type
     
     // Transformar keywords de string a array
     const keywordsArray = validated.keywords 
-      ? validated.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+      ? validated.keywords.split(',').map((k: string) => k.trim()).filter((k: string) => k.length > 0)
       : [];
 
     const input: CreateProductInput = {
@@ -85,8 +85,8 @@ export async function createProductAction(businessId: string, data: z.infer<type
       name: validated.name,
       description: validated.description,
       shortDesc: validated.shortDesc,
-      features: validated.features.map(f => ({ ...f, id: f.id || crypto.randomUUID() })),
-      benefits: validated.benefits.map(b => ({ ...b, id: b.id || crypto.randomUUID() })),
+      features: validated.features.map((f: any) => ({ ...f, id: f.id || crypto.randomUUID() })),
+      benefits: validated.benefits.map((b: any) => ({ ...b, id: b.id || crypto.randomUUID() })),
       pricing: validated.pricing,
       images: validated.imageUrl ? [validated.imageUrl] : [],
       keywords: keywordsArray,
@@ -109,15 +109,15 @@ export async function updateProductAction(id: string, businessId: string, data: 
     
      // Transformar keywords de string a array
     const keywordsArray = validated.keywords 
-      ? validated.keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+      ? validated.keywords.split(',').map((k: string) => k.trim()).filter((k: string) => k.length > 0)
       : [];
 
     await updateProduct(id, {
       name: validated.name,
       description: validated.description,
       shortDesc: validated.shortDesc,
-      features: validated.features.map(f => ({ ...f, id: f.id || crypto.randomUUID() })),
-      benefits: validated.benefits.map(b => ({ ...b, id: b.id || crypto.randomUUID() })),
+      features: validated.features.map((f: any) => ({ ...f, id: f.id || crypto.randomUUID() })),
+      benefits: validated.benefits.map((b: any) => ({ ...b, id: b.id || crypto.randomUUID() })),
       pricing: validated.pricing ? validated.pricing : undefined,
       images: validated.imageUrl ? [validated.imageUrl] : [],
       keywords: keywordsArray,

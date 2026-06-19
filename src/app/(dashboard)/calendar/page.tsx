@@ -27,7 +27,7 @@ export default async function CalendarPage() {
 
   const campaigns = await prisma.campaign.findMany({
     where: { businessId: selectedBusinessId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, startDate: true, endDate: true, channels: true },
     orderBy: { name: "asc" }
   });
 
@@ -45,7 +45,7 @@ export default async function CalendarPage() {
   });
 
   // Convert dates to string/ISO format for serialization if necessary
-  const serializedContents = contents.map(item => ({
+  const serializedContents = contents.map((item: any) => ({
     ...item,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),

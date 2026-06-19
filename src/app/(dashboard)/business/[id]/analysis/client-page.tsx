@@ -250,8 +250,8 @@ export function BusinessAnalysisClient({ businessId, businessName, business, myA
               dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
               
               // Handle new array structure with output field
-              if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-                dataObj = dataObj[0].output;
+              if (Array.isArray(dataObj) && dataObj.length > 0) {
+                dataObj = dataObj[0].output || dataObj[0];
               }
             }
 
@@ -289,6 +289,17 @@ export function BusinessAnalysisClient({ businessId, businessName, business, myA
                 if (tiktokLikes === "N/D") tiktokLikes = dataObj.tiktok_presence.likes?.toString() || "N/D";
                 if (tiktokVideos === "N/D") tiktokVideos = dataObj.tiktok_presence.videos_count?.toString() || "N/D";
                 tiktokUsername = dataObj.tiktok_presence.username || "N/D";
+              }
+
+              if (dataObj?.profile) {
+                if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.profile.followers !== undefined ? dataObj.profile.followers.toLocaleString() : "N/D";
+                if (tiktokLikes === "N/D") tiktokLikes = dataObj.profile.total_likes !== undefined ? dataObj.profile.total_likes.toLocaleString() : "N/D";
+                if (tiktokVideos === "N/D") tiktokVideos = dataObj.profile.total_videos !== undefined ? dataObj.profile.total_videos.toLocaleString() : "N/D";
+                if (tiktokUsername === "N/D") tiktokUsername = dataObj.profile.username || "N/D";
+              }
+
+              if (dataObj?.engagement) {
+                if (tiktokAverageViews === "N/D") tiktokAverageViews = dataObj.engagement.views !== undefined ? dataObj.engagement.views.toLocaleString() : "N/D";
               }
 
               if (tiktokFollowers === "N/D" || tiktokLikes === "N/D" || tiktokVideos === "N/D" || tiktokUsername === "N/D") {
@@ -416,23 +427,34 @@ export function BusinessAnalysisClient({ businessId, businessName, business, myA
                         <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                           <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
                             <Heart className={`h-4 w-4 ${theme.text}`} />
-                            <span>Me gusta</span>
+                            <span>Me gusta totales</span>
                           </div>
                           <span className="font-semibold text-foreground text-right">{tiktokLikes}</span>
                         </div>
                         <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                           <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                            <FileText className={`h-4 w-4 ${theme.text}`} />
-                            <span>Videos</span>
+                            <Activity className={`h-4 w-4 ${theme.text}`} />
+                            <span>Engagement</span>
                           </div>
-                          <span className="font-semibold text-foreground text-right">{tiktokVideos}</span>
+                          <span className="font-semibold text-foreground text-right capitalize">
+                            {dataObj?.engagement?.engagement_level || "N/D"}
+                          </span>
                         </div>
                         <div className="flex items-start justify-between text-sm gap-4">
                           <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                            <Eye className={`h-4 w-4 ${theme.text}`} />
-                            <span>Vistas Promedio</span>
+                            <Globe className={`h-4 w-4 ${theme.text}`} />
+                            <span>Enlaces</span>
                           </div>
-                          <span className="font-semibold text-foreground text-right">{tiktokAverageViews}</span>
+                          <span className="font-semibold text-foreground text-right text-xs">
+                            {(() => {
+                              const web = dataObj?.business_signals?.website_present;
+                              const wa = dataObj?.business_signals?.whatsapp_present;
+                              if (web && wa) return "Web y WhatsApp";
+                              if (web) return "Solo Web";
+                              if (wa) return "Solo WhatsApp";
+                              return "Ninguno";
+                            })()}
+                          </span>
                         </div>
                       </div>
                     ) : isFacebookStructure && isCompleted ? (

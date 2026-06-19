@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Sparkles, Globe, Loader2, Plus, Facebook, Instagram, ChevronRight, FileText,
+  Sparkles, Globe, Loader2, Plus, Facebook, Instagram, ChevronRight, ChevronLeft, FileText,
   Users, ThumbsUp, MessageSquare, Activity, Flame, MapPin, Award, ShieldCheck,
   Megaphone, Zap, Eye, Compass, Briefcase, TrendingUp, Heart, Target,
-  AlertCircle, Star, Linkedin, Youtube, Search
+  AlertCircle, Star, Linkedin, Youtube, Search, RefreshCw, CheckCircle2, Lightbulb, Smile
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -101,35 +101,618 @@ const getPlatformTheme = (channel: string) => {
   };
 };
 
-const formatSocialMetric = (val: any) => {
-  if (val === undefined || val === null || val === "") return "N/D";
-  if (typeof val === "number") return val.toLocaleString();
+const parseSocialMetric = (val: any): number | null => {
+  if (val === undefined || val === null || val === "") return null;
+  if (typeof val === "number") return val;
   if (typeof val === "string") {
-    if (/[KkMm]/.test(val)) return val.trim();
-    const cleanStr = val.replace(/[\s,]/g, "");
-    const num = Number(cleanStr);
-    if (!isNaN(num)) {
-      return num.toLocaleString();
+    let clean = val.trim().toLowerCase();
+    let multiplier = 1;
+    if (clean.endsWith("k")) {
+      multiplier = 1000;
+      clean = clean.slice(0, -1);
+    } else if (clean.endsWith("m")) {
+      multiplier = 1000000;
+      clean = clean.slice(0, -1);
     }
-    return val.trim();
+    if (multiplier > 1) {
+      clean = clean.replace(/,/g, ".");
+      const parsed = parseFloat(clean);
+      return isNaN(parsed) ? null : Math.round(parsed * multiplier);
+    } else {
+      clean = clean.replace(/[\s]/g, "");
+      const parsed = parseInt(clean.replace(/[.,]/g, ""), 10);
+      return isNaN(parsed) ? null : parsed;
+    }
   }
-  return String(val);
+  return null;
 };
+
+const formatSocialMetric = (val: any) => {
+  const num = parseSocialMetric(val);
+  if (num === null) {
+    return typeof val === "string" ? val.trim() : "N/D";
+  }
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+  }
+  return num.toLocaleString();
+};
+
+const normalizeReportData = (rawReportData: any) => {
+  if (!rawReportData) return null;
+  let dataObj = typeof rawReportData === "string" ? JSON.parse(rawReportData) : rawReportData;
+  
+  // Si es un array de objetos con "output", y éstos contienen "page_overview" o estructuras de Facebook extraídas
+  if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj.every(item => item && typeof item === "object" && "output" in item)) {
+    const outputs = dataObj.map((item: any) => item.output).filter(Boolean);
+    
+    // Si los outputs tienen el formato nuevo (page_overview, engagement_summary, etc.)
+    if (outputs.length > 0 && outputs[0].page_overview) {
+      const totalReactions = outputs.reduce((acc: number, curr: any) => acc + (curr.engagement_summary?.total_reactions || 0), 0);
+      const totalComments = outputs.reduce((acc: number, curr: any) => acc + (curr.engagement_summary?.total_comments || 0), 0);
+      const brandName = outputs.find((o: any) => o.page_overview?.brand_name)?.page_overview?.brand_name || "";
+      const pageUrl = outputs.find((o: any) => o.page_overview?.page_url)?.page_overview?.page_url || "";
+      
+      const products = Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.main_products_or_services || []))).filter(Boolean);
+      const topics = Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.common_topics || []))).filter(Boolean);
+      const growthOps = Array.from(new Set(outputs.flatMap((o: any) => o.marketing_insights?.growth_opportunities || []))).filter(Boolean);
+      const campaigns = Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.main_campaigns_detected || []))).filter(Boolean);
+      const contentRecs = Array.from(new Set(outputs.flatMap((o: any) => o.marketing_insights?.content_recommendations || []))).filter(Boolean);
+      const pricingMentions = Array.from(new Set(outputs.flatMap((o: any) => o.commercial_intelligence?.pricing_mentions || []))).filter(Boolean);
+      const salesSignals = Array.from(new Set(outputs.flatMap((o: any) => o.commercial_intelligence?.sales_signals || []))).filter(Boolean);
+      const conversionStrategies = Array.from(new Set(outputs.flatMap((o: any) => o.commercial_intelligence?.conversion_strategies || []))).filter(Boolean);
+      
+      const bestPost = outputs.reduce((best: any, curr: any) => {
+        const currBest = curr.engagement_summary?.best_performing_post;
+        if (!currBest || currBest.reactions === undefined) return best;
+        if (!best || (currBest.reactions || 0) > (best.reactions || 0)) {
+          return currBest;
+        }
+        return best;
+      }, null);
+
+      // Creamos un objeto consolidado compatible con la interfaz vieja y nueva
+      return {
+        isAggregatedFacebook: true,
+        brand_name: brandName,
+        page_url: pageUrl,
+        total_reactions: totalReactions,
+        total_comments: totalComments,
+        total_posts: outputs.length,
+        products,
+        topics,
+        growthOps,
+        campaigns,
+        contentRecs,
+        bestPost,
+        
+        // Mapeamos para que la UI clásica lo entienda:
+        facebook_presence: {
+          brand_name: brandName,
+          business_category: "Panadería y Pastelería",
+          brand_summary: `Canal de Facebook con ${outputs.length} publicaciones analizadas. Temas principales: ${topics.slice(0, 4).join(', ')}. Estilo de comunicación: ${Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.posting_style || []))).slice(0, 3).join(', ')}.`,
+          audience_metrics: {
+            followers: totalReactions, // Fallback
+            talking_about_count: totalComments // Usamos total de comentarios
+          }
+        },
+        reputation_analysis: {
+          total_reviews: totalComments,
+          recommendation_percentage: 100 // Por defecto
+        },
+        branding_analysis: {
+          brand_personality: Array.from(new Set(outputs.flatMap((o: any) => o.content_analysis?.posting_style || []))),
+          emotional_tone: Array.from(new Set(outputs.flatMap((o: any) => o.audience_response?.positive_signals || [])))
+        },
+        business_intelligence: {
+          website_present: true,
+          advertising_active: true,
+          phone_contact_available: true,
+          price_range_indicator: pricingMentions.length > 0 ? pricingMentions[0] : "Bs. Variable",
+          conversion_signals: conversionStrategies,
+          commercial_signals: salesSignals
+        },
+        competitive_observations: {
+          main_strengths: products.length > 0 ? products : ["Presencia local activa y buen engagement con la audiencia"],
+          main_weaknesses: growthOps.length > 0 ? growthOps : ["Optimizar frecuencia de ofertas y variedad de formatos de contenido"],
+          customer_perception_indicators: Array.from(new Set(outputs.flatMap((o: any) => o.audience_response?.engagement_drivers || []))),
+          differentiators: products
+        },
+        strategic_recommendations: contentRecs.length > 0 ? contentRecs : ["Incrementar la frecuencia de publicaciones sobre nuevos sabores e interactuar con seguidores"]
+      };
+    }
+  }
+
+  // Si es un array y tiene un output simple en el primer elemento
+  if (Array.isArray(dataObj) && dataObj.length > 0) {
+    dataObj = dataObj[0].output || dataObj[0];
+  }
+
+  // Si es la estructura de TikTok nueva
+  if (dataObj && dataObj.profile && (dataObj.engagement || dataObj.business_signals)) {
+    const profile = dataObj.profile || {};
+    const engagement = dataObj.engagement || {};
+    const bizSignals = dataObj.business_signals || {};
+    const content = dataObj.content_analysis || {};
+    const compInsights = dataObj.competitive_insights || {};
+    const dQuality = dataObj.data_quality || {};
+
+    const generatedRecommendations: string[] = [];
+    if (bizSignals.whatsapp_present === false) {
+      generatedRecommendations.push("Vincular un enlace directo a WhatsApp en el perfil de TikTok para facilitar la conversión directa.");
+    }
+    if (bizSignals.website_present === false) {
+      generatedRecommendations.push("Agregar un enlace al sitio web oficial en la bio para derivar tráfico cualificado.");
+    }
+    if (engagement.engagement_level === "low" || engagement.engagement_level === "bajo") {
+      generatedRecommendations.push("Mejorar la tasa de interacción usando ganchos en los primeros 3 segundos y respondiendo comentarios con videos.");
+    } else {
+      generatedRecommendations.push("Mantener la consistencia en los pilares de contenido identificados para consolidar el engagement actual.");
+    }
+    if (bizSignals.contact_cta === false) {
+      generatedRecommendations.push("Habilitar los botones de contacto en el perfil de creador/empresa para consultas comerciales.");
+    }
+    if (Array.isArray(content.hashtags) && content.hashtags.length < 5) {
+      generatedRecommendations.push("Diversificar el uso de hashtags locales y de nicho para optimizar el posicionamiento en el algoritmo de búsqueda.");
+    } else {
+      generatedRecommendations.push("Optimizar la descripción de los videos (SEO de TikTok) incluyendo palabras clave en los primeros caracteres.");
+    }
+
+    dataObj = {
+      ...dataObj,
+      tiktok_presence: {
+        brand_name: profile.display_name || profile.username,
+        brand_summary: profile.bio || "Perfil de TikTok",
+        followers: profile.followers,
+        likes: profile.total_likes,
+        videos_count: profile.total_videos,
+        username: profile.username
+      },
+      branding_analysis: {
+        brand_positioning_indicators: [profile.bio || "Perfil de TikTok"],
+        brand_personality: [],
+        emotional_tone: []
+      },
+      business_intelligence: {
+        website_present: bizSignals.website_present,
+        whatsapp_present: bizSignals.whatsapp_present,
+        advertising_active: false,
+        phone_contact_available: bizSignals.whatsapp_present,
+        price_range_indicator: "N/D",
+        conversion_signals: [
+          `Sitio Web: ${bizSignals.website_present ? "Sí" : "No"}`,
+          `WhatsApp: ${bizSignals.whatsapp_present ? "Sí" : "No"}`,
+          `CTA de Contacto: ${bizSignals.contact_cta ? "Sí" : "No"}`
+        ],
+        commercial_signals: bizSignals.commercial_signals || []
+      },
+      community_analysis: {
+        current_activity_level: engagement.engagement_level,
+        audience_loyalty_indicators: []
+      },
+      engagement_analysis: {
+        engagement_level: engagement.engagement_level,
+        social_proof_signals: [
+          `Likes: ${engagement.likes || 0}`,
+          `Views: ${engagement.views || 0}`,
+          `Comments: ${engagement.comments || 0}`
+        ]
+      },
+      competitive_observations: {
+        main_strengths: compInsights.strengths || [],
+        main_weaknesses: compInsights.weaknesses || [],
+        differentiators: compInsights.opportunities || []
+      },
+      data_quality: {
+        confidence_score: dQuality.confidence_score || 1.0,
+        missing_information: [],
+        analysis_limitations: []
+      },
+      strategic_recommendations: generatedRecommendations
+    };
+  }
+  
+  return dataObj;
+};
+
+function cleanJsonString(badJson: string): string {
+  let clean = '';
+  let inString = false;
+  let isEscaped = false;
+  for (let i = 0; i < badJson.length; i++) {
+    const char = badJson[i];
+    if (!inString) {
+      if (char === '"') {
+        inString = true;
+        isEscaped = false;
+        clean += char;
+      } else {
+        clean += char;
+      }
+    } else {
+      if (isEscaped) {
+        if (char === '\n') {
+          clean += 'n';
+        } else {
+          clean += char;
+        }
+        isEscaped = false;
+      } else if (char === '\\') {
+        isEscaped = true;
+        clean += char;
+      } else if (char === '"') {
+        let isRealClosing = false;
+        let j = i + 1;
+        while (j < badJson.length && /\s/.test(badJson[j])) {
+          j++;
+        }
+        if (j === badJson.length) {
+          isRealClosing = true;
+        } else {
+          const nextChar = badJson[j];
+          if (nextChar === ',' || nextChar === '}' || nextChar === ']' || nextChar === ':') {
+            isRealClosing = true;
+          }
+        }
+        if (isRealClosing) {
+          inString = false;
+          clean += char;
+        } else {
+          clean += '\\"';
+        }
+      } else if (char === '\n') {
+        clean += '\\n';
+      } else if (char === '\r') {
+        clean += '\\r';
+      } else {
+        clean += char;
+      }
+    }
+  }
+  return clean;
+}
+
+function extractExecutiveSummaryFromBadJson(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) return text;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed.executiveSummary) return parsed.executiveSummary;
+  } catch (e) {
+    // ignore
+  }
+  try {
+    const cleaned = cleanJsonString(trimmed);
+    const parsed = JSON.parse(cleaned);
+    if (parsed.executiveSummary) return parsed.executiveSummary;
+  } catch (e) {
+    // ignore
+  }
+  return text;
+}
+
+interface MarkdownBlock {
+  type: 'p' | 'h2' | 'h3' | 'h4' | 'ul' | 'ol' | 'card';
+  content?: string;
+  items?: string[];
+  cardKey?: string;
+  cardValue?: string;
+}
+
+const parseMarkdown = (text: any) => {
+  if (!text) return null;
+  let txt = text;
+  if (typeof txt !== 'string') {
+    if (typeof txt === 'object') {
+      if (txt.executiveSummary && typeof txt.executiveSummary === 'string') {
+        txt = txt.executiveSummary;
+      } else if (txt.panoramaGlobal && typeof txt.panoramaGlobal.resumen === 'string') {
+        txt = txt.panoramaGlobal.resumen;
+      } else {
+        txt = JSON.stringify(txt, null, 2);
+      }
+    } else {
+      txt = String(txt);
+    }
+  }
+  const keyCardStyles: Record<string, { icon: any, colorClass: string, bgClass: string, borderClass: string }> = {
+    "objetivo": { icon: Target, colorClass: "text-blue-600 dark:text-blue-400", bgClass: "bg-blue-500/5 dark:bg-blue-950/10", borderClass: "border-l-4 border-l-blue-500 border-blue-100 dark:border-blue-900/30" },
+    "ángulo": { icon: Sparkles, colorClass: "text-amber-600 dark:text-amber-400", bgClass: "bg-amber-500/5 dark:bg-amber-950/10", borderClass: "border-l-4 border-l-amber-500 border-amber-100 dark:border-amber-900/30" },
+    "gancho": { icon: Sparkles, colorClass: "text-amber-600 dark:text-amber-400", bgClass: "bg-amber-500/5 dark:bg-amber-950/10", borderClass: "border-l-4 border-l-amber-500 border-amber-100 dark:border-amber-900/30" },
+    "copys": { icon: FileText, colorClass: "text-purple-600 dark:text-purple-400", bgClass: "bg-purple-500/5 dark:bg-purple-950/10", borderClass: "border-l-4 border-l-purple-500 border-purple-100 dark:border-purple-900/30" },
+    "contenido": { icon: FileText, colorClass: "text-purple-600 dark:text-purple-400", bgClass: "bg-purple-500/5 dark:bg-purple-950/10", borderClass: "border-l-4 border-l-purple-500 border-purple-100 dark:border-purple-900/30" },
+    "canal": { icon: Globe, colorClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-500/5 dark:bg-emerald-950/10", borderClass: "border-l-4 border-l-emerald-500 border-emerald-100 dark:border-emerald-900/30" },
+    "distribución": { icon: Globe, colorClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-500/5 dark:bg-emerald-950/10", borderClass: "border-l-4 border-l-emerald-500 border-emerald-100 dark:border-emerald-900/30" },
+    "conversión": { icon: Zap, colorClass: "text-rose-600 dark:text-rose-400", bgClass: "bg-rose-500/5 dark:bg-rose-950/10", borderClass: "border-l-4 border-l-rose-500 border-rose-100 dark:border-rose-900/30" },
+    "precio": { icon: DollarSign, colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-500/5 dark:bg-indigo-950/10", borderClass: "border-l-4 border-l-indigo-500 border-indigo-100 dark:border-indigo-900/30" },
+    "fidelización": { icon: Heart, colorClass: "text-pink-600 dark:text-pink-400", bgClass: "bg-pink-500/5 dark:bg-pink-950/10", borderClass: "border-l-4 border-l-pink-500 border-pink-100 dark:border-pink-900/30" }
+  };
+
+  const getCardStyle = (key: string) => {
+    const k = key.toLowerCase();
+    for (const [pattern, config] of Object.entries(keyCardStyles)) {
+      if (k.includes(pattern)) return config;
+    }
+    return { icon: Lightbulb, colorClass: "text-slate-650 dark:text-slate-400", bgClass: "bg-slate-500/5 dark:bg-slate-900/10", borderClass: "border-l-4 border-l-slate-400 border-slate-100 dark:border-slate-800" };
+  };
+
+  const parseBoldText = (txt: string) => {
+    const parts = txt.split(/\*\*(.*?)\*\*/g);
+    return parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="font-bold text-slate-900 dark:text-white">{part}</strong> : part);
+  };
+
+  const parseMarkdownToBlocks = (txt: string): MarkdownBlock[] => {
+    const lines = txt.split('\n');
+    const blocks: MarkdownBlock[] = [];
+    lines.forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      if (trimmed.startsWith('### ')) {
+        blocks.push({ type: 'h4', content: trimmed.replace('### ', '') });
+      } else if (trimmed.startsWith('## ')) {
+        blocks.push({ type: 'h3', content: trimmed.replace('## ', '') });
+      } else if (trimmed.startsWith('# ')) {
+        blocks.push({ type: 'h2', content: trimmed.replace('# ', '') });
+      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        const content = trimmed.substring(2);
+        const cardMatch = content.match(/^\*\*(.*?)\*\*:\s*(.*)$/);
+        if (cardMatch) {
+          blocks.push({ type: 'card', cardKey: cardMatch[1].trim(), cardValue: cardMatch[2].trim() });
+        } else {
+          const lastBlock = blocks[blocks.length - 1];
+          if (lastBlock && lastBlock.type === 'ul') {
+            lastBlock.items!.push(content);
+          } else {
+            blocks.push({ type: 'ul', items: [content] });
+          }
+        }
+      } else if (/^\d+\.\s/.test(trimmed)) {
+        const content = trimmed.replace(/^\d+\.\s/, '');
+        const lastBlock = blocks[blocks.length - 1];
+        if (lastBlock && lastBlock.type === 'ol') {
+          lastBlock.items!.push(content);
+        } else {
+          blocks.push({ type: 'ol', items: [content] });
+        }
+      } else {
+        const cardMatch = trimmed.match(/^\*\*(.*?)\*\*:\s*(.*)$/);
+        if (cardMatch) {
+          blocks.push({ type: 'card', cardKey: cardMatch[1].trim(), cardValue: cardMatch[2].trim() });
+        } else {
+          blocks.push({ type: 'p', content: trimmed });
+        }
+      }
+    });
+    return blocks;
+  };
+
+  const renderBlocks = (blocks: MarkdownBlock[]) => {
+    const rendered: React.JSX.Element[] = [];
+    let currentGridCards: MarkdownBlock[] = [];
+    const flushGrid = (key: string | number) => {
+      if (currentGridCards.length > 0) {
+        rendered.push(
+          <div key={`grid-${key}`} className="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+            {currentGridCards.map((card, cardIdx) => {
+              const style = getCardStyle(card.cardKey || '');
+              const Icon = style.icon;
+              return (
+                <div key={cardIdx} className={`p-4 rounded-xl border ${style.borderClass} ${style.bgClass} shadow-sm flex flex-col justify-between`}>
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      {Icon && <Icon className={`h-4.5 w-4.5 ${style.colorClass}`} />}
+                      <span className={`text-xs font-extrabold uppercase tracking-wider ${style.colorClass}`}>{card.cardKey}</span>
+                    </div>
+                    <p className="text-sm text-slate-705 dark:text-slate-300 leading-relaxed pl-1 whitespace-pre-line">
+                      {parseBoldText(card.cardValue || '')}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+        currentGridCards = [];
+      }
+    };
+
+    blocks.forEach((block, idx) => {
+      if (block.type === 'card') {
+        currentGridCards.push(block);
+      } else {
+        flushGrid(idx);
+        if (block.type === 'p') {
+          rendered.push(
+            <p key={idx} className="text-sm text-slate-650 dark:text-slate-400 leading-relaxed mb-4 max-w-3xl whitespace-pre-line">
+              {parseBoldText(block.content || '')}
+            </p>
+          );
+        } else if (block.type === 'ul') {
+          rendered.push(
+            <ul key={idx} className="list-disc pl-5 mb-4 space-y-1.5 text-slate-650 dark:text-slate-400">
+              {block.items?.map((item, i) => (
+                <li key={i} className="text-sm text-slate-750 dark:text-slate-350 leading-relaxed">{parseBoldText(item)}</li>
+              ))}
+            </ul>
+          );
+        } else if (block.type === 'ol') {
+          rendered.push(
+            <ol key={idx} className="list-decimal pl-5 mb-4 space-y-1.5 text-slate-650 dark:text-slate-400">
+              {block.items?.map((item, i) => (
+                <li key={i} className="text-sm text-slate-750 dark:text-slate-355 leading-relaxed">{parseBoldText(item)}</li>
+              ))}
+            </ol>
+          );
+        } else if (block.type === 'h2') {
+          rendered.push(<h2 key={idx} className="text-xl font-black text-blue-900 dark:text-blue-400 mt-8 mb-4">{parseBoldText(block.content || '')}</h2>);
+        } else if (block.type === 'h3') {
+          rendered.push(<h3 key={idx} className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-6 mb-3 border-b pb-2">{parseBoldText(block.content || '')}</h3>);
+        } else if (block.type === 'h4') {
+          rendered.push(<h4 key={idx} className="text-base font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2">{parseBoldText(block.content || '')}</h4>);
+        }
+      }
+    });
+
+    flushGrid('final');
+    return rendered;
+  };
+
+  const blocks = parseMarkdownToBlocks(txt);
+  const hasSubsections = blocks.some(b => b.type === 'h4');
+  if (hasSubsections) {
+    const intro: MarkdownBlock[] = [];
+    const subsections: { title: string; blocks: MarkdownBlock[] }[] = [];
+    let currentSub: { title: string; blocks: MarkdownBlock[] } | null = null;
+    blocks.forEach(block => {
+      if (block.type === 'h4') {
+        currentSub = { title: block.content || '', blocks: [] };
+        subsections.push(currentSub);
+      } else {
+        if (currentSub) {
+          currentSub.blocks.push(block);
+        } else {
+          intro.push(block);
+        }
+      }
+    });
+    return (
+      <div className="space-y-6">
+        {intro.length > 0 && <div className="space-y-3">{renderBlocks(intro)}</div>}
+        {subsections.map((sub, subIdx) => {
+          let Icon = Megaphone;
+          const lowerTitle = sub.title.toLowerCase();
+          if (lowerTitle.includes('perfil')) Icon = Award;
+          return (
+            <div key={subIdx} className="bg-slate-50/50 p-5 rounded-xl border shadow-sm">
+              <div className="flex items-center gap-2 mb-3 pb-1 border-b">
+                <Icon className="h-4.5 w-4.5 text-blue-600" />
+                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">{sub.title}</h4>
+              </div>
+              {renderBlocks(sub.blocks)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return renderBlocks(blocks);
+};
+
+const DollarSign = (props: any) => (
+  <svg xmlns="http://www.w3.org/2050/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+);
 
 export function CompetitorsAnalysisClient({ businessId, businessName, initialCompetitors, myAnalysesByChannel }: any) {
   const [competitors, setCompetitors] = useState(initialCompetitors);
+  const [selectedCompetitorId, setSelectedCompetitorId] = useState<string>(initialCompetitors[0]?.id || "");
   const [requestingIdChannel, setRequestingIdChannel] = useState<string | null>(null); // e.g. "comp1_WEBSITE"
   const [comparisonChannel, setComparisonChannel] = useState("WEBSITE");
   const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [reportData, setReportData] = useState<any>(null);
+  const [loadingReport, setLoadingReport] = useState(true);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [executiveSummary, setExecutiveSummary] = useState<any>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    fetchReport();
+  }, [businessId]);
+
+  // Sincronizar el estado con las propiedades del servidor al mutar (ej. borrar)
+  useEffect(() => {
+    setCompetitors(initialCompetitors);
+    // Si el competidor seleccionado ya no existe en la nueva lista, seleccionar el primero disponible
+    if (initialCompetitors.length > 0 && !initialCompetitors.some((c: any) => c.id === selectedCompetitorId)) {
+      setSelectedCompetitorId(initialCompetitors[0].id);
+    }
+  }, [initialCompetitors]);
+
+
+
+  const fetchReport = async (silent = false) => {
+    try {
+      if (!silent) {
+        setLoadingReport(true);
+      }
+      const response = await fetch(`/api/competitors/${businessId}/general-report`);
+      if (response.ok) {
+        const data = await response.json();
+        setReportData(data);
+        if (data.executiveSummary) {
+          let text = data.executiveSummary;
+          if (typeof text === 'string') {
+            let textTrimmed = text.trim();
+            if (textTrimmed.startsWith('```')) {
+              textTrimmed = textTrimmed.replace(/^```(?:json)?\s*/i, '');
+              textTrimmed = textTrimmed.replace(/\s*```$/, '');
+              textTrimmed = textTrimmed.trim();
+            }
+            if (textTrimmed.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(textTrimmed);
+                setExecutiveSummary(parsed.executiveSummary || parsed);
+              } catch (e) {
+                const parsed = extractExecutiveSummaryFromBadJson(textTrimmed);
+                setExecutiveSummary(parsed);
+              }
+            } else {
+              setExecutiveSummary(text);
+            }
+          } else {
+            setExecutiveSummary(text);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching general report:', err);
+    } finally {
+      if (!silent) {
+        setLoadingReport(false);
+      }
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    try {
+      setGeneratingReport(true);
+      const response = await fetch(`/api/competitors/${businessId}/generate-general-report`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        await fetchReport(true);
+        toast.success("¡Informe general generado con éxito!");
+      } else {
+        toast.error("Error al generar el informe general.");
+      }
+    } catch (err) {
+      console.error('Error generating report:', err);
+      toast.error("Error al generar el informe general.");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
 
   const getFlatRecommendations = (reportData: any) => {
     if (!reportData) return [];
 
-    if (Array.isArray(reportData.strategic_recommendations)) return reportData.strategic_recommendations;
-    if (Array.isArray(reportData.recommendations)) return reportData.recommendations;
+    // Si viene el objeto con el wrapper de prisma
+    let data = reportData;
+    if (reportData.data) {
+      data = typeof reportData.data === "string" ? JSON.parse(reportData.data) : reportData.data;
+      if (Array.isArray(data) && data.length > 0) {
+        data = data[0].output || data[0];
+      }
+    }
 
-    const recs = reportData.strategic_recommendations || {};
+    // Formato directo / consolidado
+    if (Array.isArray(data.strategic_recommendations)) return data.strategic_recommendations;
+    if (Array.isArray(data.recommendations)) return data.recommendations;
+    if (Array.isArray(data.contentRecs)) return data.contentRecs;
+
+    const recs = data.strategic_recommendations || {};
 
     const brandingRecs = recs.branding_recommendations || [];
     const marketingRecs = recs.marketing_recommendations || [];
@@ -147,10 +730,27 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
       ];
     }
 
-    const isNewestStructure = !!reportData.brand_identity || !!reportData.business_insights || !!reportData.website_analysis;
+    // Si tiene recomendaciones en texto o listado bajo otros nombres (ej. de Instagram o Facebook)
+    if (Array.isArray(data.marketing_insights?.content_recommendations)) {
+      return data.marketing_insights.content_recommendations;
+    }
+    if (Array.isArray(data.marketing_insights?.contentRecs)) {
+      return data.marketing_insights.contentRecs;
+    }
+    if (Array.isArray(data.content_recommendations)) {
+      return data.content_recommendations;
+    }
+    if (Array.isArray(data.strategic_recommendations)) {
+      return data.strategic_recommendations;
+    }
+    if (Array.isArray(data.recommendations)) {
+      return data.recommendations;
+    }
+
+    const isNewestStructure = !!data.brand_identity || !!data.business_insights || !!data.website_analysis;
     if (isNewestStructure) {
-      const bInsights = reportData.business_insights || {};
-      const dQuality = reportData.data_quality || {};
+      const bInsights = data.business_insights || {};
+      const dQuality = data.data_quality || {};
       const mainWeaknesses = bInsights.main_weaknesses || [];
       const missingInfo = dQuality.missing_information || [];
 
@@ -190,6 +790,17 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
       return arr;
     }
+
+    // Fallback absoluto: si no hay ninguna de las estructuras de arriba, buscar cualquier propiedad que termine en "recommendations" o "recs" y sea un array
+    for (const key in data) {
+      if (key.toLowerCase().includes("recommendation") || key.toLowerCase().includes("rec")) {
+        if (Array.isArray(data[key])) {
+          return data[key];
+        }
+      }
+    }
+
+    return [];
 
     return [];
   };
@@ -259,6 +870,166 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
     });
   });
 
+  const renderExecutiveSummaryObject = (summaryObj: any) => {
+    if (!summaryObj) return null;
+    const pg = summaryObj.panoramaGlobal || {};
+    const opGaps = summaryObj.oportunidadesGaps || {};
+    const estPos = summaryObj.estrategiaPosicionamiento || {};
+    const estCont = summaryObj.estrategiaContenidos || {};
+
+    return (
+      <div className="space-y-6">
+        {/* Resumen Ejecutivo */}
+        {pg.resumen && (
+          <div className="bg-blue-50/30 rounded-xl p-4 border border-blue-100/50">
+            <h3 className="text-xs font-bold text-blue-900 mb-1.5 uppercase tracking-wider flex items-center gap-2">
+              <Target className="h-4 w-4 text-blue-600" />
+              Resumen Ejecutivo
+            </h3>
+            <p className="text-sm text-slate-705 leading-relaxed">{pg.resumen}</p>
+          </div>
+        )}
+
+        {/* Grid de Panorama Digital */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {pg.digitalizacion && (
+            <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Digitalización</h4>
+              <p className="text-xs text-slate-705 leading-relaxed">{pg.digitalizacion}</p>
+            </div>
+          )}
+          {pg.branding && (
+            <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Branding General</h4>
+              <p className="text-xs text-slate-705 leading-relaxed">{pg.branding}</p>
+            </div>
+          )}
+          {pg.interaccion && (
+            <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Interacción y Engagement</h4>
+              <p className="text-xs text-slate-705 leading-relaxed">{pg.interaccion}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Observaciones Clave */}
+        {pg.observacionesClave && pg.observacionesClave.length > 0 && (
+          <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100">
+            <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+              <Lightbulb className="h-4 w-4 text-blue-600" />
+              Observaciones Clave del Mercado
+            </h4>
+            <ul className="space-y-1.5">
+              {pg.observacionesClave.map((o: string, i: number) => (
+                <li key={i} className="text-xs text-slate-650 flex gap-1.5 items-start">
+                  <span className="text-blue-500 mt-0.5">•</span>
+                  <span>{o}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Posicionamiento Estratégico y Propuesta de Valor */}
+        {estPos.propuestaValor && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-emerald-50/30 rounded-xl p-3.5 border border-emerald-100/50">
+              <h4 className="text-xs font-bold text-emerald-800 mb-2 flex items-center gap-1.5">
+                <Award className="h-4 w-4 text-emerald-600" />
+                Propuesta de Valor Sugerida
+              </h4>
+              <p className="text-xs text-emerald-950/80 leading-relaxed">{estPos.propuestaValor}</p>
+              {estPos.anguloComunicacion && (
+                <div className="mt-2.5 pt-2 border-t border-emerald-100/40">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Ángulo recomendado</span>
+                  <span className="text-xs text-emerald-900 font-semibold">{estPos.anguloComunicacion}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Dolores y Formatos Desatendidos */}
+            <div className="bg-rose-50/30 rounded-xl p-3.5 border border-rose-100/50">
+              <h4 className="text-xs font-bold text-rose-800 mb-2 flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-rose-600" />
+                Oportunidades de Diferenciación (Brechas)
+              </h4>
+              {opGaps.necesidadesNoResueltas && (
+                <div className="mb-2">
+                  <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Necesidades no resueltas</span>
+                  <p className="text-xs text-rose-950/80 leading-relaxed">{opGaps.necesidadesNoResueltas}</p>
+                </div>
+              )}
+              {opGaps.formatosDesatendidos && (
+                <div className="pt-2 border-t border-rose-100/40">
+                  <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Formatos desatendidos</span>
+                  <p className="text-xs text-rose-950/80 leading-relaxed">{opGaps.formatosDesatendidos}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Grid de Recomendaciones Clave y Canales */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Oportunidades de Crecimiento */}
+          {opGaps.oportunidadesCrecimiento && opGaps.oportunidadesCrecimiento.length > 0 && (
+            <div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-blue-600" />
+                Oportunidades de Crecimiento
+              </h3>
+              <div className="space-y-2">
+                {opGaps.oportunidadesCrecimiento.map((op: any, i: number) => (
+                  <div key={i} className="bg-slate-50/50 rounded-lg p-2.5 border border-slate-100 flex items-start justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{op.titulo}</span>
+                      <p className="text-xs text-slate-707 leading-relaxed">{op.accion}</p>
+                    </div>
+                    <Badge variant={op.impacto === 'Alto' ? 'default' : 'secondary'} className="text-[9px] uppercase tracking-wide px-1.5 py-0">
+                      Impacto: {op.impacto}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Frecuencia y Estrategia de Contenidos */}
+          {estCont.pilaresContenido && estCont.pilaresContenido.length > 0 && (
+            <div>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-blue-600" />
+                Pilares de Contenido Sugeridos
+              </h3>
+              <div className="bg-blue-50/10 border border-blue-100/50 rounded-xl p-3 space-y-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {estCont.pilaresContenido.map((pilar: string, i: number) => (
+                    <Badge key={i} variant="outline" className="text-xs text-blue-700 border-blue-200 bg-blue-50/20">
+                      {pilar}
+                    </Badge>
+                  ))}
+                </div>
+                {estCont.frecuenciaCanal && estCont.frecuenciaCanal.length > 0 && (
+                  <div className="pt-2.5 border-t border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Frecuencia por Canal</span>
+                    <div className="space-y-1">
+                      {estCont.frecuenciaCanal.map((freq: string, i: number) => (
+                        <div key={i} className="text-xs text-slate-650 flex gap-2">
+                          <span className="text-blue-500 font-bold">•</span>
+                          <span>{freq}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Competitors that have a completed report for the active comparison channel
   const completedCompetitors = competitors.filter(
     (c: any) => c.reportsByChannel?.[comparisonChannel]?.status === "COMPLETED" && c.reportsByChannel?.[comparisonChannel]?.data
@@ -271,6 +1042,160 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
   const isAnyAnalyzing = isAnyRequesting || isAnyPending;
 
 
+  // Lógica de navegación entre competidores
+  const handlePrevCompetitor = () => {
+    if (competitors.length === 0) return;
+    const currentIndex = competitors.findIndex((c: any) => c.id === selectedCompetitorId);
+    const prevIndex = (currentIndex - 1 + competitors.length) % competitors.length;
+    setSelectedCompetitorId(competitors[prevIndex].id);
+  };
+
+  const handleNextCompetitor = () => {
+    if (competitors.length === 0) return;
+    const currentIndex = competitors.findIndex((c: any) => c.id === selectedCompetitorId);
+    const nextIndex = (currentIndex + 1) % competitors.length;
+    setSelectedCompetitorId(competitors[nextIndex].id);
+  };
+
+  const selectedCompetitor = competitors.find((c: any) => c.id === selectedCompetitorId);
+
+  // Obtener análisis estratégico individual consolidado o generar un diagnóstico dinámico a partir de sus canales
+  const getSelectedCompetitorAnalysis = () => {
+    if (!selectedCompetitor) return null;
+
+    // Si tiene un reporte general propio del informe de IA (strategicAnalysis), usarlo directamente
+    if (selectedCompetitor.insights?.strategicAnalysis) {
+      return selectedCompetitor.insights.strategicAnalysis;
+    }
+
+    // Intentar extraer de los reportes del competidor (todos los canales posibles)
+    const channelMap: Record<string, { key: string; label: string }> = {
+      WEBSITE: { key: "WEBSITE", label: "Sitio Web" },
+      FACEBOOK: { key: "FACEBOOK", label: "Facebook" },
+      INSTAGRAM: { key: "INSTAGRAM", label: "Instagram" },
+      TIKTOK: { key: "TIKTOK", label: "TikTok" },
+      LINKEDIN: { key: "LINKEDIN", label: "LinkedIn" },
+      YOUTUBE: { key: "YOUTUBE", label: "YouTube" },
+      SEO_GOOGLE: { key: "SEO_GOOGLE", label: "SEO Google" },
+    };
+
+    const fortalezas: string[] = [];
+    const debilidades: string[] = [];
+    const recomendaciones: string[] = [];
+
+    // Procesar cada canal que tenga datos completados
+    for (const [chKey, chConfig] of Object.entries(channelMap)) {
+      const report = selectedCompetitor.reportsByChannel?.[chKey];
+      if (!report || report.status !== "COMPLETED" || !report.data) continue;
+
+      const data = normalizeReportData(report.data);
+      if (!data) continue;
+
+      const chName = chConfig.label;
+
+      // ══════════════════ FORTALEZAS ══════════════════
+      const strengthSources: any[] = [
+        data.business_insights?.main_strengths,
+        data.business_insights?.differentiators,
+        data.ux_analysis?.ux_strengths,
+        data.competitive_observations?.main_strengths,
+        data.competitive_observations?.differentiators,
+        data.competitive_insights?.strengths,
+        data.content_analysis?.top_performing_content,
+        data.content_analysis?.content_pillars,
+        data.branding_analysis?.brand_personality,
+        data.engagement_analysis?.social_proof_signals,
+        data.community_analysis?.audience_loyalty_indicators,
+        data.strengths,
+        // Instagram especifico
+        data.instagram_presence?.brand_summary ? [data.instagram_presence.brand_summary] : null,
+        // Facebook especifico
+        data.competitive_observations?.customer_perception_indicators,
+        data.products,
+        data.topics,
+      ];
+
+      for (const src of strengthSources) {
+        if (!src) continue;
+        const items = Array.isArray(src) ? src : (typeof src === "string" ? [src] : []);
+        items.slice(0, 3).forEach((item: any) => {
+          if (item && typeof item === "string" && fortalezas.length < 15) {
+            fortalezas.push(`${item} (${chName})`);
+          }
+        });
+        if (fortalezas.filter(f => f.endsWith(`(${chName})`)).length >= 3) break;
+      }
+
+      // ══════════════════ DEBILIDADES ══════════════════
+      const weaknessSources: any[] = [
+        data.business_insights?.main_weaknesses,
+        data.ux_analysis?.ux_weaknesses,
+        data.competitive_observations?.main_weaknesses,
+        data.competitive_insights?.weaknesses,
+        data.data_quality?.missing_information,
+        data.growthOps, // Facebook agregado
+        data.weaknesses,
+      ];
+
+      for (const src of weaknessSources) {
+        if (!src) continue;
+        const items = Array.isArray(src) ? src : (typeof src === "string" ? [src] : []);
+        items.slice(0, 3).forEach((item: any) => {
+          if (item && typeof item === "string" && debilidades.length < 15) {
+            debilidades.push(`${item} (${chName})`);
+          }
+        });
+        if (debilidades.filter(d => d.endsWith(`(${chName})`)).length >= 3) break;
+      }
+
+      // ══════════════════ RECOMENDACIONES ══════════════════
+      const recSources: any[] = [
+        data.strategic_recommendations,
+        data.recommendations,
+        data.contentRecs,
+        data.content_recommendations,
+        data.marketing_insights?.content_recommendations,
+        data.competitive_insights?.opportunities,
+        data.growthOps,
+      ];
+
+      for (const src of recSources) {
+        if (!src) continue;
+        const items = Array.isArray(src) ? src : (typeof src === "string" ? [src] : []);
+        items.slice(0, 3).forEach((item: any) => {
+          if (item && typeof item === "string" && recomendaciones.length < 15) {
+            recomendaciones.push(`${item} (${chName})`);
+          }
+        });
+        if (recomendaciones.filter(r => r.endsWith(`(${chName})`)).length >= 3) break;
+      }
+
+      // Fallback de recomendaciones basado en debilidades del canal
+      if (recomendaciones.filter(r => r.endsWith(`(${chName})`)).length === 0) {
+        const chanWeaks = debilidades.filter(d => d.endsWith(`(${chName})`));
+        if (chanWeaks.length > 0) {
+          recomendaciones.push(`Aprovechar las brechas detectadas en ${chName} de la competencia para diferenciarte con contenido de mayor valor. (${chName})`);
+        }
+      }
+    }
+
+    // Si no hay ninguna información de scraping real, no retornar nada
+    if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.length === 0) {
+      return null;
+    }
+
+    return {
+      desempenoCanales: fortalezas,
+      debilidadesGaps: debilidades,
+      planContramedida: recomendaciones
+    };
+  };
+
+  const strategicAnalysisIndividual = getSelectedCompetitorAnalysis();
+
+  // Filtrar tarjetas para mostrar solo las del competidor seleccionado
+  const filteredCards = cards.filter((card: any) => card.competitorId === selectedCompetitorId);
+
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
@@ -280,21 +1205,218 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
             Monitorea y compara los canales digitales de tu competencia.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href={`/competitors/general-report/${businessId}`}>
-            <Button variant="outline" className="gap-2">
-              <FileText className="h-4 w-4" /> Ver Informe General
+      </div>
+
+      {/* Consolidated AI General Report */}
+      {loadingReport ? (
+        <Card className="border-none shadow-sm bg-slate-50/50">
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-3" />
+            <p className="text-sm text-muted-foreground">Cargando informe general...</p>
+          </CardContent>
+        </Card>
+      ) : executiveSummary ? (
+        <Card className="bg-gradient-to-br from-blue-50/40 via-white to-white border-blue-100/80 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-blue-950">
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              Informe General de Competidores (IA)
+            </CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleGenerateReport}
+              disabled={generatingReport}
+              className="gap-2 text-blue-750 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:text-blue-800"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${generatingReport ? 'animate-spin' : ''}`} />
+              {generatingReport ? 'Generando...' : 'Actualizar Informe'}
             </Button>
-          </Link>
-          <Button disabled variant="outline" className="gap-2">
-            <Plus className="h-4 w-4" /> Añadir Competidor
-          </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {typeof executiveSummary === 'object' ? renderExecutiveSummaryObject(executiveSummary) : parseMarkdown(executiveSummary)}
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border border-dashed border-blue-200 bg-blue-50/10">
+          <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+            <Sparkles className="h-10 w-10 text-blue-400 mb-3 animate-pulse" />
+            <h3 className="text-md font-bold text-blue-950">Informe General no generado</h3>
+            <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-4">
+              Consolida la información de todos los canales de tus competidores para generar un informe estratégico general con inteligencia artificial.
+            </p>
+            <Button 
+              onClick={handleGenerateReport} 
+              disabled={generatingReport}
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2 text-xs"
+            >
+              {generatingReport ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generando Informe...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Generar Informe General con IA
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Subsección: Diagnóstico Particular por Competidor */}
+      <div className="pt-6 border-t border-slate-100 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2 mb-1">
+              <Compass className="h-5 w-5 text-blue-500" />
+              Diagnóstico Particular por Competidor
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Navega y visualiza el análisis específico del competidor seleccionado.
+            </p>
+          </div>
+
+          {/* Selector de Competidores con Flechas */}
+          {competitors.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-9 w-9 border-muted-foreground/20 hover:bg-muted" 
+                onClick={handlePrevCompetitor}
+              >
+                <ChevronLeft className="h-4 w-4 text-slate-700" />
+              </Button>
+              <Select 
+                value={selectedCompetitorId} 
+                onValueChange={(val) => setSelectedCompetitorId(val)}
+              >
+                <SelectTrigger className="w-[200px] h-9 font-semibold text-slate-800">
+                  <SelectValue placeholder="Competidor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {competitors.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id} className="font-medium">
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="h-9 w-9 border-muted-foreground/20 hover:bg-muted" 
+                onClick={handleNextCompetitor}
+              >
+                <ChevronRight className="h-4 w-4 text-slate-700" />
+              </Button>
+            </div>
+          )}
         </div>
+
+        {/* Renderizado de Diagnóstico Estratégico del Competidor Seleccionado */}
+        {selectedCompetitor && (
+          strategicAnalysisIndividual ? (
+            <Card className="bg-gradient-to-br from-indigo-50/20 via-white to-white border-indigo-100 shadow-sm">
+              <CardHeader className="pb-3 border-b border-indigo-100/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-md font-bold text-indigo-950 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-indigo-650" />
+                      Diagnóstico Estratégico: {selectedCompetitor.name} (IA)
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">
+                      Análisis particular del competidor e insights de posicionamiento.
+                    </CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleGenerateReport}
+                    disabled={generatingReport}
+                    className="gap-1.5 text-xs text-indigo-700 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100"
+                  >
+                    <RefreshCw className={`h-3 w-3 ${generatingReport ? 'animate-spin' : ''}`} />
+                    Actualizar Informe
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Desempeño de Canales */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Desempeño de Canales
+                  </h4>
+                  <ul className="space-y-2">
+                    {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.desempenoCanales) 
+                      ? strategicAnalysisIndividual.desempenoCanales 
+                      : []).map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                        <ChevronRight className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Debilidades e Identificación de Brechas */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-rose-500" />
+                    Debilidades e Identificación de Brechas
+                  </h4>
+                  <ul className="space-y-2">
+                    {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.debilidadesGaps) 
+                      ? strategicAnalysisIndividual.debilidadesGaps 
+                      : []).map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                        <ChevronRight className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Plan de Acción Contramedida */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                    Plan de Acción Contramedida
+                  </h4>
+                  <ul className="space-y-2">
+                    {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.planContramedida) 
+                      ? strategicAnalysisIndividual.planContramedida 
+                      : []).map((item: string, i: number) => (
+                      <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                        <ChevronRight className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border border-dashed border-slate-200 bg-slate-50/50">
+              <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                <Sparkles className="h-8 w-8 text-slate-400 mb-2 animate-pulse" />
+                <h4 className="text-sm font-bold text-slate-700">Diagnóstico Estratégico no disponible para {selectedCompetitor.name}</h4>
+                <p className="text-xs text-muted-foreground max-w-sm mt-1">
+                  Asegúrate de que este competidor tenga al menos un canal escaneado y completado para extraer fortalezas, debilidades y planes de acción contramedida automáticamente.
+                </p>
+              </CardContent>
+            </Card>
+          )
+        )}
       </div>
 
       <Tabs defaultValue="list" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="list">Tarjetas de Análisis ({cards.length})</TabsTrigger>
+          <TabsTrigger value="list">Tarjetas de Análisis ({filteredCards.length})</TabsTrigger>
           <TabsTrigger value="comparison" disabled={completedCompetitors.length === 0 || !activeMyAnalysis}>
             Tabla Comparativa
           </TabsTrigger>
@@ -302,7 +1424,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
         <TabsContent value="list" className="space-y-4">
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {cards.length === 0 ? (
+            {filteredCards.length === 0 ? (
               <Card className="col-span-full">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed rounded-xl mt-6">
                   <Globe className="h-12 w-12 text-muted-foreground mb-4" />
@@ -313,302 +1435,424 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                 </CardContent>
               </Card>
             ) : (
-              cards.map((card: any, idx: number) => {
+              filteredCards.map((card: any, idx: number) => {
                 const report = card.report;
                 const isPending = report?.status === "PENDING" || report?.status === "PROCESSING";
                 const isRequesting = requestingIdChannel === `${card.competitorId}_${card.channel}`;
-                const ChannelIcon = card.icon;
                 const isCompleted = report?.status === "COMPLETED" && report?.data;
+                const isError = report?.status === "ERROR";
+                const theme = getPlatformTheme(card.channel);
 
-                // Channel accent colors
-                const accentMap: Record<string, { bar: string; iconBg: string; iconText: string }> = {
-                  WEBSITE: { bar: "bg-gradient-to-r from-blue-500 to-cyan-400", iconBg: "bg-blue-500/10", iconText: "text-blue-600" },
-                  FACEBOOK: { bar: "bg-gradient-to-r from-blue-600 to-blue-400", iconBg: "bg-blue-600/10", iconText: "text-blue-700" },
-                  INSTAGRAM: { bar: "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400", iconBg: "bg-pink-500/10", iconText: "text-pink-600" },
-                  TIKTOK: { bar: "bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500 dark:from-white dark:via-gray-300 dark:to-gray-500", iconBg: "bg-gray-900/10 dark:bg-white/10", iconText: "text-gray-900 dark:text-white" },
-                  LINKEDIN: { bar: "bg-gradient-to-r from-blue-700 to-blue-500", iconBg: "bg-blue-700/10", iconText: "text-blue-800" },
-                  YOUTUBE: { bar: "bg-gradient-to-r from-red-600 to-red-400", iconBg: "bg-red-600/10", iconText: "text-red-700" },
-                  SEO_GOOGLE: { bar: "bg-gradient-to-r from-green-600 to-emerald-400", iconBg: "bg-green-600/10", iconText: "text-green-700" },
-                };
-                const accent = accentMap[card.channel] || accentMap.WEBSITE;
+                // Normalize data
+                let dataObj: any = null;
+                if (report?.data) {
+                  dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
+                  if (Array.isArray(dataObj) && dataObj.length > 0) {
+                    dataObj = dataObj[0].output || dataObj[0];
+                  }
+                }
+
+                // TikTok specific metrics extraction
+                let tiktokFollowers = "N/D";
+                let tiktokLikes = "N/D";
+                let tiktokVideos = "N/D";
+                let tiktokAverageViews = "N/D";
+                let tiktokUsername = "N/D";
+
+                if (card.channel === "TIKTOK" && isCompleted) {
+                  const seoSignals = dataObj?.seo_signals || dataObj?.marketing_signals?.seo_signals;
+                  if (Array.isArray(seoSignals)) {
+                    seoSignals.forEach((signal: string) => {
+                      const sigLower = signal.toLowerCase();
+                      if (sigLower.includes("seguidor")) {
+                        const parts = signal.split(":");
+                        tiktokFollowers = parts.length > 1 ? parts[1].trim() : signal;
+                      } else if (sigLower.includes("me gusta")) {
+                        const parts = signal.split(":");
+                        tiktokLikes = parts.length > 1 ? parts[1].trim() : signal;
+                      } else if (sigLower.includes("video") || sigLower.includes("publica")) {
+                        const parts = signal.split(":");
+                        tiktokVideos = parts.length > 1 ? parts[1].trim() : signal;
+                      } else if (sigLower.includes("visualiza") || sigLower.includes("promedio")) {
+                        const parts = signal.split(":");
+                        tiktokAverageViews = parts.length > 1 ? parts[1].trim() : signal;
+                      }
+                    });
+                  }
+
+                  if (dataObj?.tiktok_presence) {
+                    if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.tiktok_presence.followers?.toString() || "N/D";
+                    if (tiktokLikes === "N/D") tiktokLikes = dataObj.tiktok_presence.likes?.toString() || "N/D";
+                    if (tiktokVideos === "N/D") tiktokVideos = dataObj.tiktok_presence.videos_count?.toString() || "N/D";
+                    tiktokUsername = dataObj.tiktok_presence.username || "N/D";
+                  }
+
+                  if (dataObj?.profile) {
+                    if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.profile.followers !== undefined ? dataObj.profile.followers.toLocaleString() : "N/D";
+                    if (tiktokLikes === "N/D") tiktokLikes = dataObj.profile.total_likes !== undefined ? dataObj.profile.total_likes.toLocaleString() : "N/D";
+                    if (tiktokVideos === "N/D") tiktokVideos = dataObj.profile.total_videos !== undefined ? dataObj.profile.total_videos.toLocaleString() : "N/D";
+                    if (tiktokUsername === "N/D") tiktokUsername = dataObj.profile.username || "N/D";
+                  }
+
+                  if (dataObj?.engagement) {
+                    if (tiktokAverageViews === "N/D") tiktokAverageViews = dataObj.engagement.views !== undefined ? dataObj.engagement.views.toLocaleString() : "N/D";
+                  }
+
+                  if (tiktokFollowers === "N/D" || tiktokLikes === "N/D" || tiktokVideos === "N/D" || tiktokUsername === "N/D") {
+                    const rawData = report?.data ? (typeof report.data === "string" ? JSON.parse(report.data) : report.data) : null;
+                    const firstItem = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : null;
+                    const author = dataObj?.authorMeta || firstItem?.authorMeta;
+                    if (author) {
+                      if (tiktokFollowers === "N/D") tiktokFollowers = author.fans !== undefined ? author.fans.toLocaleString() : "N/D";
+                      if (tiktokLikes === "N/D") tiktokLikes = author.heart !== undefined ? author.heart.toLocaleString() : "N/D";
+                      if (tiktokVideos === "N/D") tiktokVideos = author.video !== undefined ? author.video.toLocaleString() : "N/D";
+                      if (tiktokUsername === "N/D") tiktokUsername = author.name || author.nickName || "N/D";
+                    }
+                  }
+                }
+
+                const isInstagramStructure = !!dataObj?.instagram_presence || !!dataObj?.engagement_analysis || !!dataObj?.content_analysis;
+                const isFacebookStructure = !!dataObj?.social_intelligence || !!dataObj?.facebook_presence || !!dataObj?.brand_positioning || !!dataObj?.strategic_diagnostics;
+                const isWebsiteStructure = !!dataObj?.brand_identity || !!dataObj?.website_analysis || !!dataObj?.business_insights;
+                const isConsolidatedStructure = !!dataObj?.marketPosition || !!dataObj?.executiveSummary || !!dataObj?.strategicRecommendations;
+
+                // Extract Instagram specific data
+                const socialPresence = dataObj?.instagram_presence || {};
+                const engagement = dataObj?.engagement_analysis || {};
+                const compObs = dataObj?.competitive_observations || {};
+
+                // Extract Website/Consolidated preview metrics
+                let positionVal = "N/D";
+                let advantageVal = "N/D";
+                let gapVal = "N/D";
+                let priorityVal = "N/D";
+
+                if (isWebsiteStructure) {
+                  positionVal = dataObj?.brand_identity?.market_positioning || dataObj?.brand_identity?.brand_summary || "N/D";
+                  advantageVal = dataObj?.business_insights?.differentiators?.[0] || dataObj?.business_insights?.main_strengths?.[0] || "N/D";
+                  gapVal = dataObj?.business_insights?.product_or_service_focus?.[0] || dataObj?.website_analysis?.content_focus?.[0] || "N/D";
+                  priorityVal = dataObj?.data_quality?.confidence_score ? `Confianza: ${Math.round(dataObj.data_quality.confidence_score * 100)}%` : "Alta";
+                } else if (isConsolidatedStructure) {
+                  positionVal = dataObj?.marketPosition?.currentPosition || "N/D";
+                  advantageVal = dataObj?.marketPosition?.competitiveAdvantage || "N/D";
+                  gapVal = dataObj?.marketPosition?.marketGap || "N/D";
+                  priorityVal = dataObj?.channelStrategy?.channelPriorities?.WEBSITE ? `Prioridad Web: ${dataObj.channelStrategy.channelPriorities.WEBSITE}` : "Alta";
+                }
 
                 return (
-                  <Card
-                    key={idx}
-                    className="group flex flex-col overflow-hidden border border-border/60 hover:border-primary/30 transition-all duration-300 shadow-sm hover:shadow-md"
-                  >
-                    {/* Colored accent bar */}
-                    <div className={`h-1 w-full ${accent.bar} shrink-0`} />
-
-                    {/* Header */}
-                    <CardHeader className="pb-2 pt-4 px-5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`flex items-center justify-center h-10 w-10 rounded-xl ${accent.iconBg} shrink-0 transition-transform duration-300 group-hover:scale-105`}>
-                            <ChannelIcon className={`h-5 w-5 ${accent.iconText}`} />
+                  <Card key={idx} className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-opacity-50 flex flex-col justify-between overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2 min-w-0">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className={`p-2.5 rounded-xl ${theme.gradient} ${theme.border} border shrink-0`}>
+                            <card.icon className={`h-5 w-5 ${theme.text}`} />
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70 leading-none mb-1">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/85 leading-none mb-1">
                               {card.competitorName}
                             </p>
-                            <CardTitle className="text-base font-bold leading-tight">
-                              {card.label}
+                            <CardTitle className="text-base font-bold flex items-center gap-1">
+                              <span className="truncate">{card.label}</span>
+                              {isCompleted && (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
+                              )}
                             </CardTitle>
+                            {card.url ? (
+                              <a
+                                href={card.url.startsWith("http") ? card.url : `https://${card.url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-muted-foreground mt-0.5 hover:text-primary hover:underline cursor-pointer transition-colors block truncate max-w-full"
+                                title={card.url}
+                              >
+                                {card.url}
+                              </a>
+                            ) : (
+                              <span className="text-xs text-muted-foreground mt-0.5 block">N/D</span>
+                            )}
                           </div>
                         </div>
-                        {report && <StatusBadge status={report.status} />}
+                        <Badge 
+                          variant={isCompleted ? "secondary" : isPending ? "secondary" : isError ? "destructive" : "outline"}
+                          className={`${isCompleted ? `${theme.gradient} ${theme.text} border ${theme.border}` : ""} pointer-events-none shrink-0 text-[10px] px-2 py-0.5`}
+                        >
+                          {isPending || isRequesting ? (
+                            <>
+                              <Loader2 className="h-2.5 w-2.5 mr-1 animate-spin" />
+                              Analizando
+                            </>
+                          ) : isCompleted ? (
+                            "Completado"
+                          ) : isError ? (
+                            "Error"
+                          ) : (
+                            "Pendiente"
+                          )}
+                        </Badge>
                       </div>
-                      <a
-                        href={card.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] text-blue-500 hover:text-blue-600 hover:underline truncate block mt-2 transition-colors"
-                        title={card.url}
-                      >
-                        {card.url}
-                      </a>
                     </CardHeader>
 
-                    {/* Content */}
-                    <CardContent className="flex-1 px-5 py-3">
-                      {!report ? (
-                        <div className="flex flex-col items-center justify-center py-10 text-center">
-                          <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                            <Sparkles className="h-5 w-5 text-muted-foreground/40" />
+                    <CardContent className="space-y-4 flex-1 min-w-0">
+                      {card.channel === "TIKTOK" && isCompleted ? (
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Users className={`h-4 w-4 ${theme.text}`} />
+                              <span>Seguidores</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2" title={tiktokFollowers}>{tiktokFollowers}</span>
                           </div>
-                          <p className="text-xs font-medium text-muted-foreground">Aún no hay análisis para este canal.</p>
-                          <p className="text-[10px] text-muted-foreground/50 mt-1">Solicita un nuevo análisis para comenzar.</p>
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Heart className={`h-4 w-4 ${theme.text}`} />
+                              <span>Likes totales</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2" title={tiktokLikes}>{tiktokLikes}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Activity className={`h-4 w-4 ${theme.text}`} />
+                              <span>Engagement</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right capitalize truncate flex-1 min-w-0 ml-2" title={dataObj?.engagement?.engagement_level || "N/D"}>
+                              {dataObj?.engagement?.engagement_level || "N/D"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Globe className={`h-4 w-4 ${theme.text}`} />
+                              <span>Enlaces</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right text-xs truncate flex-1 min-w-0 ml-2">
+                              {(() => {
+                                const web = dataObj?.business_signals?.website_present;
+                                const wa = dataObj?.business_signals?.whatsapp_present;
+                                if (web && wa) return "Web y WhatsApp";
+                                if (web) return "Solo Web";
+                                if (wa) return "Solo WhatsApp";
+                                return "Ninguno";
+                              })()}
+                            </span>
+                          </div>
                         </div>
-                      ) : isCompleted ? (() => {
-                        let dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
-                        
-                        // Handle new array structure with output field
-                        if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-                          dataObj = dataObj[0].output;
-                        }
-                        
-                        const socialPresence = dataObj.facebook_presence || dataObj.instagram_presence || dataObj.tiktok_presence || {};
-                        const branding = dataObj.branding_analysis || {};
-                        const bizSignals = dataObj.business_intelligence || dataObj.business_signals || {};
-                        const compObs = dataObj.competitive_observations || {};
-                        const communityAnalysis = dataObj.community_analysis || {};
-                        const reputationAnalysis = dataObj.reputation_analysis || {};
-                        const engagement = dataObj.engagement_analysis || {};
+                      ) : isFacebookStructure && isCompleted ? (
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Users className={`h-4 w-4 ${theme.text}`} />
+                              <span>Seguidores</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2">
+                              {(() => {
+                                const presence = dataObj?.facebook_presence || {};
+                                const metrics = presence.audience_metrics || {};
+                                return formatSocialMetric(metrics.followers ?? metrics.likes ?? dataObj?.social_intelligence?.audience_size);
+                              })()}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Activity className={`h-4 w-4 ${theme.text}`} />
+                              <span>Actividad (Talking)</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2">
+                              {(() => {
+                                const presence = dataObj?.facebook_presence || {};
+                                const metrics = presence.audience_metrics || {};
+                                return formatSocialMetric(metrics.talking_about_count ?? dataObj?.social_intelligence?.engagement_level);
+                              })()}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Briefcase className={`h-4 w-4 ${theme.text}`} />
+                              <span>Categoría</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2" title={dataObj?.facebook_presence?.business_category || dataObj?.brand_positioning?.niche || "N/D"}>
+                              {dataObj?.facebook_presence?.business_category || dataObj?.brand_positioning?.niche || "N/D"}
+                            </span>
+                          </div>
+                        </div>
+                      ) : isInstagramStructure && isCompleted ? (() => {
+                        const followers = (() => {
+                          const visibility = compObs.visibility_indicators;
+                          const socialProof = engagement.social_proof_signals;
+                          
+                          if (visibility && Array.isArray(visibility)) {
+                            for (const indicator of visibility) {
+                              if (typeof indicator === 'string' && indicator.toLowerCase().includes('seguidor')) {
+                                const match = indicator.match(/[\d.]+[KkMm]?/);
+                                if (match) return match[0];
+                              }
+                            }
+                          }
+                          
+                          if (socialProof && Array.isArray(socialProof)) {
+                            for (const signal of socialProof) {
+                                if (typeof signal === 'string' && signal.toLowerCase().includes('seguidor')) {
+                                  const match = signal.match(/[\d.]+[KkMm]?/);
+                                  if (match) return match[0];
+                                }
+                            }
+                          }
+                          
+                          return socialPresence.audience_size?.followers;
+                        })();
 
-                        // Facebook-specific data extraction
-                        const audienceMetrics = socialPresence.audience_metrics || {};
-                        const likes = formatSocialMetric(audienceMetrics.likes);
-                        const followers = formatSocialMetric(audienceMetrics.followers);
-                        const talkingAbout = formatSocialMetric(audienceMetrics.talking_about_count);
-                        const totalReviews = formatSocialMetric(reputationAnalysis.total_reviews);
-                        const recommendationPercentage = reputationAnalysis.recommendation_percentage;
-                        const businessCategory = socialPresence.business_category;
-                        const brandName = socialPresence.brand_name;
+                        const posts = socialPresence.audience_size?.posts_count || dataObj.instagram_presence?.audience_size?.posts_count;
+                        const following = socialPresence.audience_size?.following || dataObj.instagram_presence?.audience_size?.following;
+                        const engagementLevel = dataObj?.engagement_analysis?.engagement_level || 
+                                                dataObj?.engagement_analysis?.current_activity_level || 
+                                                dataObj?.community_analysis?.current_activity_level;
 
-                        const positioning = socialPresence.brand_summary
-                          || (branding.brand_positioning_indicators && branding.brand_positioning_indicators.length > 0 ? branding.brand_positioning_indicators[0] : null)
-                          || (businessCategory ? `${card.label} de categoría ${businessCategory}` : null)
-                          || (bizSignals.platform_usage_maturity && bizSignals.platform_usage_maturity.length > 0 ? bizSignals.platform_usage_maturity[0] : null)
-                          || dataObj.brand_identity?.market_positioning
-                          || dataObj.competitor_overview?.market_positioning
-                          || dataObj.market_positioning
-                          || dataObj.metaDescription
-                          || "Canal social activo con análisis de presencia y engagement.";
+                        const branding = dataObj?.branding_analysis || {};
+                        const brandPersonality = branding.brand_personality || [];
+                        const emotionalTone = branding.emotional_tone || [];
+                        const category = socialPresence.business_category || socialPresence.business_category_name || dataObj?.instagram_presence?.business_category;
 
-                        const rawStrengths = compObs.main_strengths
-                          || dataObj.business_insights?.main_strengths
-                          || dataObj.ux_analysis?.ux_strengths
-                          || dataObj.competitive_insights?.main_strengths
-                          || dataObj.strengths
-                          || dataObj.products
-                          || [];
-                        const strengths = Array.isArray(rawStrengths) ? rawStrengths : [rawStrengths];
-
-                        const rawWeaknesses = compObs.main_weaknesses
-                          || dataObj.business_insights?.main_weaknesses
-                          || dataObj.ux_analysis?.ux_weaknesses
-                          || dataObj.competitive_insights?.main_weaknesses
-                          || dataObj.weaknesses
-                          || dataObj.promotions
-                          || [];
-                        const weaknesses = Array.isArray(rawWeaknesses) ? rawWeaknesses : [rawWeaknesses];
-
-                        // Check if this is Facebook with the new structure
-                        const isFacebookNewStructure = card.channel === "FACEBOOK" && (socialPresence.brand_name || socialPresence.audience_metrics);
-                        
-                        // Check if this is Instagram with the new structure
-                        const isInstagramNewStructure = card.channel === "INSTAGRAM" && (socialPresence.brand_name || socialPresence.audience_size);
-                        
-                        // Instagram-specific data extraction
-                        const instaAudienceSize = socialPresence.audience_size || {};
-                        const instaFollowers = formatSocialMetric(instaAudienceSize.followers) || 
-                                               (engagement.social_proof_signals?.[0]?.match(/[\d.]+[KkMm]?/)?.[0] || 'N/D');
-                        const instaPosts = formatSocialMetric(instaAudienceSize.posts_count) || 'N/D';
-                        const instaFollowing = formatSocialMetric(instaAudienceSize.following) || 'N/D';
-                        const visibilityIndicators = compObs.visibility_indicators || [];
-                        const instaVisibility = visibilityIndicators.join(', ') || 'No disponible';
+                        const hasFollowers = followers !== undefined && followers !== null && followers !== "" && followers !== "N/D" && followers !== "N/A";
+                        const hasPosts = posts !== undefined && posts !== null && posts !== "" && posts !== "N/D" && followers !== "N/A";
+                        const hasFollowing = following !== undefined && following !== null && following !== "" && following !== "N/D" && followers !== "N/A";
+                        const hasEngagement = engagementLevel !== undefined && engagementLevel !== null && engagementLevel !== "" && engagementLevel !== "N/D" && followers !== "N/A";
 
                         return (
-                          <div className="space-y-3">
-                            {/* Instagram-specific metrics */}
-                            {isInstagramNewStructure && (
-                              <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div className="bg-pink-50/50 dark:bg-pink-950/20 rounded-lg p-2 border border-pink-100 dark:border-pink-900/30">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Users className="h-3 w-3 text-pink-600" />
-                                    <span className="text-[9px] font-semibold text-pink-700 dark:text-pink-400 uppercase">Seguidores</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-pink-900 dark:text-pink-100">{instaFollowers}</p>
+                          <div className="space-y-2.5">
+                            {hasFollowers && (
+                              <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <Users className={`h-4 w-4 ${theme.text}`} />
+                                  <span>Seguidores</span>
                                 </div>
-                                <div className="bg-purple-50/50 dark:bg-purple-950/20 rounded-lg p-2 border border-purple-100 dark:border-purple-900/30">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <FileText className="h-3 w-3 text-purple-600" />
-                                    <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-400 uppercase">Publicaciones</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-purple-900 dark:text-purple-100">{instaPosts}</p>
-                                </div>
+                                <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2">{formatSocialMetric(followers)}</span>
                               </div>
                             )}
-
-                            {/* Facebook-specific metrics */}
-                            {isFacebookNewStructure && (
-                              <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-lg p-2 border border-blue-100 dark:border-blue-900/30">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <ThumbsUp className="h-3 w-3 text-blue-600" />
-                                    <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-400 uppercase">Likes</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-blue-900 dark:text-blue-100">{likes}</p>
+                            {hasPosts && (
+                              <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <FileText className={`h-4 w-4 ${theme.text}`} />
+                                  <span>Publicaciones</span>
                                 </div>
-                                <div className="bg-purple-50/50 dark:bg-purple-950/20 rounded-lg p-2 border border-purple-100 dark:border-purple-900/30">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Users className="h-3 w-3 text-purple-600" />
-                                    <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-400 uppercase">Seguidores</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-purple-900 dark:text-purple-100">{followers}</p>
-                                </div>
-                                <div className="bg-green-50/50 dark:bg-green-950/20 rounded-lg p-2 border border-green-100 dark:border-green-900/30">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <MessageSquare className="h-3 w-3 text-green-600" />
-                                    <span className="text-[9px] font-semibold text-green-700 dark:text-green-400 uppercase">Hablan</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-green-900 dark:text-green-100">{talkingAbout}</p>
-                                </div>
-                                <div className="bg-orange-50/50 dark:bg-orange-950/20 rounded-lg p-2 border border-orange-100 dark:border-orange-900/30">
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <Star className="h-3 w-3 text-orange-600" />
-                                    <span className="text-[9px] font-semibold text-orange-700 dark:text-orange-400 uppercase">Reseñas</span>
-                                  </div>
-                                  <p className="text-sm font-bold text-orange-900 dark:text-orange-100">{totalReviews}</p>
-                                </div>
+                                <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2">{posts}</span>
                               </div>
                             )}
-
-                            {/* Positioning quote */}
-                            <div
-                              className="relative bg-muted/30 dark:bg-muted/20 rounded-lg px-3 py-2.5 border border-border/50"
-                              title={positioning}
-                            >
-                              <span className="absolute -top-1.5 left-2.5 text-lg leading-none text-muted-foreground/30 font-serif">"</span>
-                              <p className="text-[11px] text-muted-foreground italic leading-relaxed line-clamp-2 pl-2">
-                                {positioning}
-                              </p>
-                            </div>
-
-                            {/* Instagram-specific visibility indicators */}
-                            {isInstagramNewStructure && instaVisibility && (
-                              <div className="flex items-start gap-2 bg-pink-50/50 dark:bg-pink-950/20 rounded-lg px-3 py-2 border border-pink-100 dark:border-pink-900/30">
-                                <Eye className="h-4 w-4 text-pink-600 shrink-0 mt-0.5" />
-                                <div className="min-w-0">
-                                  <p className="text-[10px] font-semibold text-pink-700 dark:text-pink-400 uppercase">Visibilidad</p>
-                                  <p className="text-xs text-pink-900 dark:text-pink-100 line-clamp-2">{instaVisibility}</p>
+                            {hasFollowing && (
+                              <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <Users className={`h-4 w-4 ${theme.text}`} />
+                                  <span>Siguiendo</span>
                                 </div>
+                                <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2">{following}</span>
                               </div>
                             )}
-
-                            {/* Facebook-specific recommendation percentage */}
-                            {isFacebookNewStructure && recommendationPercentage && (
-                              <div className="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-2 border border-emerald-100 dark:border-emerald-900/30">
-                                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                                <div>
-                                  <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 uppercase">Recomendación</p>
-                                  <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">{recommendationPercentage}%</p>
+                            {hasEngagement && (
+                              <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <Activity className={`h-4 w-4 ${theme.text}`} />
+                                  <span>Engagement</span>
                                 </div>
+                                <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2">{engagementLevel}</span>
                               </div>
                             )}
-
-                            {/* Strengths */}
-                            {strengths.length > 0 && (
-                              <div>
-                                <div className="flex items-center gap-1.5 mb-1.5">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                  <span className="font-bold text-[10px] uppercase tracking-widest text-emerald-600">
-                                    Fortalezas
-                                  </span>
-                                  <span className="text-[9px] text-muted-foreground/50 font-medium">
-                                    ({strengths.length})
-                                  </span>
+                            {category && (
+                              <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <Briefcase className={`h-4 w-4 ${theme.text}`} />
+                                  <span>Categoría</span>
                                 </div>
-                                <ul className="space-y-1 pl-0.5">
-                                  {strengths.slice(0, 3).map((p: string, i: number) => (
-                                    <li
-                                      key={i}
-                                      className="flex items-start gap-1.5 text-[11px] text-muted-foreground leading-snug"
-                                      title={p}
-                                    >
-                                      <ChevronRight className="h-3 w-3 text-emerald-500/60 shrink-0 mt-0.5" />
-                                      <span className="line-clamp-1">{p}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2" title={category}>{category}</span>
                               </div>
                             )}
-
-                            {/* Weaknesses */}
-                            {weaknesses.length > 0 && (
-                              <div>
-                                <div className="flex items-center gap-1.5 mb-1.5">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0" />
-                                  <span className="font-bold text-[10px] uppercase tracking-widest text-orange-600">
-                                    Debilidades
-                                  </span>
-                                  <span className="text-[9px] text-muted-foreground/50 font-medium">
-                                    ({weaknesses.length})
-                                  </span>
+                            {brandPersonality && brandPersonality.length > 0 && (
+                              <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <Sparkles className={`h-4 w-4 ${theme.text}`} />
+                                  <span>Personalidad</span>
                                 </div>
-                                <ul className="space-y-1 pl-0.5">
-                                  {weaknesses.slice(0, 2).map((p: string, i: number) => (
-                                    <li
-                                      key={i}
-                                      className="flex items-start gap-1.5 text-[11px] text-muted-foreground leading-snug"
-                                      title={p}
-                                    >
-                                      <ChevronRight className="h-3 w-3 text-orange-500/60 shrink-0 mt-0.5" />
-                                      <span className="line-clamp-1">{p}</span>
-                                    </li>
-                                  ))}
-                                </ul>
+                                <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2" title={brandPersonality.join(", ")}>
+                                  {brandPersonality.slice(0, 2).join(", ")}
+                                </span>
+                              </div>
+                            )}
+                            {emotionalTone && emotionalTone.length > 0 && (
+                              <div className="flex items-center justify-between text-sm gap-3 min-w-0">
+                                <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                                  <Smile className={`h-4 w-4 ${theme.text}`} />
+                                  <span>Tono Emocional</span>
+                                </div>
+                                <span className="font-semibold text-foreground text-right truncate flex-1 min-w-0 ml-2" title={emotionalTone.join(", ")}>
+                                  {emotionalTone.slice(0, 2).join(", ")}
+                                </span>
                               </div>
                             )}
                           </div>
                         );
-                      })() : report.status === "ERROR" ? (
-                        <div className="flex items-start gap-2.5 text-xs text-red-600 dark:text-red-400 bg-red-500/5 p-3 rounded-lg border border-red-500/10">
-                          <div className="h-5 w-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-[10px] font-bold">!</span>
+                      })() : (isWebsiteStructure || isConsolidatedStructure) && isCompleted ? (
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Compass className={`h-4 w-4 ${theme.text}`} />
+                              <span>Posición</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right text-xs truncate flex-1 min-w-0 ml-2" title={positionVal}>
+                              {positionVal}
+                            </span>
                           </div>
-                          <p className="leading-relaxed">{report.error || "Ocurrió un error inesperado al analizar este canal."}</p>
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Award className={`h-4 w-4 ${theme.text}`} />
+                              <span>Ventaja</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right text-xs truncate flex-1 min-w-0 ml-2" title={advantageVal}>
+                              {advantageVal}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm pb-1.5 border-b border-border/40 gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Target className={`h-4 w-4 ${theme.text}`} />
+                              <span>Enfoque / Brecha</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right text-xs truncate flex-1 min-w-0 ml-2" title={gapVal}>
+                              {gapVal}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm gap-3 min-w-0">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0">
+                              <Zap className={`h-4 w-4 ${theme.text}`} />
+                              <span>Estado / Confianza</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right text-xs truncate flex-1 min-w-0 ml-2" title={priorityVal}>
+                              {priorityVal}
+                            </span>
+                          </div>
+                        </div>
+                      ) : isCompleted && dataObj ? (
+                        <div className="space-y-2">
+                          {dataObj.market_positioning && (
+                            <div className="bg-muted/30 rounded p-2 text-sm">
+                              <p className="text-xs text-muted-foreground mb-1">Posicionamiento</p>
+                              <p className="font-medium line-clamp-2">{dataObj.market_positioning}</p>
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center py-10 gap-2">
-                          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                          <span className="text-xs text-muted-foreground font-medium">Análisis en progreso...</span>
+                        <div className="text-center py-4 text-muted-foreground text-sm">
+                          {isPending || isRequesting ? (
+                            <p className="text-xs text-slate-400 py-2">
+                              Obteniendo datos del canal en segundo plano...
+                            </p>
+                          ) : isError ? (
+                            <div className="flex items-center justify-center gap-2 text-red-500">
+                              <AlertCircle className="h-4 w-4" />
+                              <span>Error en el análisis</span>
+                            </div>
+                          ) : (
+                            <span>Sin análisis aún</span>
+                          )}
                         </div>
                       )}
                     </CardContent>
 
-                    {/* Footer */}
-                    <CardFooter className="px-5 py-3 border-t border-border/40 bg-muted/20 dark:bg-muted/10 flex gap-2 mt-auto">
+                    <CardFooter className="pt-0 flex gap-2">
                       {isCompleted && (
                         <Button
                           onClick={() => setSelectedReport(report)}
@@ -643,133 +1887,170 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
         </TabsContent>
 
         <TabsContent value="comparison" className="space-y-4">
-          <Card className="border border-muted/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <Card className="border border-indigo-100 dark:border-indigo-950/40 shadow-sm overflow-hidden bg-white dark:bg-slate-900">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0 pb-6 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <CardTitle>Yo vs Competencia</CardTitle>
-                <CardDescription>
-                  Comparativa de presencia e impacto de marketing.
+                <CardTitle className="text-xl font-bold flex items-center gap-2 text-indigo-950 dark:text-white">
+                  <Sparkles className="h-5 w-5 text-indigo-650" />
+                  Yo vs Competencia
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1">
+                  Comparativa directa de posicionamiento, fortalezas y recomendaciones estratégicas.
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground font-medium">Comparar Canal:</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Canal:</span>
                 <Select value={comparisonChannel} onValueChange={setComparisonChannel}>
-                  <SelectTrigger className="w-[180px] h-9">
+                  <SelectTrigger className="w-[180px] h-9 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-200">
                     <SelectValue placeholder="Selecciona canal" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="WEBSITE">Sitio Web</SelectItem>
-                    <SelectItem value="FACEBOOK">Facebook</SelectItem>
-                    <SelectItem value="INSTAGRAM">Instagram</SelectItem>
-                    <SelectItem value="TIKTOK">TikTok</SelectItem>
+                    <SelectItem value="WEBSITE" className="font-medium">Sitio Web</SelectItem>
+                    <SelectItem value="FACEBOOK" className="font-medium">Facebook</SelectItem>
+                    <SelectItem value="INSTAGRAM" className="font-medium">Instagram</SelectItem>
+                    <SelectItem value="TIKTOK" className="font-medium">TikTok</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 overflow-x-auto">
               {completedCompetitors.length === 0 || !activeMyAnalysis ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Sparkles className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-sm">No hay análisis suficientes completados para comparar en {comparisonChannel}.</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Asegúrate de que tanto tu negocio como al menos un competidor tengan análisis listos para este canal.</p>
+                <div className="text-center py-16 text-muted-foreground">
+                  <Sparkles className="h-10 w-10 text-indigo-300 mx-auto mb-3 animate-pulse" />
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-350">Análisis comparativo no disponible para {comparisonChannel}</p>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-2 leading-relaxed">
+                    Asegúrate de que tanto tu negocio como al menos uno de tus competidores tengan análisis marcados como 'Completado' en este canal.
+                  </p>
                 </div>
               ) : (
-                <Table>
+                <Table className="w-full min-w-[700px] border-collapse">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[200px]">Métrica / Aspecto</TableHead>
-                      <TableHead className="font-bold text-primary bg-primary/5 rounded-t-lg">Mi Negocio</TableHead>
+                    <TableRow className="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-50/70 border-b border-slate-100 dark:border-slate-800">
+                      <TableHead className="w-[220px] font-bold text-xs uppercase tracking-wider text-slate-500 py-4 pl-6">Métrica / Aspecto</TableHead>
+                      <TableHead className="font-extrabold text-sm text-indigo-700 bg-indigo-50/20 dark:bg-indigo-950/20 dark:text-indigo-400 py-4 px-4 border-x border-slate-100/40 dark:border-slate-800/40">
+                        <div className="flex items-center gap-1.5 justify-center">
+                          <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+                          Mi Negocio
+                        </div>
+                      </TableHead>
                       {completedCompetitors.map((c: any) => (
-                        <TableHead key={c.id}>{c.name}</TableHead>
+                        <TableHead key={c.id} className="font-bold text-sm text-slate-800 dark:text-slate-100 py-4 px-4 text-center">{c.name}</TableHead>
                       ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow>
-                      <TableCell className="font-semibold text-xs uppercase tracking-wider text-muted-foreground align-top">Posicionamiento</TableCell>
-                      <TableCell className="align-top bg-primary/5 text-xs font-medium">
-                        {activeMyAnalysis?.data?.brand_identity?.market_positioning || activeMyAnalysis?.data?.competitor_overview?.market_positioning || activeMyAnalysis?.data?.market_positioning || activeMyAnalysis?.data?.title || "N/A"}
+                    {/* Posicionamiento */}
+                    <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
+                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Posicionamiento</TableCell>
+                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 text-xs font-semibold text-indigo-950 dark:text-indigo-300 py-5 px-4 leading-relaxed border-x border-slate-105/20 text-center">
+                        {activeMyAnalysis?.data?.brand_identity?.market_positioning || activeMyAnalysis?.data?.competitor_overview?.market_positioning || activeMyAnalysis?.data?.market_positioning || activeMyAnalysis?.data?.title || "No disponible"}
                       </TableCell>
                       {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top text-xs">
-                          {c.reportsByChannel?.[comparisonChannel]?.data?.brand_identity?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.competitor_overview?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.title || "N/A"}
+                        <TableCell key={c.id} className="align-top text-xs py-5 px-4 text-slate-700 dark:text-slate-300 leading-relaxed text-center font-medium">
+                          {c.reportsByChannel?.[comparisonChannel]?.data?.brand_identity?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.competitor_overview?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.title || "No disponible"}
                         </TableCell>
                       ))}
                     </TableRow>
-                    <TableRow>
-                      <TableCell className="font-semibold text-xs uppercase tracking-wider text-muted-foreground align-top">Fortalezas / Productos</TableCell>
-                      <TableCell className="align-top bg-primary/5">
+                    
+                    {/* Fortalezas */}
+                    <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
+                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Fortalezas / Productos</TableCell>
+                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-105/20">
                         {(() => {
                           const raw = activeMyAnalysis?.data?.business_insights?.main_strengths || activeMyAnalysis?.data?.ux_analysis?.ux_strengths || activeMyAnalysis?.data?.competitive_insights?.main_strengths || activeMyAnalysis?.data?.strengths || activeMyAnalysis?.data?.products || [];
                           const list = Array.isArray(raw) ? raw : [raw];
                           return (
-                            <ul className="list-disc pl-4 text-xs text-emerald-600 space-y-1">
-                              {list.slice(0, 3).map((p: string, i: number) => <li key={i}>{p}</li>)}
+                            <ul className="space-y-1.5 pl-2">
+                              {list.slice(0, 3).map((p: string, i: number) => (
+                                <li key={i} className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-start gap-1.5">
+                                  <span className="text-emerald-500 mt-0.5 font-black">•</span>
+                                  <span>{p}</span>
+                                </li>
+                              ))}
                             </ul>
                           );
                         })()}
                       </TableCell>
                       {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top">
+                        <TableCell key={c.id} className="align-top py-5 px-4">
                           {(() => {
                             const data = c.reportsByChannel?.[comparisonChannel]?.data;
                             const raw = data?.business_insights?.main_strengths || data?.ux_analysis?.ux_strengths || data?.competitive_insights?.main_strengths || data?.strengths || data?.products || [];
                             const list = Array.isArray(raw) ? raw : [raw];
                             return (
-                              <ul className="list-disc pl-4 text-xs text-emerald-600 space-y-1">
-                                {list.slice(0, 3).map((p: string, i: number) => <li key={i}>{p}</li>)}
+                              <ul className="space-y-1.5 pl-2">
+                                {list.slice(0, 3).map((p: string, i: number) => (
+                                  <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5">
+                                    <span className="text-slate-400 mt-0.5">•</span>
+                                    <span>{p}</span>
+                                  </li>
+                                ))}
                               </ul>
                             );
                           })()}
                         </TableCell>
                       ))}
                     </TableRow>
-                    <TableRow>
-                      <TableCell className="font-semibold text-xs uppercase tracking-wider text-muted-foreground align-top">Debilidades / Puntos a mejorar</TableCell>
-                      <TableCell className="align-top bg-primary/5">
+
+                    {/* Debilidades */}
+                    <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
+                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Debilidades / Brechas</TableCell>
+                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-105/20">
                         {(() => {
                           const raw = activeMyAnalysis?.data?.business_insights?.main_weaknesses || activeMyAnalysis?.data?.ux_analysis?.ux_weaknesses || activeMyAnalysis?.data?.competitive_insights?.main_weaknesses || activeMyAnalysis?.data?.weaknesses || activeMyAnalysis?.data?.promotions || [];
                           const list = Array.isArray(raw) ? raw : [raw];
                           return (
-                            <ul className="list-disc pl-4 text-xs text-rose-600 space-y-1">
-                              {list.slice(0, 3).map((p: string, i: number) => <li key={i}>{p}</li>)}
+                            <ul className="space-y-1.5 pl-2">
+                              {list.slice(0, 3).map((p: string, i: number) => (
+                                <li key={i} className="text-xs text-rose-600 dark:text-rose-450 font-semibold flex items-start gap-1.5">
+                                  <span className="text-rose-500 mt-0.5 font-black">•</span>
+                                  <span>{p}</span>
+                                </li>
+                              ))}
                             </ul>
                           );
                         })()}
                       </TableCell>
                       {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top">
+                        <TableCell key={c.id} className="align-top py-5 px-4">
                           {(() => {
                             const data = c.reportsByChannel?.[comparisonChannel]?.data;
                             const raw = data?.business_insights?.main_weaknesses || data?.ux_analysis?.ux_weaknesses || data?.competitive_insights?.main_weaknesses || data?.weaknesses || data?.promotions || [];
                             const list = Array.isArray(raw) ? raw : [raw];
                             return (
-                              <ul className="list-disc pl-4 text-xs text-rose-600 space-y-1">
-                                {list.slice(0, 3).map((p: string, i: number) => <li key={i}>{p}</li>)}
+                              <ul className="space-y-1.5 pl-2">
+                                {list.slice(0, 3).map((p: string, i: number) => (
+                                  <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5">
+                                    <span className="text-slate-400 mt-0.5">•</span>
+                                    <span>{p}</span>
+                                  </li>
+                                ))}
                               </ul>
                             );
                           })()}
                         </TableCell>
                       ))}
                     </TableRow>
-                    <TableRow>
-                      <TableCell className="font-semibold text-xs uppercase tracking-wider text-muted-foreground align-top">Recomendaciones Clave</TableCell>
-                      <TableCell className="align-top bg-primary/5">
-                        <ul className="space-y-1.5">
+
+                    {/* Recomendaciones */}
+                    <TableRow className="hover:bg-slate-50/20 transition-colors">
+                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Recomendaciones Clave</TableCell>
+                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-105/20">
+                        <ul className="space-y-2.5 pl-2">
                           {getFlatRecommendations(activeMyAnalysis?.data).slice(0, 3).map((r: string, i: number) => (
-                            <li key={i} className="flex gap-1 text-xs">
-                              <ChevronRight className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                            <li key={i} className="text-xs text-indigo-950 dark:text-indigo-350 leading-relaxed font-semibold flex items-start gap-1.5">
+                              <ChevronRight className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
                               <span>{r}</span>
                             </li>
                           ))}
                         </ul>
                       </TableCell>
                       {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top">
-                          <ul className="space-y-1.5">
+                        <TableCell key={c.id} className="align-top py-5 px-4">
+                          <ul className="space-y-2.5 pl-2">
                             {getFlatRecommendations(c.reportsByChannel?.[comparisonChannel]?.data).slice(0, 3).map((r: string, i: number) => (
-                              <li key={i} className="flex gap-1 text-xs">
-                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                              <li key={i} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium flex items-start gap-1.5">
+                                <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
                                 <span>{r}</span>
                               </li>
                             ))}
@@ -787,7 +2068,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
       {/* Modal de Informe Completo */}
       <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col p-0 overflow-hidden border border-muted/50 shadow-2xl">
+        <DialogContent className="max-w-[95vw] lg:max-w-6xl max-h-[80vh] flex flex-col p-0 overflow-hidden border border-muted/50 shadow-2xl">
           <DialogHeader className="p-6 pb-4 border-b bg-muted/20 shrink-0">
             <div className="flex items-center justify-between">
               <div>
@@ -807,23 +2088,18 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-[calc(85vh-120px)]">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {selectedReport?.data && (() => {
-              // Normalizar: a veces llega como string JSON doblemente serializado
-              let dataObj: any = typeof selectedReport.data === "string" ? JSON.parse(selectedReport.data) : selectedReport.data;
-              
-              // Handle new array structure with output field
-              if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-                dataObj = dataObj[0].output;
-              }
+              const dataObj = normalizeReportData(selectedReport.data);
+              if (!dataObj) return null;
               
               const isNewestStructure = !!dataObj.brand_identity || !!dataObj.business_insights;
               const isNewStructure = !!dataObj.competitor_overview;
               // Detectar estructura social (nueva y antigua)
-              const isSocialStructure = !!dataObj.facebook_presence || !!dataObj.instagram_presence || !!dataObj.tiktok_presence || !!dataObj.branding_analysis || !!dataObj.business_intelligence || !!dataObj.community_analysis;
+              const isSocialStructure = !!dataObj.facebook_presence || !!dataObj.instagram_presence || !!dataObj.tiktok_presence || !!dataObj.branding_analysis || !!dataObj.business_intelligence || !!dataObj.community_analysis || !!dataObj.isAggregatedFacebook;
               
               // Detectar estructura específica de Instagram
-              const isInstagramStructure = !!dataObj.instagram_presence || !!dataObj.engagement_analysis || !!dataObj.content_analysis;
+              const isInstagramStructure = (!!dataObj.instagram_presence || !!dataObj.engagement_analysis || !!dataObj.content_analysis) && selectedReport?.channel !== "TIKTOK";
 
               if (isNewestStructure || isNewStructure || isSocialStructure) {
                 let overview: any = {};
@@ -1074,8 +2350,47 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                       </div>
 
                       {/* MÉTRICAS PRINCIPALES */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {isInstagramStructure ? (
+                      <div className={`grid grid-cols-2 ${selectedReport?.channel === "FACEBOOK" ? "md:grid-cols-3" : "md:grid-cols-4"} gap-3`}>
+                        {selectedReport?.channel === "TIKTOK" ? (
+                          <>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Users className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Seguidores</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.followers)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Heart className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Me gusta</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.likes)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <FileText className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Videos</span>
+                              </div>
+                              <p className="text-lg font-semibold text-foreground">
+                                {formatSocialMetric(socialPresence.videos_count)}
+                              </p>
+                            </div>
+                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <TikTokIcon className={`h-3.5 w-3.5 ${theme.text}`} />
+                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Username</span>
+                              </div>
+                              <p className="text-sm font-semibold text-foreground truncate mt-0.5">
+                                @{socialPresence.username || "N/D"}
+                              </p>
+                            </div>
+                          </>
+                        ) : isInstagramStructure ? (
                           <>
                             <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
                               <div className="flex items-center gap-1.5 mb-1">
@@ -1159,15 +2474,17 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                                 {formatSocialMetric(socialPresence.audience_metrics?.followers ?? socialPresence.audience_size?.followers)}
                               </p>
                             </div>
-                            <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <ThumbsUp className={`h-3.5 w-3.5 ${theme.text}`} />
-                                <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Likes</span>
+                            {selectedReport?.channel !== "FACEBOOK" && (
+                              <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <ThumbsUp className={`h-3.5 w-3.5 ${theme.text}`} />
+                                  <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground">Likes</span>
+                                </div>
+                                <p className="text-lg font-semibold text-foreground">
+                                  {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
+                                </p>
                               </div>
-                              <p className="text-lg font-semibold text-foreground">
-                                {formatSocialMetric(socialPresence.audience_metrics?.likes ?? socialPresence.audience_size?.likes)}
-                              </p>
-                            </div>
+                            )}
                             <div className={`bg-gradient-to-br ${theme.gradient} ${theme.border} p-3 rounded-lg border shadow-sm`}>
                               <div className="flex items-center gap-1.5 mb-1">
                                 <Activity className={`h-3.5 w-3.5 ${theme.text}`} />
@@ -1194,8 +2511,8 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         )}
                       </div>
 
-                      {/* INFORMACIÓN ORGANIZADA EN SECCIONES */}
-                      <div className="space-y-4">
+                      {/* INFORMACIÓN ORGANIZADA EN SECCIONES - Grid horizontal */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Sección de Presencia */}
                         <Card className="p-4 border border-muted/50 shadow-sm">
                           <h4 className="font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2 mb-3">
@@ -1213,79 +2530,75 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                               <p className="text-xs text-muted-foreground italic">No se detectaron señales de ubicación física.</p>
                             )}
                           </div>
-                        </Card>
 
-                        {/* Sección de Negocio */}
-                        <Card className="p-4 border border-muted/50 shadow-sm">
-                          <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2 mb-3">
+                          {/* Inteligencia de Negocio inline */}
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-teal-600 flex items-center gap-2 mb-2 mt-4 pt-3 border-t border-muted/30">
                             <Briefcase className="h-4 w-4" /> Inteligencia de Negocio
                           </h4>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             {bizSignals.website_present !== undefined && (
-                              <Badge variant={bizSignals.website_present ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.website_present ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                Sitio Web: {bizSignals.website_present ? "Detectado" : "No detectado"}
+                              <Badge variant={bizSignals.website_present ? "default" : "secondary"} className={`text-[10px] font-bold ${bizSignals.website_present ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Web: {bizSignals.website_present ? "Sí" : "No"}
                               </Badge>
                             )}
                             {bizSignals.advertising_active !== undefined && (
-                              <Badge variant={bizSignals.advertising_active ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.advertising_active ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                Publicidad: {bizSignals.advertising_active ? "Activa" : "Inactiva"}
+                              <Badge variant={bizSignals.advertising_active ? "default" : "secondary"} className={`text-[10px] font-bold ${bizSignals.advertising_active ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Ads: {bizSignals.advertising_active ? "Activa" : "Inactiva"}
                               </Badge>
                             )}
                             {bizSignals.phone_contact_available !== undefined && (
-                              <Badge variant={bizSignals.phone_contact_available ? "default" : "secondary"} className={`text-xs font-bold ${bizSignals.phone_contact_available ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
-                                Teléfono: {bizSignals.phone_contact_available ? "Disponible" : "No disponible"}
+                              <Badge variant={bizSignals.phone_contact_available ? "default" : "secondary"} className={`text-[10px] font-bold ${bizSignals.phone_contact_available ? "bg-teal-500 text-white" : "bg-muted text-muted-foreground"}`}>
+                                Tel: {bizSignals.phone_contact_available ? "Sí" : "No"}
                               </Badge>
                             )}
                             {bizSignals.price_range_indicator && (
-                              <Badge variant="outline" className="text-xs font-bold border-teal-500/20 bg-teal-500/10 text-teal-700">
+                              <Badge variant="outline" className="text-[10px] font-bold border-teal-500/20 bg-teal-500/10 text-teal-700">
                                 Precio: {bizSignals.price_range_indicator}
                               </Badge>
                             )}
                             {reputationAnalysis.recommendation_percentage != null && (
-                              <Badge variant="outline" className="text-xs font-bold border-green-500/20 bg-green-500/10 text-green-700">
-                                Recomendación: {reputationAnalysis.recommendation_percentage}%
+                              <Badge variant="outline" className="text-[10px] font-bold border-green-500/20 bg-green-500/10 text-green-700">
+                                Rec: {reputationAnalysis.recommendation_percentage}%
                               </Badge>
                             )}
                           </div>
                         </Card>
 
-                        {/* Sección de Fortalezas y Debilidades */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <Card className="p-4 border border-muted/50 shadow-sm">
-                            <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-600 flex items-center gap-2 mb-3">
-                              <TrendingUp className="h-4 w-4" /> Fortalezas
-                            </h4>
-                            <div className="space-y-2">
-                              {compObs.main_strengths && compObs.main_strengths.length > 0 ? (
-                                compObs.main_strengths.map((s: string, i: number) => (
-                                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                    <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
-                                    <span>{s}</span>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-xs text-muted-foreground italic">No se detectaron fortalezas específicas.</p>
-                              )}
-                            </div>
-                          </Card>
-                          <Card className="p-4 border border-muted/50 shadow-sm">
-                            <h4 className="font-bold text-xs uppercase tracking-wider text-rose-600 flex items-center gap-2 mb-3">
-                              <AlertCircle className="h-4 w-4" /> Debilidades
-                            </h4>
-                            <div className="space-y-2">
-                              {compObs.main_weaknesses && compObs.main_weaknesses.length > 0 ? (
-                                compObs.main_weaknesses.map((s: string, i: number) => (
-                                  <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
-                                    <ChevronRight className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
-                                    <span>{s}</span>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-xs text-muted-foreground italic">No se detectaron debilidades específicas.</p>
-                              )}
-                            </div>
-                          </Card>
-                        </div>
+                        {/* Sección de Fortalezas */}
+                        <Card className="p-4 border border-muted/50 shadow-sm">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-600 flex items-center gap-2 mb-3">
+                            <TrendingUp className="h-4 w-4" /> Fortalezas
+                          </h4>
+                          <div className="space-y-2">
+                            {compObs.main_strengths && compObs.main_strengths.length > 0 ? (
+                              compObs.main_strengths.map((s: string, i: number) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <ChevronRight className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
+                                  <span>{s}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No se detectaron fortalezas específicas.</p>
+                            )}
+                          </div>
+
+                          {/* Debilidades inline */}
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-rose-600 flex items-center gap-2 mb-2 mt-4 pt-3 border-t border-muted/30">
+                            <AlertCircle className="h-4 w-4" /> Debilidades
+                          </h4>
+                          <div className="space-y-2">
+                            {compObs.main_weaknesses && compObs.main_weaknesses.length > 0 ? (
+                              compObs.main_weaknesses.map((s: string, i: number) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                  <ChevronRight className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
+                                  <span>{s}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-xs text-muted-foreground italic">No se detectaron debilidades específicas.</p>
+                            )}
+                          </div>
+                        </Card>
 
                         {/* Sección de Recomendaciones */}
                         <Card className="p-4 border border-blue-500/10 bg-blue-500/5 shadow-sm">
@@ -1470,7 +2783,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     )}
 
                     {/* 2. Personalidad y Tono */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {overview.brand_personality && overview.brand_personality.length > 0 && (
                         <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/10">
                           <h4 className="font-bold text-xs uppercase tracking-wider text-purple-600 mb-2">Personalidad de Marca</h4>
@@ -1535,7 +2848,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <span className="h-1.5 w-1.5 rounded-full bg-teal-500"></span>
                         Análisis de Marketing y Conversión
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {mkt.marketing_tactics && mkt.marketing_tactics.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-teal-600">Tácticas de Marketing</h4>
@@ -1589,7 +2902,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           </div>
                         )}
                         {mkt.social_proof_signals && mkt.social_proof_signals.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-muted/20">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-muted/20">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-pink-600">Señales de Prueba Social</h4>
                             <ul className="space-y-1">
                               {mkt.social_proof_signals.map((p: string, i: number) => (
@@ -1610,7 +2923,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
                         Experiencia de Usuario (UX)
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {ux.ux_strengths && ux.ux_strengths.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-emerald-600">Fortalezas UX</h4>
@@ -1666,7 +2979,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         )}
 
                         {ux.mobile_experience_observations && ux.mobile_experience_observations.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-muted/20">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-muted/20">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-blue-600">Experiencia Móvil</h4>
                             <ul className="space-y-1">
                               {ux.mobile_experience_observations.map((p: string, i: number) => (
@@ -1687,7 +3000,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <span className="h-1.5 w-1.5 rounded-full bg-pink-500"></span>
                         Perspectivas Competitivas y Diferenciación
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {insights.differentiation_opportunities && insights.differentiation_opportunities.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-purple-600">Oportunidades de Diferenciación</h4>
@@ -1715,7 +3028,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           </div>
                         )}
                         {insights.customer_psychology_insights && insights.customer_psychology_insights.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-muted/20">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-muted/20">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-blue-600">Psicología del Consumidor</h4>
                             <ul className="space-y-1">
                               {insights.customer_psychology_insights.map((p: string, i: number) => (
@@ -1736,7 +3049,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <Sparkles className="h-4 w-4" />
                         Plan de Recomendaciones Estratégicas
                       </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {finalBranding && finalBranding.length > 0 && (
                           <div className="space-y-2">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-purple-600">Branding</h4>
@@ -1790,7 +3103,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           </div>
                         )}
                         {finalConversion && finalConversion.length > 0 && (
-                          <div className="col-span-1 md:col-span-2 space-y-2 pt-2 border-t border-blue-500/10">
+                          <div className="col-span-1 md:col-span-2 lg:col-span-3 space-y-2 pt-2 border-t border-blue-500/10">
                             <h4 className="font-bold text-[10px] uppercase tracking-wider text-rose-600">Conversión y E-commerce</h4>
                             <ul className="space-y-1">
                               {finalConversion.map((p: string, i: number) => (

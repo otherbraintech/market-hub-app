@@ -11,11 +11,20 @@ export default async function BusinessPage() {
   const session = await getSession();
   const userId = session?.user?.id;
   
+  const userId = session?.userId || session?.user?.id;
+  
   const [businesses, user] = await Promise.all([
+<<<<<<< HEAD
     userId ? prisma.business.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
     }) : Promise.resolve([]),
+=======
+    prisma.business.findMany({
+      where: userId ? { userId } : {},
+      orderBy: { createdAt: "desc" },
+    }),
+>>>>>>> 01692c68f53b9f0892cfe23c4fd243cef4190616
     userId ? prisma.user.findUnique({
       where: { id: userId },
       select: { maxBusinesses: true }

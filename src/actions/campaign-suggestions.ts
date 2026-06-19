@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { CampaignObjective } from "@prisma/client";
 
 // Configuración de OpenRouter para la SDK de IA
 const openrouter = createOpenAI({
@@ -18,7 +17,7 @@ import { campaignSuggestionsListSchema } from "@/lib/schemas/campaign-suggestion
  * Server Action para generar sugerencias inteligentes de campañas usando IA
  * basada en informes propios y de competidores.
  */
-export async function suggestCampaignsAction(businessId: string) {
+export async function suggestCampaignsAction(businessId: string, strategyId?: string) {
   try {
     if (!businessId) {
       return { success: false, error: "ID de negocio no proporcionado" };
@@ -32,22 +31,41 @@ export async function suggestCampaignsAction(businessId: string) {
       return { success: false, error: "Negocio no encontrado en el sistema" };
     }
 
-    // Obtener la estrategia de marketing activa del negocio
-    const activeStrategy = await prisma.marketingStrategy.findFirst({
-      where: { businessId, isActive: true }
-    });
+    // Obtener la estrategia de marketing activa del negocio o usar la especificada o fallback
+    let targetStrategy = null;
+    if (strategyId) {
+      targetStrategy = await prisma.marketingStrategy.findUnique({
+        where: { id: strategyId }
+      });
+    } else {
+      targetStrategy = await prisma.marketingStrategy.findFirst({
+        where: { businessId, isActive: true }
+      });
+      if (!targetStrategy) {
+        // Fallback a cualquier estrategia del negocio
+        targetStrategy = await prisma.marketingStrategy.findFirst({
+          where: { businessId },
+          orderBy: { updatedAt: "desc" }
+        });
+      }
+    }
 
-    const strategyContext = activeStrategy 
-      ? `
-ESTRATEGIA DE MARKETING ACTIVA DEL NEGOCIO (Las campañas recomendadas DEBEN estar alineadas directamente con este marco estratégico):
-- Nombre de la Estrategia: ${activeStrategy.name}
-- Descripción: ${activeStrategy.description || "No especificada"}
-- Objetivos SMART definidos: ${JSON.stringify(activeStrategy.objectives)}
-- Públicos objetivo (Buyer Personas): ${JSON.stringify(activeStrategy.personas)}
-- Pilares de Contenido clave: ${JSON.stringify(activeStrategy.contentPillars)}
-- Canales autorizados: ${JSON.stringify(activeStrategy.channels)}
-`
-      : "No se ha definido una estrategia de marketing activa aún.";
+    if (!targetStrategy) {
+      return { 
+        success: false, 
+        error: "No se encontró ninguna estrategia para este negocio. Por favor, crea una estrategia en la pestaña 'Estrategia' antes de diseñar campañas con IA." 
+      };
+    }
+
+    const strategyContext = `
+ESTRATEGIA DE MARKETING DEL NEGOCIO (Las campañas recomendadas DEBEN estar alineadas directamente con este marco estratégico):
+- Nombre de la Estrategia: ${targetStrategy.name}
+- Descripción: ${targetStrategy.description || "No especificada"}
+- Objetivos SMART definidos: ${JSON.stringify(targetStrategy.objectives)}
+- Públicos objetivo (Buyer Personas): ${JSON.stringify(targetStrategy.personas)}
+- Pilares de Contenido clave: ${JSON.stringify(targetStrategy.contentPillars || [])}
+- Canales autorizados: ${JSON.stringify(targetStrategy.channels)}
+`;
 
     // 2. Obtener informes propios completados
     const businessReports = await prisma.analysisReport.findMany({
@@ -73,7 +91,7 @@ ESTRATEGIA DE MARKETING ACTIVA DEL NEGOCIO (Las campañas recomendadas DEBEN est
       }
     });
 
-    const competitorIds = competitors.map((c) => c.id);
+    const competitorIds = competitors.map((c: { id: string }) => c.id);
 
     const competitorReports = competitorIds.length > 0 
       ? await prisma.analysisReport.findMany({
@@ -96,27 +114,36 @@ ESTRATEGIA DE MARKETING ACTIVA DEL NEGOCIO (Las campañas recomendadas DEBEN est
     const targetAudienceStr = business.targetAudience ? JSON.stringify(business.targetAudience) : "No especificado";
     
     // Simplificar reportes para no saturar tokens
-    const reportsSummary = businessReports.map(r => {
-      const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
-      return {
-        canal: r.channel,
-        resumen: dataObj?.brand_summary || dataObj?.executiveSummary || "Informe de presencia"
-      };
-    });
+    const reportsSummary = businessReports.length > 0
+      ? businessReports.map((r: { channel: string; data: any }) => {
+          const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+          return {
+            canal: r.channel,
+            resumen: dataObj?.brand_summary || dataObj?.executiveSummary || "Informe de presencia"
+          };
+        })
+      : [{ canal: "Todos", resumen: "Sin reportes de redes completados aún." }];
 
-    const competitorSummary = competitorReports.map(r => {
-      const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
-      return {
-        canal: r.channel,
-        observaciones: dataObj?.competitive_observations || dataObj?.executiveSummary || "Informe competitivo"
-      };
-    });
+    const competitorSummary = competitorReports.length > 0
+      ? competitorReports.map((r: { channel: string; data: any }) => {
+          const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+          return {
+            canal: r.channel,
+            observaciones: dataObj?.competitive_observations || dataObj?.executiveSummary || "Informe competitivo"
+          };
+        })
+      : [{ canal: "Todos", observaciones: "Sin análisis individual de competidores completado aún." }];
 
-    const competitorGeneralReportSummary = business.competitorGeneralReport
-      ? typeof business.competitorGeneralReport === "string"
-        ? JSON.parse(business.competitorGeneralReport).executiveSummary
-        : (business.competitorGeneralReport as any).executiveSummary
-      : "No disponible";
+    let competitorGeneralReportSummary = "No disponible";
+    if (business.competitorGeneralReport) {
+      try {
+        competitorGeneralReportSummary = typeof business.competitorGeneralReport === "string"
+          ? JSON.parse(business.competitorGeneralReport).executiveSummary
+          : (business.competitorGeneralReport as any).executiveSummary;
+      } catch (e) {
+        competitorGeneralReportSummary = "Informe general de competencia presente pero con formato simple.";
+      }
+    }
 
     // 5. Construir prompt enriquecido
     const systemPrompt = `Eres un estratega de marketing digital y director creativo experto en análisis de mercado.
@@ -146,8 +173,8 @@ INFORMES Y RESUMEN GENERAL DE NUESTROS COMPETIDORES:
 - Observaciones detalladas de canales de competidores:
 ${JSON.stringify(competitorSummary, null, 2)}
 
-IMPORTANTE: Si el negocio tiene una estrategia de marketing activa definida arriba, las campañas sugeridas DEBEN estar alineadas directamente con ella:
-1. Deben estar enfocadas en lograr alguno de los Objetivos SMART definidos (indica cómo ayuda a lograrlo).
+IMPORTANTE: Las campañas sugeridas DEBEN estar alineadas directamente con la estrategia seleccionada:
+1. Deben estar enfocadas en lograr alguno de los Objetivos SMART definidos en la estrategia (indica cómo ayuda a lograrlo).
 2. Deben dirigirse a alguna de las Buyer Personas definidas.
 3. Deben utilizar preferiblemente los canales y pilares de contenido definidos en la estrategia.
 
@@ -182,7 +209,7 @@ Por favor, genera exactamente 3 propuestas bien diferenciadas (ej. una orientada
     return {
       success: true,
       campaigns: object.campaigns,
-      activeStrategyId: activeStrategy?.id
+      activeStrategyId: targetStrategy.id
     };
   } catch (error) {
     console.error("Error generating campaign suggestions:", error);

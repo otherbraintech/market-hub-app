@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { Business } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,7 @@ import {
 import { BusinessForm } from "./business-form";
 
 interface BusinessInfoCardProps {
-  business: Business;
+  business: any;
 }
 
 export function BusinessInfoCard({ business }: BusinessInfoCardProps) {

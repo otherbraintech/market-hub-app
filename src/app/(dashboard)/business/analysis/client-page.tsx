@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import {
   Sparkles, Globe, Loader2, Facebook, Instagram, ChevronRight, FileText,
   Users, ThumbsUp, MessageSquare, Activity, Flame, MapPin, Award, ShieldCheck,
   Megaphone, Zap, Eye, Compass, Briefcase, TrendingUp, Heart, Target,
-  AlertCircle, Star, Linkedin, Youtube, Search, ArrowLeft
+  AlertCircle, Star, Linkedin, Youtube, Search, ArrowLeft, Smile, RefreshCw,
+  CheckCircle2, Lightbulb
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -42,6 +43,46 @@ function TikTokIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+const parseSocialMetric = (val: any): number | null => {
+  if (val === undefined || val === null || val === "") return null;
+  if (typeof val === "number") return val;
+  if (typeof val === "string") {
+    let clean = val.trim().toLowerCase();
+    let multiplier = 1;
+    if (clean.endsWith("k")) {
+      multiplier = 1000;
+      clean = clean.slice(0, -1);
+    } else if (clean.endsWith("m")) {
+      multiplier = 1000000;
+      clean = clean.slice(0, -1);
+    }
+    if (multiplier > 1) {
+      clean = clean.replace(/,/g, ".");
+      const parsed = parseFloat(clean);
+      return isNaN(parsed) ? null : Math.round(parsed * multiplier);
+    } else {
+      clean = clean.replace(/[\s]/g, "");
+      const parsed = parseInt(clean.replace(/[.,]/g, ""), 10);
+      return isNaN(parsed) ? null : parsed;
+    }
+  }
+  return null;
+};
+
+const formatSocialMetric = (val: any) => {
+  const num = parseSocialMetric(val);
+  if (num === null) {
+    return typeof val === "string" ? val.trim() : "N/D";
+  }
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+  }
+  return num.toLocaleString();
+};
 
 const getPlatformTheme = (channel: string) => {
   const c = channel?.toUpperCase();
@@ -154,6 +195,53 @@ interface BusinessAnalysisClientProps {
 export function BusinessAnalysisClient({ businessId, business, initialAnalyses }: BusinessAnalysisClientProps) {
   const router = useRouter();
   const [requestingChannel, setRequestingChannel] = useState<string | null>(null);
+  const [reportData, setReportData] = useState<any>(null);
+  const [loadingReport, setLoadingReport] = useState(true);
+  const [generatingAnalysis, setGeneratingAnalysis] = useState(false);
+  const [consolidatedAnalysis, setConsolidatedAnalysis] = useState<any>(null);
+
+  useEffect(() => {
+    fetchReport();
+  }, [businessId]);
+
+  const fetchReport = async () => {
+    try {
+      setLoadingReport(true);
+      const response = await fetch(`/api/business/${businessId}/general-report`);
+      if (response.ok) {
+        const data = await response.json();
+        setReportData(data);
+        if (data.consolidatedAnalysis) {
+          setConsolidatedAnalysis(data.consolidatedAnalysis);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching general report:', err);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  const generateConsolidatedAnalysis = async () => {
+    try {
+      setGeneratingAnalysis(true);
+      const response = await fetch(`/api/business/${businessId}/consolidated-analysis`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setConsolidatedAnalysis(data.analysis);
+        toast.success("¡Análisis consolidado generado con éxito!");
+      } else {
+        toast.error("Error al generar el análisis consolidado.");
+      }
+    } catch (err) {
+      console.error('Error generating consolidated analysis:', err);
+      toast.error("Error al generar el análisis consolidado.");
+    } finally {
+      setGeneratingAnalysis(false);
+    }
+  };
 
   const handleRequestAnalysis = async (channel: string, url: string) => {
     const promise = new Promise(async (resolve, reject) => {
@@ -251,12 +339,6 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
           </div>
         </div>
         <div className="flex gap-2">
-          <Link href={`/business/${businessId}/general-report`}>
-            <Button variant="outline" className="gap-2 cursor-pointer transition-all active:scale-[0.98] hover:bg-slate-50">
-              <FileText className="h-4 w-4" />
-              Ver Informe General
-            </Button>
-          </Link>
           <Link href={`/business/${businessId}`}>
             <Button variant="outline" className="gap-2 cursor-pointer transition-all active:scale-[0.98] hover:bg-slate-50">
               <Briefcase className="h-4 w-4" />
@@ -264,6 +346,207 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
             </Button>
           </Link>
         </div>
+      </div>
+
+      {/* Consolidated AI Analysis */}
+      {loadingReport ? (
+        <Card className="border-none shadow-sm bg-slate-50/50">
+          <CardContent className="flex flex-col items-center justify-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-violet-500 mb-3" />
+            <p className="text-sm text-muted-foreground">Cargando análisis consolidado...</p>
+          </CardContent>
+        </Card>
+      ) : consolidatedAnalysis ? (
+        <Card className="bg-gradient-to-br from-violet-50/40 via-white to-white border-violet-100/80 shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-violet-950">
+              <Sparkles className="h-5 w-5 text-violet-600" />
+              Análisis Consolidado con IA
+            </CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={generateConsolidatedAnalysis}
+              disabled={generatingAnalysis}
+              className="gap-2 text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100 hover:text-violet-800"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${generatingAnalysis ? 'animate-spin' : ''}`} />
+              {generatingAnalysis ? 'Generando...' : 'Actualizar Análisis'}
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Executive Summary */}
+            {consolidatedAnalysis.executiveSummary && (
+              <div className="bg-violet-50/30 rounded-xl p-4 border border-violet-100/50">
+                <h3 className="text-xs font-bold text-violet-900 mb-1.5 uppercase tracking-wider flex items-center gap-2">
+                  <Target className="h-4 w-4 text-violet-600" />
+                  Resumen Ejecutivo
+                </h3>
+                <p className="text-sm text-slate-700 leading-relaxed">{consolidatedAnalysis.executiveSummary}</p>
+              </div>
+            )}
+
+            {/* Market Position */}
+            {consolidatedAnalysis.marketPosition && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Posición Actual</h4>
+                  <p className="text-xs text-slate-700 leading-relaxed">{consolidatedAnalysis.marketPosition.currentPosition}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ventaja Competitiva</h4>
+                  <p className="text-xs text-slate-700 leading-relaxed">{consolidatedAnalysis.marketPosition.competitiveAdvantage}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Oportunidad de Mercado</h4>
+                  <p className="text-xs text-slate-700 leading-relaxed">{consolidatedAnalysis.marketPosition.marketGap}</p>
+                </div>
+              </div>
+            )}
+
+            {/* SWOT (Matriz FODA) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-emerald-50/50 rounded-xl p-3 border border-emerald-100">
+                <h4 className="text-xs font-bold text-emerald-800 mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  Fortalezas
+                </h4>
+                <ul className="space-y-1.5">
+                  {consolidatedAnalysis.strengths?.slice(0, 4).map((s: string, i: number) => (
+                    <li key={i} className="text-xs text-emerald-900/80 flex gap-1.5 items-start">
+                      <span className="text-emerald-500 mt-0.5">•</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-rose-50/50 rounded-xl p-3 border border-rose-100">
+                <h4 className="text-xs font-bold text-rose-800 mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 text-rose-600" />
+                  Debilidades
+                </h4>
+                <ul className="space-y-1.5">
+                  {consolidatedAnalysis.weaknesses?.slice(0, 4).map((w: string, i: number) => (
+                    <li key={i} className="text-xs text-rose-900/80 flex gap-1.5 items-start">
+                      <span className="text-rose-500 mt-0.5">•</span>
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100">
+                <h4 className="text-xs font-bold text-blue-800 mb-2 flex items-center gap-1.5">
+                  <Lightbulb className="h-4 w-4 text-blue-600" />
+                  Oportunidades
+                </h4>
+                <ul className="space-y-1.5">
+                  {consolidatedAnalysis.opportunities?.slice(0, 4).map((o: string, i: number) => (
+                    <li key={i} className="text-xs text-blue-900/80 flex gap-1.5 items-start">
+                      <span className="text-blue-500 mt-0.5">•</span>
+                      <span>{o}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-100">
+                <h4 className="text-xs font-bold text-amber-800 mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  Amenazas
+                </h4>
+                <ul className="space-y-1.5">
+                  {consolidatedAnalysis.threats?.slice(0, 4).map((t: string, i: number) => (
+                    <li key={i} className="text-xs text-amber-900/80 flex gap-1.5 items-start">
+                      <span className="text-amber-500 mt-0.5">•</span>
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Strategic Recommendations & Next Steps */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Recommendations */}
+              <div>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-violet-600" />
+                  Recomendaciones Clave
+                </h3>
+                <div className="space-y-2">
+                  {consolidatedAnalysis.strategicRecommendations?.slice(0, 3).map((rec: any, i: number) => (
+                    <div key={i} className="bg-slate-50/50 rounded-lg p-2.5 border border-slate-100 flex items-start justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{rec.category}</span>
+                        <p className="text-xs text-slate-700 leading-relaxed">{rec.action}</p>
+                      </div>
+                      <Badge variant={rec.priority === 'alta' ? 'default' : rec.priority === 'media' ? 'secondary' : 'outline'} className="text-[9px] uppercase tracking-wide px-1.5 py-0">
+                        {rec.priority}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Next Steps */}
+              {consolidatedAnalysis.nextSteps && (
+                <div>
+                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Target className="h-4 w-4 text-violet-600" />
+                    Próximos Pasos Recomendados
+                  </h3>
+                  <div className="bg-violet-50/20 border border-violet-100/50 rounded-xl p-3 space-y-2">
+                    {consolidatedAnalysis.nextSteps.slice(0, 4).map((step: string, i: number) => (
+                      <div key={i} className="flex gap-2 text-xs text-slate-700">
+                        <span className="text-violet-600 font-bold">{i + 1}.</span>
+                        <span className="leading-relaxed">{step}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border border-dashed border-violet-200 bg-violet-50/10">
+          <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+            <Sparkles className="h-10 w-10 text-violet-400 mb-3 animate-pulse" />
+            <h3 className="text-md font-bold text-violet-950">Análisis Consolidado no generado</h3>
+            <p className="text-xs text-muted-foreground max-w-sm mt-1 mb-4">
+              Combina la inteligencia de todos tus canales digitales escaneados para obtener una estrategia consolidada de negocio con inteligencia artificial.
+            </p>
+            <Button 
+              onClick={generateConsolidatedAnalysis} 
+              disabled={generatingAnalysis}
+              className="bg-violet-600 hover:bg-violet-700 text-white gap-2 text-xs"
+            >
+              {generatingAnalysis ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generando Análisis...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Generar Análisis Consolidado con IA
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="pt-4 border-t border-slate-100">
+        <h3 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2 mb-1">
+          <Globe className="h-5 w-5 text-violet-500" />
+          Canales Extraídos y Analizados
+        </h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          Presencia de canales y redes sociales actualmente detectados y mapeados para el negocio.
+        </p>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -296,8 +579,8 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
               dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
               
               // Handle new array structure with output field
-              if (Array.isArray(dataObj) && dataObj.length > 0 && dataObj[0].output) {
-                dataObj = dataObj[0].output;
+              if (Array.isArray(dataObj) && dataObj.length > 0) {
+                dataObj = dataObj[0].output || dataObj[0];
               }
             }
 
@@ -337,6 +620,17 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                 tiktokUsername = dataObj.tiktok_presence.username || "N/D";
               }
 
+              if (dataObj?.profile) {
+                if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.profile.followers !== undefined ? dataObj.profile.followers.toLocaleString() : "N/D";
+                if (tiktokLikes === "N/D") tiktokLikes = dataObj.profile.total_likes !== undefined ? dataObj.profile.total_likes.toLocaleString() : "N/D";
+                if (tiktokVideos === "N/D") tiktokVideos = dataObj.profile.total_videos !== undefined ? dataObj.profile.total_videos.toLocaleString() : "N/D";
+                if (tiktokUsername === "N/D") tiktokUsername = dataObj.profile.username || "N/D";
+              }
+
+              if (dataObj?.engagement) {
+                if (tiktokAverageViews === "N/D") tiktokAverageViews = dataObj.engagement.views !== undefined ? dataObj.engagement.views.toLocaleString() : "N/D";
+              }
+
               if (tiktokFollowers === "N/D" || tiktokLikes === "N/D" || tiktokVideos === "N/D" || tiktokUsername === "N/D") {
                 const rawData = report?.data ? (typeof report.data === "string" ? JSON.parse(report.data) : report.data) : null;
                 const firstItem = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : null;
@@ -363,10 +657,10 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
             }
 
             const isInstagramStructure = !!dataObj?.instagram_presence || !!dataObj?.engagement_analysis || !!dataObj?.content_analysis;
-            const isFacebookStructure = !!dataObj?.social_intelligence || !!dataObj?.brand_positioning || !!dataObj?.strategic_diagnostics;
+            const isFacebookStructure = !!dataObj?.social_intelligence || !!dataObj?.facebook_presence || !!dataObj?.brand_positioning || !!dataObj?.strategic_diagnostics;
             const isWebsiteStructure = !!dataObj?.brand_identity || !!dataObj?.website_analysis || !!dataObj?.business_insights;
             const isConsolidatedStructure = !!dataObj?.marketPosition || !!dataObj?.executiveSummary || !!dataObj?.strategicRecommendations;
-
+ 
             // Extract Instagram-specific data
             const socialPresence = dataObj?.instagram_presence || {};
             const engagement = dataObj?.engagement_analysis || {};
@@ -462,23 +756,34 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                       <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
                           <Heart className={`h-4 w-4 ${theme.text}`} />
-                          <span>Me gusta</span>
+                          <span>Me gusta totales</span>
                         </div>
                         <span className="font-semibold text-foreground text-right">{tiktokLikes}</span>
                       </div>
                       <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <FileText className={`h-4 w-4 ${theme.text}`} />
-                          <span>Videos</span>
+                          <Activity className={`h-4 w-4 ${theme.text}`} />
+                          <span>Engagement</span>
                         </div>
-                        <span className="font-semibold text-foreground text-right">{tiktokVideos}</span>
+                        <span className="font-semibold text-foreground text-right capitalize">
+                          {dataObj?.engagement?.engagement_level || "N/D"}
+                        </span>
                       </div>
                       <div className="flex items-start justify-between text-sm gap-4">
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <Eye className={`h-4 w-4 ${theme.text}`} />
-                          <span>Vistas Promedio</span>
+                          <Globe className={`h-4 w-4 ${theme.text}`} />
+                          <span>Enlaces</span>
                         </div>
-                        <span className="font-semibold text-foreground text-right">{tiktokAverageViews}</span>
+                        <span className="font-semibold text-foreground text-right text-xs">
+                          {(() => {
+                            const web = dataObj?.business_signals?.website_present;
+                            const wa = dataObj?.business_signals?.whatsapp_present;
+                            if (web && wa) return "Web y WhatsApp";
+                            if (web) return "Solo Web";
+                            if (wa) return "Solo WhatsApp";
+                            return "Ninguno";
+                          })()}
+                        </span>
                       </div>
                     </div>
                   ) : isFacebookStructure && isCompleted ? (
@@ -489,109 +794,161 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                           <span>Seguidores</span>
                         </div>
                         <span className="font-semibold text-foreground text-right">
-                          {dataObj?.social_intelligence?.audience_size || "N/D"}
-                        </span>
-                      </div>
-                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
-                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <Activity className={`h-4 w-4 ${theme.text}`} />
-                          <span>Engagement</span>
-                        </div>
-                        <span className="font-semibold text-foreground text-right">
-                          {dataObj?.social_intelligence?.engagement_level || "N/D"}
-                        </span>
-                      </div>
-                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
-                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <Megaphone className={`h-4 w-4 ${theme.text}`} />
-                          <span>Anuncios</span>
-                        </div>
-                        <span className="font-semibold text-foreground text-right">
-                          {dataObj?.social_intelligence?.active_marketing_ads ? "Activos (Meta)" : "Inactivos"}
-                        </span>
-                      </div>
-                      <div className="flex items-start justify-between text-sm gap-4">
-                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <Briefcase className={`h-4 w-4 ${theme.text}`} />
-                          <span>Nicho</span>
-                        </div>
-                        <span className="font-semibold text-foreground text-right" title={dataObj?.brand_positioning?.niche || "N/D"}>
-                          {dataObj?.brand_positioning?.niche || "N/D"}
-                        </span>
-                      </div>
-                    </div>
-                  ) : isInstagramStructure && isCompleted ? (
-                    <div className="space-y-2.5">
-                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
-                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <Users className={`h-4 w-4 ${theme.text}`} />
-                          <span>Seguidores</span>
-                        </div>
-                        <span className="font-semibold text-foreground text-right">
                           {(() => {
-                            const visibility = compObs.visibility_indicators;
-                            const socialProof = engagement.social_proof_signals;
-                            
-                            if (visibility && Array.isArray(visibility)) {
-                              for (const indicator of visibility) {
-                                if (typeof indicator === 'string' && indicator.toLowerCase().includes('seguidor')) {
-                                  const match = indicator.match(/[\d.]+[KkMm]?/);
-                                  if (match) return match[0];
-                                }
-                              }
-                            }
-                            
-                            if (socialProof && Array.isArray(socialProof)) {
-                              for (const signal of socialProof) {
-                                  if (typeof signal === 'string' && signal.toLowerCase().includes('seguidor')) {
-                                    const match = signal.match(/[\d.]+[KkMm]?/);
-                                    if (match) return match[0];
-                                  }
-                              }
-                            }
-                            
-                            return socialPresence.audience_size?.followers || "N/D";
+                            const presence = dataObj?.facebook_presence || {};
+                            const metrics = presence.audience_metrics || {};
+                            return formatSocialMetric(metrics.followers ?? metrics.likes ?? dataObj?.social_intelligence?.audience_size);
                           })()}
                         </span>
                       </div>
                       <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <FileText className={`h-4 w-4 ${theme.text}`} />
-                          <span>Publicaciones</span>
+                          <Activity className={`h-4 w-4 ${theme.text}`} />
+                          <span>Actividad (Talking)</span>
                         </div>
                         <span className="font-semibold text-foreground text-right">
-                          {socialPresence.audience_size?.posts_count || dataObj.instagram_presence?.audience_size?.posts_count || "N/D"}
-                        </span>
-                      </div>
-                      <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
-                        <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <Users className={`h-4 w-4 ${theme.text}`} />
-                          <span>Siguiendo</span>
-                        </div>
-                        <span className="font-semibold text-foreground text-right">
-                          {socialPresence.audience_size?.following || dataObj.instagram_presence?.audience_size?.following || "N/D"}
+                          {(() => {
+                            const presence = dataObj?.facebook_presence || {};
+                            const metrics = presence.audience_metrics || {};
+                            return formatSocialMetric(metrics.talking_about_count ?? dataObj?.social_intelligence?.engagement_level);
+                          })()}
                         </span>
                       </div>
                       <div className="flex items-start justify-between text-sm gap-4">
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
-                          <Activity className={`h-4 w-4 ${theme.text}`} />
-                          <span>Engagement</span>
+                          <Briefcase className={`h-4 w-4 ${theme.text}`} />
+                          <span>Categoría</span>
                         </div>
-                        <span className="font-semibold text-foreground text-right">
-                          {dataObj?.engagement_analysis?.engagement_level || 
-                           dataObj?.engagement_analysis?.current_activity_level || 
-                           dataObj?.community_analysis?.current_activity_level || "N/D"}
+                        <span className="font-semibold text-foreground text-right truncate max-w-[150px]" title={dataObj?.facebook_presence?.business_category || dataObj?.brand_positioning?.niche || "N/D"}>
+                          {dataObj?.facebook_presence?.business_category || dataObj?.brand_positioning?.niche || "N/D"}
                         </span>
                       </div>
                     </div>
-                  ) : (isWebsiteStructure || isConsolidatedStructure) && isCompleted ? (
+                  ) : isInstagramStructure && isCompleted ? (() => {
+                    const followers = (() => {
+                      const visibility = compObs.visibility_indicators;
+                      const socialProof = engagement.social_proof_signals;
+                      
+                      if (visibility && Array.isArray(visibility)) {
+                        for (const indicator of visibility) {
+                          if (typeof indicator === 'string' && indicator.toLowerCase().includes('seguidor')) {
+                            const match = indicator.match(/[\d.]+[KkMm]?/);
+                            if (match) return match[0];
+                          }
+                        }
+                      }
+                      
+                      if (socialProof && Array.isArray(socialProof)) {
+                        for (const signal of socialProof) {
+                            if (typeof signal === 'string' && signal.toLowerCase().includes('seguidor')) {
+                              const match = signal.match(/[\d.]+[KkMm]?/);
+                              if (match) return match[0];
+                            }
+                        }
+                      }
+                      
+                      return socialPresence.audience_size?.followers;
+                    })();
+
+                    const posts = socialPresence.audience_size?.posts_count || dataObj.instagram_presence?.audience_size?.posts_count;
+                    const following = socialPresence.audience_size?.following || dataObj.instagram_presence?.audience_size?.following;
+                    const engagementLevel = dataObj?.engagement_analysis?.engagement_level || 
+                                            dataObj?.engagement_analysis?.current_activity_level || 
+                                            dataObj?.community_analysis?.current_activity_level;
+
+                    const branding = dataObj?.branding_analysis || {};
+                    const brandPersonality = branding.brand_personality || [];
+                    const emotionalTone = branding.emotional_tone || [];
+                    const category = socialPresence.business_category || socialPresence.business_category_name || dataObj?.instagram_presence?.business_category;
+
+                    const hasFollowers = followers !== undefined && followers !== null && followers !== "" && followers !== "N/D" && followers !== "N/A";
+                    const hasPosts = posts !== undefined && posts !== null && posts !== "" && posts !== "N/D" && posts !== "N/A";
+                    const hasFollowing = following !== undefined && following !== null && following !== "" && following !== "N/D" && following !== "N/A";
+                    const hasEngagement = engagementLevel !== undefined && engagementLevel !== null && engagementLevel !== "" && engagementLevel !== "N/D" && engagementLevel !== "N/A";
+
+                    if (!hasFollowers && !hasPosts && !hasFollowing && !hasEngagement && !category && brandPersonality.length === 0 && emotionalTone.length === 0) {
+                      return <div className="text-center py-4 text-muted-foreground text-xs">Sin métricas disponibles en Instagram</div>;
+                    }
+
+                    return (
+                      <div className="space-y-2.5">
+                        {hasFollowers && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Users className={`h-4 w-4 ${theme.text}`} />
+                              <span>Seguidores</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right">{formatSocialMetric(followers)}</span>
+                          </div>
+                        )}
+                        {hasPosts && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <FileText className={`h-4 w-4 ${theme.text}`} />
+                              <span>Publicaciones</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right">{posts}</span>
+                          </div>
+                        )}
+                        {hasFollowing && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Users className={`h-4 w-4 ${theme.text}`} />
+                              <span>Siguiendo</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right">{following}</span>
+                          </div>
+                        )}
+                        {hasEngagement && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Activity className={`h-4 w-4 ${theme.text}`} />
+                              <span>Engagement</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right">{engagementLevel}</span>
+                          </div>
+                        )}
+                        {category && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Briefcase className={`h-4 w-4 ${theme.text}`} />
+                              <span>Categoría</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate max-w-[150px]" title={category}>{category}</span>
+                          </div>
+                        )}
+                        {brandPersonality && brandPersonality.length > 0 && (
+                          <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Sparkles className={`h-4 w-4 ${theme.text}`} />
+                              <span>Personalidad</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate max-w-[150px]" title={brandPersonality.join(", ")}>
+                              {brandPersonality.slice(0, 2).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                        {emotionalTone && emotionalTone.length > 0 && (
+                          <div className="flex items-start justify-between text-sm gap-4">
+                            <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
+                              <Smile className={`h-4 w-4 ${theme.text}`} />
+                              <span>Tono Emocional</span>
+                            </div>
+                            <span className="font-semibold text-foreground text-right truncate max-w-[150px]" title={emotionalTone.join(", ")}>
+                              {emotionalTone.slice(0, 2).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })() : (isWebsiteStructure || isConsolidatedStructure) && isCompleted ? (
                     <div className="space-y-2.5">
                       <div className="flex items-start justify-between text-sm pb-1.5 border-b border-border/40 gap-4">
                         <div className="flex items-center gap-2 text-muted-foreground shrink-0 mt-0.5">
                           <Compass className={`h-4 w-4 ${theme.text}`} />
                           <span>Posición</span>
                         </div>
-                        <span className="font-semibold text-foreground text-right" title={positionVal}>
+                        <span className="font-semibold text-foreground text-right text-xs max-w-[160px] sm:max-w-[220px] truncate" title={positionVal}>
                           {positionVal}
                         </span>
                       </div>
@@ -600,7 +957,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                           <Award className={`h-4 w-4 ${theme.text}`} />
                           <span>Ventaja</span>
                         </div>
-                        <span className="font-semibold text-foreground text-right" title={advantageVal}>
+                        <span className="font-semibold text-foreground text-right text-xs max-w-[160px] sm:max-w-[220px] truncate" title={advantageVal}>
                           {advantageVal}
                         </span>
                       </div>
@@ -609,7 +966,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                           <Target className={`h-4 w-4 ${theme.text}`} />
                           <span>Enfoque / Brecha</span>
                         </div>
-                        <span className="font-semibold text-foreground text-right" title={gapVal}>
+                        <span className="font-semibold text-foreground text-right text-xs max-w-[160px] sm:max-w-[220px] truncate" title={gapVal}>
                           {gapVal}
                         </span>
                       </div>
@@ -618,7 +975,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                           <Zap className={`h-4 w-4 ${theme.text}`} />
                           <span>Estado / Confianza</span>
                         </div>
-                        <span className="font-semibold text-foreground text-right" title={priorityVal}>
+                        <span className="font-semibold text-foreground text-right text-xs max-w-[160px] sm:max-w-[220px] truncate" title={priorityVal}>
                           {priorityVal}
                         </span>
                       </div>
@@ -644,10 +1001,9 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                   ) : (
                     <div className="text-center py-4 text-muted-foreground text-sm">
                       {isPending ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Analizando...</span>
-                        </div>
+                        <p className="text-xs text-slate-400 py-2">
+                          Obteniendo datos del canal en segundo plano...
+                        </p>
                       ) : isError ? (
                         <div className="flex items-center justify-center gap-2 text-red-500">
                           <AlertCircle className="h-4 w-4" />

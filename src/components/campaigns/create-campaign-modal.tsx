@@ -45,8 +45,8 @@ import {
 import { toast } from "sonner";
 import { suggestCampaignsAction } from "@/actions/campaign-suggestions";
 import { CampaignSuggestion } from "@/lib/schemas/campaign-suggestions";
-import { createCampaignAction } from "@/actions/campaign";
-import { getActiveStrategyAction } from "@/actions/strategy";
+import { createCampaignAction, updateCampaignAction } from "@/actions/campaign";
+import { getActiveStrategyAction, listStrategiesAction } from "@/actions/strategy";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { CampaignForm } from "./campaign-form";
@@ -55,6 +55,8 @@ interface CreateCampaignModalProps {
   businessId: string;
   trigger?: React.ReactNode;
   initialAiMode?: boolean;
+  editCampaignId?: string;
+  initialCampaignData?: any;
 }
 
 const objectiveTranslations: Record<string, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
@@ -105,7 +107,7 @@ const loadingStates = [
   "Afinando los detalles de presupuesto, segmentación y canales...",
 ];
 
-export default function CreateCampaignModal({ businessId, trigger, initialAiMode }: CreateCampaignModalProps) {
+export default function CreateCampaignModal({ businessId, trigger, initialAiMode, editCampaignId, initialCampaignData }: CreateCampaignModalProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [aiMode, setAiMode] = useState(initialAiMode ?? true);
@@ -116,6 +118,9 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [activeStrategyId, setActiveStrategyId] = useState<string | undefined>(undefined);
+  const [strategies, setStrategies] = useState<Array<{ id: string; name: string; isActive: boolean }>>([]);
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>("");
+  const [step, setStep] = useState<"SELECT_STRATEGY" | "VIEW_SUGGESTIONS">("SELECT_STRATEGY");
 
   // Estado local para edición de sugerencias IA
   const [editForm, setEditForm] = useState<{
@@ -153,33 +158,91 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
     return () => clearInterval(interval);
   }, [isLoading]);
 
-  // Cargar estrategia activa en modo manual o cuando se requiera
-  const loadActiveStrategy = async () => {
+  // Cargar estrategia activa y lista de estrategias
+  const loadStrategies = async () => {
     try {
-      const res = await getActiveStrategyAction(businessId);
-      if (res.success && res.strategy) {
-        setActiveStrategyId(res.strategy.id);
+      const listRes = await listStrategiesAction(businessId);
+      if (listRes.success && listRes.strategies) {
+        setStrategies(listRes.strategies);
+        
+        const active = listRes.strategies.find((s: any) => s.isActive);
+        if (active) {
+          setActiveStrategyId(active.id);
+          setSelectedStrategyId(active.id);
+        } else if (listRes.strategies.length > 0) {
+          setSelectedStrategyId(listRes.strategies[0].id);
+        }
       }
     } catch (e) {
-      console.error("Error loading active strategy:", e);
+      console.error("Error loading strategies:", e);
     }
   };
 
   useEffect(() => {
     if (isOpen) {
-      loadActiveStrategy();
-      if (aiMode && suggestions.length === 0) {
-        handleGenerateSuggestions();
+      loadStrategies();
+      
+      if (editCampaignId && initialCampaignData) {
+        // Inicializar datos para edición
+        const c = initialCampaignData;
+        const allPlatforms = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "WEBSITE"];
+        
+        // Mapear canales
+        const campaignChannels = (c.channels as any[]) || [];
+        const mergedChannels = allPlatforms.map(platform => {
+          const found = campaignChannels.find(ch => {
+            if (!ch) return false;
+            const plat = typeof ch === "string" ? ch : ch.platform;
+            return plat && plat.toUpperCase() === platform;
+          });
+          return {
+            platform,
+            isActive: found ? found.isActive : false,
+            budget: found ? (found.budget || 0) : 0
+          };
+        });
+
+        // Calcular duración estimada en base a fechas
+        let duration = 30;
+        if (c.startDate && c.endDate) {
+          duration = Math.max(1, Math.round((new Date(c.endDate).getTime() - new Date(c.startDate).getTime()) / (1000 * 60 * 60 * 24)));
+        }
+
+        setEditForm({
+          name: c.name,
+          description: c.description || "",
+          objective: c.objective,
+          budget: c.budget ? Number(c.budget.toString()) : 0,
+          durationDays: duration,
+          startDate: c.startDate ? format(new Date(c.startDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+          channels: mergedChannels,
+          interests: c.targeting?.interests || [],
+          locations: c.targeting?.locations || [],
+        });
+
+        setAiMode(true); // Abrir en modo interactivo/IA para permitir la edición completa (incluyendo canales)
+        setStep("VIEW_SUGGESTIONS"); // Saltar paso 1 para mostrar el formulario de edición directamente
+        setIsEditing(true); // Forzar modo de edición activo
+      } else {
+        setStep("SELECT_STRATEGY");
+        setSuggestions([]);
       }
     }
-  }, [isOpen, aiMode]);
+  }, [isOpen, editCampaignId, initialCampaignData]);
 
   // Ejecutar sugerencia IA
-  const handleGenerateSuggestions = async () => {
+  const handleGenerateSuggestions = async (strategyIdOverride?: string) => {
+    const targetId = strategyIdOverride || selectedStrategyId;
+    if (!targetId && aiMode) {
+      toast.error("Debes seleccionar una estrategia primero.");
+      return;
+    }
+
     setIsLoading(true);
     setSuggestions([]);
+    setStep("VIEW_SUGGESTIONS");
     try {
-      const res = await suggestCampaignsAction(businessId);
+      const res = await suggestCampaignsAction(businessId, targetId);
       if (res.success && res.campaigns) {
         setSuggestions(res.campaigns);
         setSelectedIdx(0);
@@ -189,9 +252,12 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
         toast.success("¡Sugerencias de campañas generadas con éxito!");
       } else {
         toast.error(res.error || "No se pudieron obtener sugerencias de la IA.");
+        // Si hay error, volver al paso 1
+        setStep("SELECT_STRATEGY");
       }
     } catch (e) {
       toast.error("Error al conectar con la IA de campañas.");
+      setStep("SELECT_STRATEGY");
     } finally {
       setIsLoading(false);
     }
@@ -202,8 +268,12 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
     if (suggestions.length > 0 && suggestions[selectedIdx]) {
       const camp = suggestions[selectedIdx];
       const allPlatforms = ["INSTAGRAM", "FACEBOOK", "TIKTOK", "WEBSITE"];
-      const mergedChannels = allPlatforms.map(platform => {
-        const suggested = camp.channels.find(c => c.platform.toUpperCase() === platform);
+       const mergedChannels = allPlatforms.map(platform => {
+        const suggested = camp.channels.find(c => {
+          if (!c) return false;
+          const plat = typeof c === "string" ? c : c.platform;
+          return plat && plat.toUpperCase() === platform;
+        });
         return {
           platform,
           isActive: suggested ? suggested.isActive : false,
@@ -226,7 +296,7 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
     }
   }, [suggestions, selectedIdx]);
 
-  // Manejo de guardado definitivo (IA Mode)
+  // Manejo de guardado definitivo (IA Mode / Edición)
   const handleSaveCampaign = async () => {
     setIsSaving(true);
     try {
@@ -237,7 +307,7 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
       const targetingObj = {
         locations: editForm.locations,
         interests: editForm.interests,
-        ageRange: suggestions[selectedIdx]?.targeting?.ageRange || [18, 55],
+        ageRange: suggestions[selectedIdx]?.targeting?.ageRange || initialCampaignData?.targeting?.ageRange || [18, 55],
       };
 
       // Formatear canales
@@ -247,21 +317,37 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
         budget: Number(c.budget),
       }));
 
-      const res = await createCampaignAction(businessId, {
-        name: editForm.name,
-        description: editForm.description,
-        objective: editForm.objective as any,
-        startDate: startD,
-        endDate: endD,
-        budget: Number(editForm.budget),
-        channels: channelsObj,
-        targeting: targetingObj,
-        status: "DRAFT",
-        strategyId: activeStrategyId, // Link con la estrategia activa
-      });
+      let res;
+      if (editCampaignId) {
+        res = await updateCampaignAction(editCampaignId, businessId, {
+          name: editForm.name,
+          description: editForm.description,
+          objective: editForm.objective as any,
+          startDate: startD,
+          endDate: endD,
+          budget: Number(editForm.budget),
+          channels: channelsObj,
+          targeting: targetingObj,
+          status: initialCampaignData?.status || "DRAFT",
+          strategyId: activeStrategyId || initialCampaignData?.strategyId,
+        });
+      } else {
+        res = await createCampaignAction(businessId, {
+          name: editForm.name,
+          description: editForm.description,
+          objective: editForm.objective as any,
+          startDate: startD,
+          endDate: endD,
+          budget: Number(editForm.budget),
+          channels: channelsObj,
+          targeting: targetingObj,
+          status: "DRAFT",
+          strategyId: activeStrategyId, // Link con la estrategia activa
+        });
+      }
 
       if (res.success) {
-        toast.success("¡Campaña guardada con éxito!");
+        toast.success(editCampaignId ? "¡Campaña actualizada con éxito!" : "¡Campaña guardada con éxito!");
         setIsOpen(false);
         router.refresh();
       } else {
@@ -352,7 +438,12 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
               <Switch 
                 id="campaign-ai-mode" 
                 checked={aiMode} 
-                onCheckedChange={setAiMode} 
+                onCheckedChange={(val) => {
+                  setAiMode(val);
+                  if (val) {
+                    setStep("SELECT_STRATEGY");
+                  }
+                }} 
                 disabled={isLoading}
               />
             </div>
@@ -360,9 +451,17 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
         </div>
 
         {/* TABS DE SELECCIÓN DE PROPUESTAS (Fijo, solo en modo IA y si ya cargaron) */}
-        {aiMode && !isLoading && suggestions.length > 0 && (
+        {aiMode && !isLoading && suggestions.length > 0 && step === "VIEW_SUGGESTIONS" && (
           <div className="flex items-center justify-between px-6 py-2 border-b border-muted/20 bg-muted/5 shrink-0">
             <div className="flex gap-1.5 overflow-x-auto py-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="text-[10px] h-7 px-2 border-muted-foreground/20 text-muted-foreground mr-1 shrink-0"
+                onClick={() => setStep("SELECT_STRATEGY")}
+              >
+                ← Cambiar Estrategia
+              </Button>
               {suggestions.map((s, idx) => {
                 const objType = objectiveTranslations[s.objective] || { label: "Campaña" };
                 const isSelected = selectedIdx === idx;
@@ -395,7 +494,7 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
               variant="outline" 
               size="sm" 
               className="text-[10px] h-7 px-2 gap-1 text-violet-650 border-violet-200 hover:bg-violet-50 shrink-0"
-              onClick={handleGenerateSuggestions}
+              onClick={() => handleGenerateSuggestions()}
             >
               <Loader2 className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
               Regenerar
@@ -405,8 +504,70 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
 
         {/* CONTENIDO SCROLLABLE GENERAL (Filtra entre IA y Manual) */}
         <div className="flex-1 overflow-y-auto p-6">
-          {aiMode ? (
+          {(aiMode || editCampaignId) ? (
             <div className="space-y-6">
+              
+              {/* PASO 1: SELECCIONAR ESTRATEGIA */}
+              {step === "SELECT_STRATEGY" && !isLoading && (
+                <div className="space-y-5 py-2">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-foreground">Paso 1: Selecciona la Estrategia Base</h3>
+                    <p className="text-xs text-muted-foreground">
+                      La IA de OB-MarketHub diseñará propuestas de campañas alineadas a los objetivos y canales de la estrategia que elijas.
+                    </p>
+                  </div>
+
+                  {strategies.length > 0 ? (
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
+                          Estrategia de Marketing
+                        </label>
+                        <Select value={selectedStrategyId} onValueChange={setSelectedStrategyId}>
+                          <SelectTrigger className="text-xs h-10 bg-background border-violet-200/50 focus:ring-violet-500">
+                            <SelectValue placeholder="Selecciona una estrategia..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {strategies.map((strat) => (
+                              <SelectItem key={strat.id} value={strat.id} className="text-xs">
+                                {strat.name} {strat.isActive ? "(Activa)" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="p-4 bg-violet-500/5 border border-violet-500/10 rounded-xl space-y-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 block">
+                          ¿Qué hará la IA?
+                        </span>
+                        <p className="text-xs text-foreground/80 leading-normal">
+                          Generará exactamente 3 propuestas diferenciadas (reconocimiento de marca, conversión/ventas e interacción). Cada una incluirá un presupuesto sugerido, canales recomendados, distribución de presupuesto y segmentación geográfica.
+                        </p>
+                      </div>
+
+                      <Button
+                        onClick={() => handleGenerateSuggestions()}
+                        className="w-full gradient-primary text-xs h-10 shadow-md font-semibold border-0 relative overflow-hidden group"
+                      >
+                        <Sparkles className="mr-2 h-4 w-4 shrink-0 text-amber-300 animate-pulse" />
+                        Planificar Campañas con IA
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-8 text-center bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-3">
+                      <AlertCircle className="h-8 w-8 text-amber-500" />
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-foreground">Sin Estrategias Creadas</h4>
+                        <p className="text-[11px] text-muted-foreground max-w-sm">
+                          Debes crear al menos una estrategia en la pestaña <strong>Estrategia</strong> para que la IA pueda sugerir campañas alineadas a tu negocio.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Pantalla de Carga de IA */}
               {isLoading && (
                 <div className="flex flex-col items-center justify-center p-12 min-h-[300px] text-center space-y-6">
@@ -435,18 +596,18 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
               )}
 
               {/* Visualización de propuestas de campaña */}
-              {!isLoading && suggestions.length > 0 && (
+              {!isLoading && (suggestions.length > 0 || editCampaignId) && step === "VIEW_SUGGESTIONS" && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   {/* Detalles de la propuesta / Formulario de edición */}
                   <div className="space-y-3">
                     {!isEditing ? (
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Badge className={`text-[9px] font-semibold border ${objectiveTranslations[suggestions[selectedIdx]?.objective]?.color} ${objectiveTranslations[suggestions[selectedIdx]?.objective]?.bg}`}>
+                          <Badge className={`text-[9px] font-semibold border ${objectiveTranslations[suggestions[selectedIdx]?.objective || editForm.objective]?.color || ""} ${objectiveTranslations[suggestions[selectedIdx]?.objective || editForm.objective]?.bg || ""}`}>
                             <span className="mr-1 shrink-0">
-                              {objectiveTranslations[suggestions[selectedIdx]?.objective]?.icon}
+                              {objectiveTranslations[suggestions[selectedIdx]?.objective || editForm.objective]?.icon}
                             </span>
-                            {objectiveTranslations[suggestions[selectedIdx]?.objective]?.label}
+                            {objectiveTranslations[suggestions[selectedIdx]?.objective || editForm.objective]?.label || editForm.objective}
                           </Badge>
                           <Badge variant="outline" className="text-[9px] font-semibold gap-1 text-muted-foreground bg-muted/10">
                             <CalendarIcon className="h-3 w-3" />
@@ -454,10 +615,10 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
                           </Badge>
                         </div>
                         <h3 className="text-sm font-bold tracking-tight text-foreground leading-snug">
-                          {suggestions[selectedIdx]?.name}
+                          {suggestions[selectedIdx]?.name || editForm.name}
                         </h3>
                         <p className="text-xs text-muted-foreground/90 leading-relaxed text-justify bg-muted/5 p-3.5 rounded-xl border border-muted/20">
-                          {suggestions[selectedIdx]?.description}
+                          {suggestions[selectedIdx]?.description || editForm.description}
                         </p>
                       </div>
                     ) : (
@@ -468,6 +629,7 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
                             <Edit2 className="h-3.5 w-3.5" /> EDITANDO CAMPAÑA SUGERIDA
                           </span>
                           <Button 
+                            type="button"
                             variant="ghost" 
                             size="sm" 
                             className="h-6 text-[10px] text-muted-foreground hover:text-foreground"
@@ -549,7 +711,11 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
                       <div>
                         <span className="text-[9px] uppercase font-bold tracking-widest text-muted-foreground block mb-1">Edad de Audiencia</span>
                         <Badge variant="outline" className="text-[10px] font-bold border-violet-200 text-violet-600 dark:border-violet-850 dark:text-violet-400">
-                          {suggestions[selectedIdx]?.targeting?.ageRange ? `${suggestions[selectedIdx].targeting!.ageRange![0]} a ${suggestions[selectedIdx].targeting!.ageRange![1]} años` : "20 a 45 años"}
+                          {suggestions[selectedIdx]?.targeting?.ageRange 
+                            ? `${suggestions[selectedIdx].targeting!.ageRange![0]} a ${suggestions[selectedIdx].targeting!.ageRange![1]} años` 
+                            : initialCampaignData?.targeting?.ageRange
+                              ? `${initialCampaignData.targeting.ageRange[0]} a ${initialCampaignData.targeting.ageRange[1]} años`
+                              : "20 a 45 años"}
                         </Badge>
                       </div>
                       <div className="md:col-span-2 pt-2 border-t border-muted/20">
@@ -630,26 +796,28 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
 
                     {/* Botones de Acción */}
                     <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-                      {!isEditing ? (
-                        <Button 
-                          type="button"
-                          variant="outline" 
-                          className="text-xs h-10 border-violet-200 text-violet-755 hover:bg-violet-50 w-full sm:w-auto"
-                          onClick={() => setIsEditing(true)}
-                        >
-                          <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-                          Editar Propuesta
-                        </Button>
-                      ) : (
-                        <Button 
-                          type="button"
-                          variant="outline" 
-                          className="text-xs h-10 border-green-500/20 text-green-600 hover:bg-green-50/50 bg-green-500/5 w-full sm:w-auto"
-                          onClick={() => setIsEditing(false)}
-                        >
-                          <Check className="h-3.5 w-3.5 mr-1.5" />
-                          Aceptar Cambios
-                        </Button>
+                      {!editCampaignId && (
+                        !isEditing ? (
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            className="text-xs h-10 border-violet-200 text-violet-755 hover:bg-violet-50 w-full sm:w-auto"
+                            onClick={() => setIsEditing(true)}
+                          >
+                            <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                            Editar Propuesta
+                          </Button>
+                        ) : (
+                          <Button 
+                            type="button"
+                            variant="outline" 
+                            className="text-xs h-10 border-green-500/20 text-green-600 hover:bg-green-50/50 bg-green-500/5 w-full sm:w-auto"
+                            onClick={() => setIsEditing(false)}
+                          >
+                            <Check className="h-3.5 w-3.5 mr-1.5" />
+                            Aceptar Cambios
+                          </Button>
+                        )
                       )}
                       
                       <Button 
@@ -672,24 +840,6 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
                       </Button>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Error state */}
-              {!isLoading && suggestions.length === 0 && (
-                <div className="flex flex-col items-center justify-center p-12 text-center min-h-[350px] space-y-4">
-                  <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center">
-                    <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-base font-bold">Error al generar sugerencias</h3>
-                    <p className="text-xs text-muted-foreground max-w-sm leading-normal">
-                      Asegúrate de que el negocio tenga un análisis de competencia scraping completo y API keys válidas.
-                    </p>
-                  </div>
-                  <Button type="button" variant="default" size="sm" onClick={handleGenerateSuggestions} className="text-xs">
-                    Reintentar sugerencias
-                  </Button>
                 </div>
               )}
             </div>

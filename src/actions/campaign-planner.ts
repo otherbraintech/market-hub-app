@@ -100,7 +100,7 @@ ESTRATEGIA GENERAL VINCULADA:
     const productsContext = products.length > 0
       ? `
 PRODUCTOS DISPONIBLES DE LA MARCA (Promociona o haz referencia a estos productos en algunas publicaciones de manera natural):
-${products.map(p => `- ${p.name}: ${p.description}. Beneficios: ${JSON.stringify(p.benefits)}`).join("\n")}
+${products.map((p: { name: string; description: string | null; benefits: any }) => `- ${p.name}: ${p.description}. Beneficios: ${JSON.stringify(p.benefits)}`).join("\n")}
 `
       : "No hay productos específicos cargados.";
 
@@ -160,7 +160,7 @@ GENERA EXACTAMENTE 8 PUBLICACIONES DISTRIBUIDAS DE MANERA ESTRATÉGICA EN EL TIE
     });
 
     // 8. Iniciar transacción en la base de datos
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Borrar contenido anterior de esta campaña
       await tx.content.deleteMany({
         where: { campaignId: campaign.id }

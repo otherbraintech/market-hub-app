@@ -68,6 +68,17 @@ export async function POST(
   try {
     const { businessId } = await params;
 
+    // Notificar al monitor del inicio de la etapa de diagnóstico
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Diagnóstico y Estrategia",
+        message: "Iniciando consolidación de análisis web y de competencia para formular el diagnóstico.",
+        step: "DIAGNOSTIC",
+        status: "PROCESSING"
+      }
+    }).catch((err: any) => console.error("Error al crear la notificación del Agente de Diagnóstico:", err));
+
     const rawKey = process.env.OPEN_ROUTER_KEY;
     const key = rawKey ? rawKey.replace(/"/g, '').trim() : null;
     const obscuredKey = key ? `${key.substring(0, 12)}...${key.substring(key.length - 8)}` : 'NO CARGADO / INDEFINIDO';
@@ -107,13 +118,13 @@ export async function POST(
       }
     });
 
-    console.log(`👥 Competidores encontrados: ${competitors.length} (${competitors.map(c => c.name).join(', ')})`);
+    console.log(`👥 Competidores encontrados: ${competitors.length} (${competitors.map((c: typeof competitors[number]) => c.name).join(', ')})`);
 
     // Get all analysis reports for competitors
     const competitorReports = await prisma.analysisReport.findMany({
       where: {
         type: 'COMPETITOR',
-        entityId: { in: competitors.map(c => c.id) },
+        entityId: { in: competitors.map((c: typeof competitors[number]) => c.id) },
         status: 'COMPLETED'
       },
       orderBy: { completedAt: 'desc' }
@@ -126,7 +137,7 @@ export async function POST(
 
     // Group competitor reports by competitorId and normalize data
     const competitorReportsMap = new Map<string, any[]>();
-    competitorReports.forEach(report => {
+    competitorReports.forEach((report: typeof competitorReports[number]) => {
       if (!competitorReportsMap.has(report.entityId)) {
         competitorReportsMap.set(report.entityId, []);
       }
@@ -175,11 +186,11 @@ export async function POST(
     if (openRouterKey) {
       try {
         // Build a comprehensive prompt for AI with detailed scraped data
-        const competitorData = competitors.map(comp => {
+        const competitorData = competitors.map((comp: typeof competitors[number]) => {
           const reports = competitorReportsMap.get(comp.id) || [];
           
           let reportDetailsText = '';
-          reports.forEach(report => {
+          reports.forEach((report: (typeof reports)[number]) => {
             const data = report.data;
             const channel = report.channel;
             
@@ -320,7 +331,7 @@ REGLAS CRÍTICAS:
 5. En "estrategiaContenidos.frecuenciaCanal", recomienda frecuencias únicamente para los canales reales analizados. Si no hay datos de redes sociales, sugiere optimizar el sitio web o blog y su frecuencia de publicación.`;
         console.log(`\n======================================================`);
         console.log(`🤖 INICIANDO ANÁLISIS DE IA PARA NEGOCIO: "${business.name}"`);
-        console.log(`📊 Competidores detectados: ${competitors.map(c => c.name).join(', ')}`);
+        console.log(`📊 Competidores detectados: ${competitors.map((c: typeof competitors[number]) => c.name).join(', ')}`);
         console.log(`📡 Enviando datos del scraping consolidado a OpenRouter...`);
         console.log(`📝 PROMPT COMPLETO Y DATOS ENVIADOS:\n`, prompt);
         console.log(`======================================================\n`);
@@ -398,7 +409,7 @@ REGLAS CRÍTICAS:
       executiveSummary: executiveSummary,
       
       // Competitors with enhanced extracted data
-      competitors: competitors.map(competitor => {
+      competitors: competitors.map((competitor: typeof competitors[number]) => {
         const competitorReports = competitorReportsMap.get(competitor.id) || [];
         
         // Extract key insights from all reports
@@ -443,7 +454,7 @@ REGLAS CRÍTICAS:
         };
         
         // Process each report to extract insights
-        competitorReports.forEach(report => {
+        competitorReports.forEach((report: typeof competitorReports[number]) => {
           const data = report.data;
           const channel = report.channel;
           
@@ -635,7 +646,7 @@ REGLAS CRÍTICAS:
       metadata: {
         totalCompetitors: competitors.length,
         totalCompetitorReports: competitorReports.length,
-        channelsAnalyzed: Array.from(new Set(competitorReports.map(r => r.channel)))
+        channelsAnalyzed: Array.from(new Set(competitorReports.map((r: typeof competitorReports[number]) => r.channel)))
       }
     };
 
@@ -648,6 +659,17 @@ REGLAS CRÍTICAS:
       }
     });
 
+    // Notificar al monitor del éxito de la etapa de diagnóstico
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Diagnóstico y Estrategia",
+        message: `¡Diagnóstico consolidado con éxito! Se analizó la presencia de ${competitors.length} competidores.`,
+        step: "DIAGNOSTIC",
+        status: "COMPLETED"
+      }
+    }).catch((err: any) => console.error("Error al crear la notificación del Agente de Diagnóstico (Éxito):", err));
+
     return NextResponse.json({
       success: true,
       report: generalReport,
@@ -655,6 +677,20 @@ REGLAS CRÍTICAS:
     });
   } catch (error) {
     console.error('Error generating competitor general report:', error);
+    try {
+      const { businessId } = await params;
+      await prisma.agentNotification.create({
+        data: {
+          businessId,
+          title: "Agente de Diagnóstico y Estrategia",
+          message: `Error al consolidar el diagnóstico de competencia: ${error instanceof Error ? error.message : String(error)}`,
+          step: "DIAGNOSTIC",
+          status: "FAILED"
+        }
+      });
+    } catch (e) {
+      console.error("Error al crear notificación de error del Agente de Diagnóstico:", e);
+    }
     return NextResponse.json({ error: 'Failed to generate general report' }, { status: 500 });
   }
 }

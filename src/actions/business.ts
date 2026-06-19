@@ -14,14 +14,14 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
     const { createBusiness: createBusinessService } = await import("@/modules/business/services");
     
     const session = await getSession();
-    if (!session || !session.userId) {
+    if (!session || !session.user?.id) {
       return { success: false, error: "No autorizado" };
     }
 
     const validated = businessSchema.parse(data);
     const business = await createBusinessService({
       ...validated,
-      userId: session.userId,
+      userId: session.user.id,
     } as any);
 
     revalidatePath("/business");
@@ -68,6 +68,19 @@ export async function createBusinessWithAI(data: {
 
 export async function updateBusiness(id: string, data: z.infer<typeof businessSchema>) {
   try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { id, userId: session.user.id }
+    });
+    if (!business) {
+      return { success: false, error: "Negocio no encontrado o no autorizado" };
+    }
+
     const { updateBusiness: updateBusinessService } = await import("@/modules/business/services");
     const validated = businessSchema.parse(data);
     
@@ -82,6 +95,19 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
 
 export async function deleteBusiness(id: string) {
   try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { id, userId: session.user.id }
+    });
+    if (!business) {
+      return { success: false, error: "Negocio no encontrado o no autorizado" };
+    }
+
     await prisma.business.delete({
       where: { id },
     });
@@ -92,7 +118,13 @@ export async function deleteBusiness(id: string) {
   }
 }
 export async function getBusinesses() {
+  const { getSession } = await import("@/lib/auth");
+  const session = await getSession();
+  if (!session || !session.user?.id) {
+    return [];
+  }
   return prisma.business.findMany({
+    where: { userId: session.user.id },
     orderBy: { name: "asc" },
   });
 }
@@ -109,11 +141,33 @@ export async function setSelectedBusinessAction(id: string) {
 
 export async function getSelectedBusinessId() {
   const { cookies } = await import("next/headers");
-  return (await cookies()).get("selectedBusinessId")?.value;
+  const selectedId = (await cookies()).get("selectedBusinessId")?.value;
+  if (!selectedId) return undefined;
+
+  const { getSession } = await import("@/lib/auth");
+  const session = await getSession();
+  if (!session || !session.user?.id) {
+    return undefined;
+  }
+
+  const business = await prisma.business.findFirst({
+    where: { id: selectedId, userId: session.user.id }
+  });
+
+  if (!business) {
+    return undefined;
+  }
+
+  return selectedId;
 }
 
 export async function getBusinessAction(id: string) {
-  return prisma.business.findUnique({
-    where: { id },
+  const { getSession } = await import("@/lib/auth");
+  const session = await getSession();
+  if (!session || !session.user?.id) {
+    return null;
+  }
+  return prisma.business.findFirst({
+    where: { id, userId: session.user.id },
   });
 }

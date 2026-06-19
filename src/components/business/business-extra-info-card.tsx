@@ -60,9 +60,7 @@ export function BusinessExtraInfoCard({
     })
     return initial
   })
-  const [competitors, setCompetitors] = useState<Partial<Competitor>[]>(
-    initialCompetitors.length > 0 ? initialCompetitors : [{ id: '', name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' }]
-  )
+  const [competitors, setCompetitors] = useState<Partial<Competitor>[]>(initialCompetitors)
 
   const handleSaveContact = async () => {
     setLoading(true)

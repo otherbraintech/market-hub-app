@@ -82,6 +82,8 @@ export async function signup(prevState: any, formData: FormData) {
 }
 
 export async function logout() {
-  (await cookies()).set("session", "", { expires: new Date(0) });
+  const cookieStore = await cookies();
+  cookieStore.set("session", "", { expires: new Date(0) });
+  cookieStore.set("selectedBusinessId", "", { expires: new Date(0) });
   redirect("/login");
 }

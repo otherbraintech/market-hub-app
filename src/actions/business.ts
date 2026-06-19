@@ -70,7 +70,6 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
   try {
     const { getSession } = await import("@/lib/auth");
     const session = await getSession();
-<<<<<<< HEAD
     if (!session || !session.user?.id) {
       return { success: false, error: "No autorizado" };
     }
@@ -82,21 +81,6 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
       return { success: false, error: "Negocio no encontrado o no autorizado" };
     }
 
-=======
-    
-    if (!session || !session.userId) {
-      return { success: false, error: "No autorizado" };
-    }
-    
-    const business = await prisma.business.findUnique({
-      where: { id },
-    });
-    
-    if (!business || business.userId !== session.userId) {
-      return { success: false, error: "No autorizado" };
-    }
-    
->>>>>>> 01692c68f53b9f0892cfe23c4fd243cef4190616
     const { updateBusiness: updateBusinessService } = await import("@/modules/business/services");
     const validated = businessSchema.parse(data);
     
@@ -113,7 +97,6 @@ export async function deleteBusiness(id: string) {
   try {
     const { getSession } = await import("@/lib/auth");
     const session = await getSession();
-<<<<<<< HEAD
     if (!session || !session.user?.id) {
       return { success: false, error: "No autorizado" };
     }
@@ -125,21 +108,6 @@ export async function deleteBusiness(id: string) {
       return { success: false, error: "Negocio no encontrado o no autorizado" };
     }
 
-=======
-    
-    if (!session || !session.userId) {
-      return { success: false, error: "No autorizado" };
-    }
-    
-    const business = await prisma.business.findUnique({
-      where: { id },
-    });
-    
-    if (!business || business.userId !== session.userId) {
-      return { success: false, error: "No autorizado" };
-    }
-    
->>>>>>> 01692c68f53b9f0892cfe23c4fd243cef4190616
     await prisma.business.delete({
       where: { id },
     });
@@ -152,21 +120,11 @@ export async function deleteBusiness(id: string) {
 export async function getBusinesses() {
   const { getSession } = await import("@/lib/auth");
   const session = await getSession();
-<<<<<<< HEAD
   if (!session || !session.user?.id) {
     return [];
   }
   return prisma.business.findMany({
     where: { userId: session.user.id },
-=======
-  
-  if (!session || !session.userId) {
-    return [];
-  }
-  
-  return prisma.business.findMany({
-    where: { userId: session.userId },
->>>>>>> 01692c68f53b9f0892cfe23c4fd243cef4190616
     orderBy: { name: "asc" },
   });
 }
@@ -183,7 +141,6 @@ export async function setSelectedBusinessAction(id: string) {
 
 export async function getSelectedBusinessId() {
   const { cookies } = await import("next/headers");
-<<<<<<< HEAD
   const selectedId = (await cookies()).get("selectedBusinessId")?.value;
   if (!selectedId) return undefined;
 
@@ -201,52 +158,20 @@ export async function getSelectedBusinessId() {
     return undefined;
   }
 
-=======
-  const { getSession } = await import("@/lib/auth");
-  
-  const session = await getSession();
-  const selectedId = (await cookies()).get("selectedBusinessId")?.value;
-  
-  if (!selectedId || !session || !session.userId) {
-    return undefined;
-  }
-  
-  // Verify that the selected business belongs to the current user
-  const business = await prisma.business.findUnique({
-    where: { id: selectedId },
-  });
-  
-  if (!business || business.userId !== session.userId) {
-    // Clear the invalid cookie
-    (await cookies()).delete("selectedBusinessId");
-    return undefined;
-  }
-  
->>>>>>> 01692c68f53b9f0892cfe23c4fd243cef4190616
   return selectedId;
 }
 
 export async function getBusinessAction(id: string) {
   const { getSession } = await import("@/lib/auth");
   const session = await getSession();
-<<<<<<< HEAD
   if (!session || !session.user?.id) {
     return null;
   }
-  return prisma.business.findFirst({
+  const business = await prisma.business.findFirst({
     where: { id, userId: session.user.id },
-=======
-  
-  if (!session || !session.userId) {
-    return null;
-  }
-  
-  const business = await prisma.business.findUnique({
-    where: { id },
->>>>>>> 01692c68f53b9f0892cfe23c4fd243cef4190616
   });
   
-  if (!business || business.userId !== session.userId) {
+  if (!business) {
     return null;
   }
   

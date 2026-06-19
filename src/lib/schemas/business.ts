@@ -1,10 +1,35 @@
 import { z } from "zod";
 
+const normalizeUrl = (val: unknown) => {
+  if (typeof val !== "string" || val.trim() === "") return "";
+  let v = val.trim();
+  if (!/^https?:\/\//i.test(v)) {
+    return `https://${v}`;
+  }
+  return v;
+};
+
+const normalizeSocialLink = (platform: "facebook" | "instagram" | "tiktok") => (val: unknown) => {
+  if (typeof val !== "string" || val.trim() === "") return "";
+  let v = val.trim();
+  if (!/^https?:\/\//i.test(v)) {
+    if (v.includes(".") || v.includes("/")) {
+      return `https://${v}`;
+    }
+    // Convert handles/usernames to urls
+    if (platform === "tiktok") {
+      return `https://tiktok.com/@${v.replace(/^@/, "")}`;
+    }
+    return `https://${platform}.com/${v.replace(/^@/, "")}`;
+  }
+  return v;
+};
+
 export const businessSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   description: z.string().default(""),
   industry: z.string().default(""),
-  website: z.string().url("Debe ser una URL válida").optional().or(z.literal("")),
+  website: z.preprocess(normalizeUrl, z.string().url("Debe ser una URL válida").optional().or(z.literal(""))),
   brandVoice: z.object({
     tone: z.array(z.string()).default([]),
     personality: z.array(z.string()).default([]),
@@ -24,9 +49,9 @@ export const businessSchema = z.object({
   phoneNumbers: z.string().optional().default(""),
   location: z.string().optional().default(""),
   socialLinks: z.object({
-    facebook: z.string().url("URL inválida").optional().or(z.literal("")),
-    instagram: z.string().url("URL inválida").optional().or(z.literal("")),
-    tiktok: z.string().url("URL inválida").optional().or(z.literal("")),
+    facebook: z.preprocess(normalizeSocialLink("facebook"), z.string().url("URL de Facebook inválida").optional().or(z.literal(""))),
+    instagram: z.preprocess(normalizeSocialLink("instagram"), z.string().url("URL de Instagram inválida").optional().or(z.literal(""))),
+    tiktok: z.preprocess(normalizeSocialLink("tiktok"), z.string().url("URL de TikTok inválida").optional().or(z.literal(""))),
   }).default({
     facebook: "",
     instagram: "",

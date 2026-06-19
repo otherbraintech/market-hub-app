@@ -251,6 +251,7 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
                                             <Input placeholder="Facebook" {...field} className="h-9 pl-9 text-xs rounded-lg" />
                                         </div>
                                     </FormControl>
+                                    <FormMessage className="text-[10px]" />
                                 </FormItem>
                             )}
                         />
@@ -265,6 +266,7 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
                                             <Input placeholder="Instagram" {...field} className="h-9 pl-9 text-xs rounded-lg" />
                                         </div>
                                     </FormControl>
+                                    <FormMessage className="text-[10px]" />
                                 </FormItem>
                             )}
                         />
@@ -279,6 +281,7 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
                                             <Input placeholder="TikTok" {...field} className="h-9 pl-9 text-xs rounded-lg" />
                                         </div>
                                     </FormControl>
+                                    <FormMessage className="text-[10px]" />
                                 </FormItem>
                             )}
                         />
@@ -476,6 +479,7 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
                                         <Input placeholder="Link de Facebook" {...field} className="h-11 pl-10 rounded-xl" />
                                     </div>
                                 </FormControl>
+                                <FormMessage />
                             </FormItem>
                         )}
                     />
@@ -490,6 +494,7 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
                                         <Input placeholder="Link de Instagram" {...field} className="h-11 pl-10 rounded-xl" />
                                     </div>
                                 </FormControl>
+                                <FormMessage />
                             </FormItem>
                         )}
                     />
@@ -504,6 +509,7 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
                                         <Input placeholder="Link de TikTok" {...field} className="h-11 pl-10 rounded-xl" />
                                     </div>
                                 </FormControl>
+                                <FormMessage />
                             </FormItem>
                         )}
                     />

@@ -3,7 +3,7 @@ import { generateObject } from 'ai';
 import { z } from 'zod';
 
 const openrouter = createOpenAI({
-  apiKey: process.env.OPEN_ROUTER_KEY,
+  apiKey: process.env.OPEN_ROUTER_KEY?.replace(/\"/g, '').trim(),
   baseURL: 'https://openrouter.ai/api/v1',
 });
 

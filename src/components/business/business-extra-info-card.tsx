@@ -78,6 +78,20 @@ export function BusinessExtraInfoCard({
   })
   const [newCompPlatforms, setNewCompPlatforms] = useState<string[]>(['website'])
 
+  // Auto-abrir diálogo de competidor si viene de crear el negocio y no tiene ninguno
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const isNew = urlParams.get('new') === 'true';
+      if (isNew && initialCompetitors.length === 0) {
+        const timer = setTimeout(() => {
+          setIsNewCompOpen(true);
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [initialCompetitors]);
+
   // Mapa de estados de scraping en tiempo real
   const [scrapingStatusMap, setScrapingStatusMap] = useState<Record<string, Record<string, { status: string; error?: string | null }>>>({})
 

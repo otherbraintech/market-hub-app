@@ -95,7 +95,7 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
         toast.success(res.message);
         onSuccess?.();
         if (res.data?.id) {
-          window.location.href = `/business/${res.data.id}`;
+          window.location.href = `/business/${res.data.id}?new=true`;
         }
       } else {
         toast.error(res.error);

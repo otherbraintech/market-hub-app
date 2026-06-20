@@ -45,7 +45,7 @@ export default async function DashboardLayout({
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          {children}
+          {session ? children : null}
         </div>
       </SidebarInset>
     </SidebarProvider>

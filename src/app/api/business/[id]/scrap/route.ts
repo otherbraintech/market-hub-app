@@ -51,6 +51,17 @@ export async function POST(
       },
     });
 
+    // Registrar notificación en la consola del monitor
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Extracción",
+        message: `Iniciando reanálisis y extracción del canal ${reportChannel} para el propio negocio.`,
+        step: "SCRAPING",
+        status: "PROCESSING"
+      }
+    }).catch((err: any) => console.error("Error al crear notificación de extracción manual de negocio:", err));
+
     // Trigger external webhook (n8n) for business scraping
     const n8nWebhookUrl = "https://otherbrain-n8n.c1hohn.easypanel.host/webhook/scrap-negocio";
     

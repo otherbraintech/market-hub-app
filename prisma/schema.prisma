@@ -1,6 +1,3 @@
-// Plataforma de Marketing Event-Driven
-// Schema Prisma - Base de datos PostgreSQL
-
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native"]
@@ -10,18 +7,14 @@ datasource db {
   provider = "postgresql"
 }
 
-// ============================================
-// EVENTOS Y JOBS (Sistema Event-Driven)
-// ============================================
-
 model Event {
   id        String    @id @default(cuid())
   type      EventType
   payload   Json
-  metadata  Json? // contexto adicional
+  metadata  Json?
   jobId     String?
-  job       Job?      @relation(fields: [jobId], references: [id])
   createdAt DateTime  @default(now())
+  job       Job?      @relation(fields: [jobId], references: [id])
 
   @@index([type])
   @@index([jobId])
@@ -29,52 +22,349 @@ model Event {
 }
 
 model Job {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   type        JobType
-  status      JobStatus @default(PENDING)
-  priority    Int       @default(0)
+  status      JobStatus  @default(PENDING)
+  priority    Int        @default(0)
   payload     Json
   result      Json?
   error       String?
-  retries     Int       @default(0)
-  maxRetries  Int       @default(3)
-  webhookUrl  String? // URL del webhook destino
-  callbackUrl String? // URL para callback de respuesta
+  retries     Int        @default(0)
+  maxRetries  Int        @default(3)
+  webhookUrl  String?
+  callbackUrl String?
   scheduledAt DateTime?
   startedAt   DateTime?
   completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  events    Event[]
-  auditLogs AuditLog[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  auditLogs   AuditLog[]
+  events      Event[]
 
   @@index([type])
   @@index([status])
   @@index([createdAt])
 }
 
+model AuditLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  changes    Json?
+  userId     String?
+  jobId      String?
+  createdAt  DateTime @default(now())
+  job        Job?     @relation(fields: [jobId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Business {
+  id                                 String              @id @default(cuid())
+  name                               String
+  slug                               String              @unique
+  description                        String?
+  industry                           String?
+  website                            String?
+  logo                               String?
+  brandVoice                         Json?
+  brandColors                        Json?
+  brandFonts                         Json?
+  targetAudience                     Json?
+  createdAt                          DateTime            @default(now())
+  updatedAt                          DateTime            @updatedAt
+  phoneNumbers                       String?
+  socialLinks                        Json?
+  userId                             String?
+  location                           String?
+  settings                           Json?
+  competitorGeneralReport            Json?
+  competitorGeneralReportGeneratedAt DateTime?
+  agentNotifications                 AgentNotification[]
+  user                               User?               @relation(fields: [userId], references: [id])
+  campaigns                          Campaign[]
+  competitors                        Competitor[]
+  strategies                         MarketingStrategy[]
+  mediaAssets                        MediaAsset[]
+  products                           Product[]
+  socialAccounts                     SocialAccount[]
+
+  @@index([slug])
+}
+
+model MarketingStrategy {
+  id              String     @id @default(cuid())
+  businessId      String
+  name            String
+  description     String?
+  isActive        Boolean    @default(true)
+  objectives      Json
+  personas        Json
+  funnelStages    Json
+  channels        Json
+  contentPillars  Json?
+  postingSchedule Json?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  campaigns       Campaign[]
+  business        Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  businessId  String
+  name        String
+  slug        String
+  description String
+  shortDesc   String?
+  features    Json
+  benefits    Json
+  pricing     Json?
+  images      Json?
+  keywords    Json?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  contents    Content[]
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, slug])
+  @@index([businessId])
+}
+
+model Campaign {
+  id               String             @id @default(cuid())
+  businessId       String
+  strategyId       String?
+  name             String
+  slug             String
+  description      String?
+  objective        CampaignObjective
+  objectiveDetails Json?
+  startDate        DateTime
+  endDate          DateTime?
+  status           CampaignStatus     @default(DRAFT)
+  budget           Decimal?           @db.Money
+  channels         Json
+  targeting        Json?
+  metrics          Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  business         Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  strategy         MarketingStrategy? @relation(fields: [strategyId], references: [id])
+  contents         Content[]
+
+  @@unique([businessId, slug])
+  @@index([businessId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model Content {
+  id               String         @id @default(cuid())
+  campaignId       String?
+  productId        String?
+  type             ContentType
+  format           ContentFormat?
+  title            String
+  body             String?
+  caption          String?
+  hashtags         Json?
+  mediaAssetId     String?
+  mediaUrl         String?
+  thumbnailUrl     String?
+  metadata         Json?
+  status           ContentStatus  @default(IDEA)
+  scheduledAt      DateTime?
+  publishedAt      DateTime?
+  channel          SocialChannel?
+  socialAccountId  String?
+  generatedByJobId String?
+  promptUsed       String?
+  aiMetadata       Json?
+  metrics          Json?
+  externalId       String?
+  externalUrl      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  campaign         Campaign?      @relation(fields: [campaignId], references: [id])
+  mediaAsset       MediaAsset?    @relation(fields: [mediaAssetId], references: [id])
+  product          Product?       @relation(fields: [productId], references: [id])
+  socialAccount    SocialAccount? @relation(fields: [socialAccountId], references: [id])
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([channel])
+}
+
+model SocialAccount {
+  id           String        @id @default(cuid())
+  businessId   String
+  channel      SocialChannel
+  accountId    String
+  accountName  String
+  accountUrl   String?
+  avatar       String?
+  accessToken  String?
+  refreshToken String?
+  tokenExpiry  DateTime?
+  isActive     Boolean       @default(true)
+  lastSyncAt   DateTime?
+  followers    Int?
+  metrics      Json?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  contents     Content[]
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, channel, accountId])
+  @@index([businessId])
+}
+
+model MediaAsset {
+  id               String    @id @default(cuid())
+  businessId       String
+  type             MediaType
+  filename         String
+  url              String
+  thumbnailUrl     String?
+  mimeType         String
+  size             Int
+  width            Int?
+  height           Int?
+  duration         Int?
+  alt              String?
+  caption          String?
+  metadata         Json?
+  generatedByJobId String?
+  promptUsed       String?
+  folder           String?
+  tags             Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  contents         Content[]
+  business         Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([type])
+}
+
+model WebhookConfig {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  eventType   EventType
+  url         String
+  method      String    @default("POST")
+  headers     Json?
+  secret      String?
+  authType    String?
+  authValue   String?
+  isActive    Boolean   @default(true)
+  retryPolicy Json?
+  timeout     Int       @default(30000)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([eventType])
+  @@index([isActive])
+}
+
+model PromptTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  category    String
+  template    String
+  variables   Json
+  modelConfig Json?
+  version     Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model User {
+  id             String     @id @default(cuid())
+  username       String     @unique
+  name           String
+  password       String
+  role           String     @default("USER")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  maxBusinesses  Int        @default(1)
+  maxCompetitors Int        @default(1)
+  businesses     Business[]
+}
+
+model Competitor {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String?
+  website    String?
+  facebook   String?
+  instagram  String?
+  tiktok     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  linkedin   String?
+  seoGoogle  String?
+  youtube    String?
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model AnalysisReport {
+  id          String    @id @default(cuid())
+  entityId    String
+  url         String
+  data        Json?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  error       String?
+  updatedAt   DateTime  @updatedAt
+  type        String
+  status      String
+  channel     String    @default("WEBSITE")
+
+  @@index([type, entityId, channel])
+  @@index([status])
+}
+
+model AgentNotification {
+  id         String   @id @default(cuid())
+  businessId String
+  title      String
+  message    String
+  step       String
+  status     String
+  createdAt  DateTime @default(now())
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
 enum EventType {
-  // Generación de contenido
   GENERATE_CONTENT_IDEAS
   GENERATE_COPY
   GENERATE_MEDIA
   REGENERATE_MEDIA
-
-  // Publicación
   PUBLISH_CONTENT
   SCHEDULE_CONTENT
-
-  // Métricas
   FETCH_METRICS
-
-  // Sistema
   JOB_CREATED
   JOB_STARTED
   JOB_COMPLETED
   JOB_FAILED
-
-  // Negocio
   BUSINESS_CREATED
   BUSINESS_UPDATED
   CAMPAIGN_CREATED
@@ -103,203 +393,6 @@ enum JobStatus {
   CANCELLED
 }
 
-// ============================================
-// AUDITORÍA
-// ============================================
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  entityType String // Business, Campaign, Content, etc.
-  entityId   String
-  action     String // CREATE, UPDATE, DELETE
-  changes    Json? // diff de cambios
-  userId     String?
-  jobId      String?
-  job        Job?     @relation(fields: [jobId], references: [id])
-  createdAt  DateTime @default(now())
-
-  @@index([entityType, entityId])
-  @@index([createdAt])
-}
-
-// ============================================
-
-// NEGOCIO Y MARCA
-// ============================================
-
-model Business {
-  id          String  @id @default(cuid())
-  name        String
-  slug        String  @unique
-  description String?
-  industry    String?
-  website     String?
-  logo        String?
-
-  // Identidad de marca
-  brandVoice  Json? // tono, personalidad, valores
-  brandColors Json? // colores primarios/secundarios
-  brandFonts  Json?
-
-  // Audiencia
-  targetAudience Json?
-  settings       Json? // configuración de notificaciones, publicación, etc.
-
-  // Información adicional
-  phoneNumbers   String?
-  location       String?
-  socialLinks    Json?   // { facebook: string, instagram: string, tiktok: string }
-  
-  // Informes generales
-  competitorGeneralReport Json? // informe general de competencia guardado
-  competitorGeneralReportGeneratedAt DateTime?
-  
-  // Propiedad
-  userId String?
-  user   User?   @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
-  strategies     MarketingStrategy[]
-  products       Product[]
-  campaigns      Campaign[]
-  socialAccounts SocialAccount[]
-  mediaAssets    MediaAsset[]
-  competitors    Competitor[]
-  agentNotifications AgentNotification[]
-
-  @@index([slug])
-}
-
-
-
-// ============================================
-// ESTRATEGIA DE MARKETING
-// ============================================
-
-model MarketingStrategy {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  name        String
-  description String?
-  isActive    Boolean @default(true)
-
-  // Objetivos SMART
-  objectives Json // array de objetivos con métricas
-
-  // Buyer Personas
-  personas Json // array de personas con demografía, pain points, goals
-
-  // Funnel de ventas
-  funnelStages Json // awareness, consideration, decision, retention
-
-  // Canales
-  channels Json // redes sociales, email, paid, etc.
-
-  // Líneas de contenido
-  contentPillars Json? // temas principales para el contenido
-
-  // Calendario básico
-  postingSchedule Json? // frecuencia por canal
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  campaigns Campaign[]
-
-  @@index([businessId])
-}
-
-// ============================================
-// PRODUCTOS
-// ============================================
-
-model Product {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  name        String
-  slug        String
-  description String
-  shortDesc   String? // descripción corta para ads
-
-  // Características y beneficios
-  features Json // array de características
-  benefits Json // array de beneficios (para marketing)
-
-  // Precios
-  pricing Json? // estructura de precios
-
-  // Media
-  images Json? // URLs de imágenes
-
-  // SEO y keywords
-  keywords Json? // palabras clave para contenido
-
-  // Estado
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
-  contents Content[]
-
-  @@unique([businessId, slug])
-  @@index([businessId])
-}
-
-// ============================================
-// CAMPAÑAS
-// ============================================
-
-model Campaign {
-  id         String             @id @default(cuid())
-  businessId String
-  business   Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  strategyId String?
-  strategy   MarketingStrategy? @relation(fields: [strategyId], references: [id])
-
-  name        String
-  slug        String
-  description String?
-
-  // Objetivo de la campaña
-  objective        CampaignObjective
-  objectiveDetails Json? // métricas específicas
-
-  // Fechas
-  startDate DateTime
-  endDate   DateTime?
-
-  // Estado
-  status CampaignStatus @default(DRAFT)
-
-  // Configuración
-  budget    Decimal? @db.Money
-  channels  Json // canales activos para esta campaña
-  targeting Json? // segmentación
-
-  // Resultados
-  metrics Json? // métricas agregadas
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
-  contents Content[]
-
-  @@unique([businessId, slug])
-  @@index([businessId])
-  @@index([status])
-  @@index([startDate, endDate])
-}
-
 enum CampaignObjective {
   AWARENESS
   ENGAGEMENT
@@ -316,69 +409,6 @@ enum CampaignStatus {
   PAUSED
   COMPLETED
   CANCELLED
-}
-
-// ============================================
-// CONTENIDO
-// ============================================
-
-model Content {
-  id String @id @default(cuid())
-
-  // Relaciones
-  campaignId String?
-  campaign   Campaign? @relation(fields: [campaignId], references: [id])
-  productId  String?
-  product    Product?  @relation(fields: [productId], references: [id])
-
-  // Tipo y formato
-  type   ContentType
-  format ContentFormat?
-
-  // Contenido
-  title    String
-  body     String? @db.Text
-  caption  String? @db.Text // para redes sociales
-  hashtags Json? // array de hashtags
-
-  // Media
-  mediaAssetId String?
-  mediaAsset   MediaAsset? @relation(fields: [mediaAssetId], references: [id])
-  mediaUrl     String? // URL directa (legacy)
-  thumbnailUrl String?
-
-  // Metadatos
-  metadata Json? // datos adicionales según tipo
-
-  // Estado
-  status ContentStatus @default(IDEA)
-
-  // Programación
-  scheduledAt DateTime?
-  publishedAt DateTime?
-
-  // Canal destino
-  channel         SocialChannel?
-  socialAccountId String?
-  socialAccount   SocialAccount? @relation(fields: [socialAccountId], references: [id])
-
-  // Generación IA
-  generatedByJobId String? // Job que lo generó
-  promptUsed       String? @db.Text
-  aiMetadata       Json? // modelo usado, tokens, etc.
-
-  // Resultados
-  metrics     Json? // engagement, reach, etc.
-  externalId  String? // ID en la plataforma externa
-  externalUrl String? // URL en la plataforma
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([campaignId])
-  @@index([status])
-  @@index([scheduledAt])
-  @@index([channel])
 }
 
 enum ContentType {
@@ -428,91 +458,6 @@ enum SocialChannel {
   THREADS
 }
 
-// ============================================
-// CUENTAS SOCIALES
-// ============================================
-
-model SocialAccount {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  channel     SocialChannel
-  accountId   String // ID en la plataforma
-  accountName String
-  accountUrl  String?
-  avatar      String?
-
-  // Autenticación (encriptada)
-  accessToken  String?
-  refreshToken String?
-  tokenExpiry  DateTime?
-
-  // Estado
-  isActive   Boolean   @default(true)
-  lastSyncAt DateTime?
-
-  // Métricas
-  followers Int?
-  metrics   Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
-  contents Content[]
-
-  @@unique([businessId, channel, accountId])
-  @@index([businessId])
-}
-
-// ============================================
-// MEDIA ASSETS
-// ============================================
-
-model MediaAsset {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  // Tipo
-  type MediaType
-
-  // Archivo
-  filename     String
-  url          String
-  thumbnailUrl String?
-  mimeType     String
-  size         Int // bytes
-
-  // Dimensiones (para imágenes/videos)
-  width    Int?
-  height   Int?
-  duration Int? // segundos, para videos/audio
-
-  // Metadatos
-  alt      String? // texto alternativo
-  caption  String?
-  metadata Json? // EXIF, etc.
-
-  // Generación IA
-  generatedByJobId String?
-  promptUsed       String? @db.Text
-
-  // Organización
-  folder String?
-  tags   Json? // array de tags
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relaciones
-  contents Content[]
-
-  @@index([businessId])
-  @@index([type])
-}
-
 enum MediaType {
   IMAGE
   VIDEO
@@ -520,143 +465,3 @@ enum MediaType {
   DOCUMENT
   GIF
 }
-
-// ============================================
-// CONFIGURACIÓN DE WEBHOOKS
-// ============================================
-
-model WebhookConfig {
-  id String @id @default(cuid())
-
-  name        String
-  description String?
-
-  // Tipo de evento que dispara
-  eventType EventType
-
-  // Destino
-  url     String
-  method  String @default("POST")
-  headers Json? // headers adicionales
-
-  // Autenticación
-  secret    String? // para firmar requests
-  authType  String? // bearer, basic, hmac
-  authValue String? // token o credenciales
-
-  // Configuración
-  isActive    Boolean @default(true)
-  retryPolicy Json? // política de reintentos
-  timeout     Int     @default(30000) // ms
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([eventType])
-  @@index([isActive])
-}
-
-// ============================================
-// CONFIGURACIÓN DE PROMPTS
-// ============================================
-
-model PromptTemplate {
-  id String @id @default(cuid())
-
-  name        String  @unique
-  description String?
-  category    String // content_ideas, copy, media, etc.
-
-  // Template con variables {{variable}}
-  template String @db.Text
-
-  // Variables esperadas
-  variables Json // array de {name, type, required, description}
-
-  // Configuración del modelo
-  modelConfig Json? // temperature, max_tokens, etc.
-
-  // Versioning
-  version  Int     @default(1)
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([category])
-  @@index([isActive])
-}
-
-// ============================================
-// USUARIOS Y AUTENTICACIÓN
-// ============================================
-
-model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  name      String
-  password  String // Hash
-  role           String   @default("USER")
-  maxBusinesses  Int      @default(1)
-  maxCompetitors Int      @default(1)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  businesses Business[]
-}
-
-model Competitor {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  name       String?
-  website    String?
-  facebook   String?
-  instagram  String?
-  tiktok     String?
-  linkedin   String?
-  youtube    String?
-  seoGoogle  String?
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([businessId])
-}
-
-// ============================================
-// ANALISIS E INFORMES
-// ============================================
-
-model AnalysisReport {
-  id          String   @id @default(cuid())
-  type        String   // "MY_BUSINESS" | "COMPETITOR"
-  channel     String   @default("WEBSITE") // "WEBSITE", "FACEBOOK", "INSTAGRAM", "TIKTOK"
-  entityId    String   // businessId o competitorId
-  url         String
-  status      String   // "PENDING", "PROCESSING", "COMPLETED", "ERROR"
-  data        Json?    // el informe completo
-  error       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  completedAt DateTime?
-  
-  @@index([type, entityId, channel])
-  @@index([status])
-}
-
-model AgentNotification {
-  id          String   @id @default(cuid())
-  businessId  String
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  title       String
-  message     String
-  step        String   // "SCRAPING" | "DIAGNOSTIC" | "STRATEGY" | "CAMPAIGN" | "CALENDAR"
-  status      String   // "PROCESSING" | "COMPLETED" | "FAILED"
-  createdAt   DateTime @default(now())
-
-  @@index([businessId])
-}
-
-

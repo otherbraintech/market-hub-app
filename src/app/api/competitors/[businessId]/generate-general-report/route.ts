@@ -222,6 +222,9 @@ Analiza minuciosamente los datos reales scrapeados de los competidores de la emp
 Este informe es fundamental para el usuario, ya que lo utilizará para estructurar su propuesta de valor, encontrar oportunidades de mercado y planificar estrategias de contenido.
 ATENCIÓN: NO generes propuestas de campañas de marketing/publicidad concretas (eso se maneja en otra sección). Concéntrate EXCLUSIVAMENTE en el análisis de la competencia, sus canales, debilidades, posicionamiento, contenidos y conversión.
 
+DATOS DE LOS COMPETIDORES DISPONIBLES:
+${competitorData}
+
 IMPORTANTE SOBRE LOS CANALES Y DATOS DISPONIBLES:
 - El análisis debe ser independiente de qué canales han sido scrapeados.
 - Si solo hay datos de un único canal (por ejemplo, únicamente el Sitio Web), el informe debe generarse con base en ese canal.

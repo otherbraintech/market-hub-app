@@ -66,7 +66,10 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
       icon: Building2,
       isActive: true,
       items: [
-        ...(selectedId ? [{ title: "Configurar Perfil", url: `/business/${selectedId}` }] : []),
+        ...(selectedId ? [
+          { title: "Configurar", url: `/business/${selectedId}` },
+          { title: "Monitoreo de Agentes", url: `/business/${selectedId}/monitor` }
+        ] : []),
         { title: "Productos", url: "/products" },
       ],
     },

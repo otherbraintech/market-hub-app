@@ -96,6 +96,14 @@ export async function POST(
       });
     });
 
+    // Disparar regeneración del informe de competidores general por si acaso faltaba
+    const host = request.headers.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const generateReportUrl = `${protocol}://${host}/api/competitors/${business.id}/generate-general-report`;
+    fetch(generateReportUrl, { method: "POST" }).catch((err) => {
+      console.error("Error en regeneración de informe de competidores desde análisis propio:", err);
+    });
+
     return NextResponse.json({
       analysisId: storedAnalysis.id,
       analysis,

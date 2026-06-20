@@ -250,7 +250,7 @@ export async function triggerCascadeGeneration(businessId: string) {
             objective: (camp.objective as any) || "AWARENESS",
             startDate: new Date(camp.startDate),
             endDate: new Date(camp.endDate),
-            status: "SCHEDULED",
+            status: "ACTIVE",
             channels: camp.channels || ['INSTAGRAM'],
             budget: camp.budget || 100,
           }

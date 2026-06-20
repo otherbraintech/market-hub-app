@@ -92,6 +92,14 @@ const statusColors: Record<string, string> = {
   COMPLETED: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-400 dark:border-purple-800",
 };
 
+const statusTranslations: Record<string, string> = {
+  DRAFT: "Borrador",
+  SCHEDULED: "Programada",
+  ACTIVE: "Activa",
+  PAUSED: "Pausada",
+  COMPLETED: "Completada",
+};
+
 export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
   const objectiveInfo = objectiveTranslations[campaign.objective] || {
     label: campaign.objective,
@@ -121,7 +129,7 @@ export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
         <div className="p-6 border-b border-muted/20 bg-muted/5 space-y-3 shrink-0">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className={`${statusColors[campaign.status]} text-[10px] font-bold border`}>
-              {campaign.status}
+              {statusTranslations[campaign.status] || campaign.status}
             </Badge>
             <Badge variant="outline" className={`text-[10px] font-bold border ${objectiveInfo.color} ${objectiveInfo.bg}`}>
               <span className="mr-1 shrink-0">{objectiveInfo.icon}</span>

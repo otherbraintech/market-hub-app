@@ -27,7 +27,9 @@ export default async function CalendarPage() {
 
   const campaigns = await prisma.campaign.findMany({
     where: { businessId: selectedBusinessId },
-    select: { id: true, name: true, startDate: true, endDate: true, channels: true },
+    include: {
+      strategy: true
+    },
     orderBy: { name: "asc" }
   });
 
@@ -53,12 +55,27 @@ export default async function CalendarPage() {
     publishedAt: item.publishedAt ? item.publishedAt.toISOString() : null,
   }));
 
+  // Serializar campañas para Client Component (Decimal/Date no son serializables)
+  const serializedCampaigns = campaigns.map((camp: any) => ({
+    ...camp,
+    budget: camp.budget ? Number(camp.budget) : null,
+    startDate: camp.startDate ? camp.startDate.toISOString() : null,
+    endDate: camp.endDate ? camp.endDate.toISOString() : null,
+    createdAt: camp.createdAt.toISOString(),
+    updatedAt: camp.updatedAt.toISOString(),
+    strategy: camp.strategy ? {
+      ...camp.strategy,
+      createdAt: camp.strategy.createdAt.toISOString(),
+      updatedAt: camp.strategy.updatedAt.toISOString(),
+    } : null,
+  }));
+
   return (
     <div className="p-8 space-y-6 h-full flex flex-col">
       <CalendarView 
         businessId={selectedBusinessId}
         businessName={businessName}
-        campaigns={campaigns}
+        campaigns={serializedCampaigns}
         initialContents={serializedContents as any}
       />
     </div>

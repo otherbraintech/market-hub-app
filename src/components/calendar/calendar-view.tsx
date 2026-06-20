@@ -96,7 +96,28 @@ interface ContentItem {
 interface CalendarViewProps {
   businessId: string;
   businessName: string;
-  campaigns: { id: string; name: string; startDate?: any; endDate?: any; channels?: any }[];
+  campaigns: {
+    id: string;
+    name: string;
+    description?: string | null;
+    objective?: string;
+    budget?: any;
+    targeting?: any;
+    startDate?: any;
+    endDate?: any;
+    channels?: any;
+    strategy?: {
+      id: string;
+      name: string;
+      description?: string | null;
+      objectives?: any;
+      personas?: any;
+      funnelStages?: any;
+      channels?: any;
+      contentPillars?: any;
+      postingSchedule?: any;
+    } | null;
+  }[];
   initialContents: ContentItem[];
 }
 
@@ -249,12 +270,27 @@ export function CalendarView({
             try {
               const parsed = Array.isArray(camp.channels) ? camp.channels : JSON.parse(camp.channels as string);
               if (Array.isArray(parsed)) {
-                const active = parsed.filter((ch: any) => ch && ch.isActive).map((ch: any) => (ch.platform || "").toUpperCase());
-                setPlanningChannels(active.filter(c => ["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"].includes(c)));
+                const active = parsed
+                  .map((ch: any) => {
+                    if (typeof ch === "string") return ch.toUpperCase();
+                    if (ch && typeof ch === "object") {
+                      const platform = (ch.platform || ch.name || "").toUpperCase();
+                      return ch.isActive !== false ? platform : null;
+                    }
+                    return null;
+                  })
+                  .filter(Boolean) as string[];
+                const filtered = active.filter((c: string) => ["FACEBOOK", "INSTAGRAM", "TIKTOK"].includes(c));
+                setPlanningChannels(filtered.length > 0 ? filtered : ["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
+              } else {
+                setPlanningChannels(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
               }
             } catch (e) {
               console.error(e);
+              setPlanningChannels(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
             }
+          } else {
+            setPlanningChannels(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
           }
         }
       }
@@ -1765,7 +1801,7 @@ export function CalendarView({
           setIsPlanModalOpen(false);
         }
       }}>
-        <DialogContent className="max-w-md border border-muted/20 rounded-2xl shadow-2xl p-0 bg-background flex flex-col transition-all duration-300">
+        <DialogContent className="w-[92vw] max-w-5xl max-h-[85vh] border border-muted/20 rounded-2xl shadow-2xl p-0 bg-background flex flex-col transition-all duration-300 overflow-hidden">
           {isPlanning ? (
             // PANTALLA DE CARGA PLANIFICADOR IA
             <div className="flex flex-col items-center justify-center p-12 min-h-[350px] text-center space-y-6">
@@ -1794,10 +1830,10 @@ export function CalendarView({
               </div>
             </div>
           ) : (
-            // FORMULARIO PLANIFICADOR IA
+            // FORMULARIO PLANIFICADOR IA CON PANEL DE CONTEXTO
             <>
               <div className="p-6 border-b border-muted/20 bg-muted/5 space-y-1">
-                <DialogTitle className="text-lg font-bold flex items-center gap-1.5">
+                <DialogTitle className="text-lg font-bold flex items-center gap-1.5 text-foreground">
                   <Sparkles className="h-5 w-5 text-blue-600 animate-pulse" />
                   Planificación Editorial con IA
                 </DialogTitle>
@@ -1806,135 +1842,417 @@ export function CalendarView({
                 </DialogDescription>
               </div>
 
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Campaña de Referencia</label>
-                  <Select 
-                    value={planningCampaignId} 
-                    onValueChange={(val) => {
-                      setPlanningCampaignId(val);
-                      const camp = campaigns.find(c => c.id === val);
-                      if (camp) {
-                        setPlanningStartDate(camp.startDate ? format(new Date(camp.startDate), "yyyy-MM-dd") : "");
-                        setPlanningEndDate(camp.endDate ? format(new Date(camp.endDate), "yyyy-MM-dd") : "");
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="text-xs h-9 bg-background">
-                      <SelectValue placeholder="Selecciona una campaña" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {campaigns.map((camp) => (
-                        <SelectItem key={camp.id} value={camp.id} className="text-xs">
-                          {camp.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Canales de Difusión</label>
-                  <div className="flex flex-wrap gap-1.5 p-1.5 bg-muted/20 rounded-lg border border-muted/30">
-                    {["INSTAGRAM", "FACEBOOK", "TIKTOK", "LINKEDIN", "YOUTUBE"].map((ch) => {
-                      const meta = channelMeta[ch];
-                      const isChecked = planningChannels.includes(ch);
-                      return (
-                        <button
-                          key={ch}
-                          type="button"
-                          onClick={() => {
-                            setPlanningChannels(prev => 
-                              prev.includes(ch) 
-                                ? (prev.length > 1 ? prev.filter(c => c !== ch) : prev) 
-                                : [...prev, ch]
-                            );
-                          }}
-                          className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-all select-none ${
-                            isChecked
-                              ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                              : "bg-background text-muted-foreground border-muted-foreground/20 hover:bg-muted/10"
-                          }`}
-                        >
-                          {meta?.icon}
-                          {meta?.label || ch}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] divide-y md:divide-y-0 md:divide-x divide-muted/20 bg-background overflow-hidden flex-1 min-h-0">
+                {/* COLUMNA IZQUIERDA: FORMULARIO */}
+                <div className="p-6 space-y-4 overflow-y-auto">
                   <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Fecha de Inicio (Opcional)</label>
-                    <Input
-                      type="date"
-                      value={planningStartDate}
-                      onChange={(e) => setPlanningStartDate(e.target.value)}
-                      className="text-xs h-9 focus-visible:ring-blue-600 px-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Fecha Fin (Opcional)</label>
-                    <Input
-                      type="date"
-                      value={planningEndDate}
-                      onChange={(e) => setPlanningEndDate(e.target.value)}
-                      className="text-xs h-9 focus-visible:ring-blue-600 px-2"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Nº Publicaciones a Generar</label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={60}
-                      value={planningQuantity}
-                      onChange={(e) => setPlanningQuantity(Math.max(1, Number(e.target.value)))}
-                      className="text-xs h-9 focus-visible:ring-blue-600 px-2"
-                    />
-                  </div>
-                  <div className="flex flex-col justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (planningStartDate && planningEndDate) {
-                          const days = Math.max(1, Math.round((new Date(planningEndDate).getTime() - new Date(planningStartDate).getTime()) / (1000 * 60 * 60 * 24))) + 1;
-                          setPlanningQuantity(days);
-                          toast.success(`Establecido a 1 publicación por día (${days} posts en total)`);
-                        } else {
-                          toast.error("Por favor, selecciona Fecha de Inicio y Fecha Fin primero.");
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Campaña de Referencia</label>
+                    <Select 
+                      value={planningCampaignId} 
+                      onValueChange={(val) => {
+                        setPlanningCampaignId(val);
+                        const camp = campaigns.find(c => c.id === val);
+                        if (camp) {
+                          setPlanningStartDate(camp.startDate ? format(new Date(camp.startDate), "yyyy-MM-dd") : "");
+                          setPlanningEndDate(camp.endDate ? format(new Date(camp.endDate), "yyyy-MM-dd") : "");
+                          
+                          if (camp.channels) {
+                            try {
+                              const parsed = Array.isArray(camp.channels) ? camp.channels : JSON.parse(camp.channels as string);
+                              if (Array.isArray(parsed)) {
+                                const active = parsed
+                                  .map((ch: any) => {
+                                    if (typeof ch === "string") return ch.toUpperCase();
+                                    if (ch && typeof ch === "object") {
+                                      const platform = (ch.platform || ch.name || "").toUpperCase();
+                                      return ch.isActive !== false ? platform : null;
+                                    }
+                                    return null;
+                                  })
+                                  .filter(Boolean) as string[];
+                                const filtered = active.filter((c: string) => ["FACEBOOK", "INSTAGRAM", "TIKTOK"].includes(c));
+                                setPlanningChannels(filtered.length > 0 ? filtered : ["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
+                              } else {
+                                setPlanningChannels(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
+                              }
+                            } catch (e) {
+                              console.error(e);
+                              setPlanningChannels(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
+                            }
+                          } else {
+                            setPlanningChannels(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
+                          }
                         }
                       }}
-                      className="text-[10px] h-9 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold"
                     >
-                      Autocalcular 1 post/día
-                    </Button>
+                      <SelectTrigger className="text-xs h-9 bg-background">
+                        <SelectValue placeholder="Selecciona una campaña" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {campaigns.map((camp) => {
+                          const statusLabels: Record<string, string> = {
+                            ACTIVE: "Activa",
+                            SCHEDULED: "Programada",
+                            DRAFT: "Borrador",
+                            PAUSED: "Pausada",
+                            COMPLETED: "Completada",
+                          };
+                          const label = statusLabels[camp.status] || camp.status;
+                          return (
+                            <SelectItem key={camp.id} value={camp.id} className="text-xs">
+                              {camp.name} <span className="text-[10px] text-muted-foreground ml-1">({label})</span>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">Canales de Difusión</label>
+                    <div className="flex flex-wrap gap-1.5 p-1.5 bg-muted/20 rounded-lg border border-muted/30">
+                      {["INSTAGRAM", "FACEBOOK", "TIKTOK"].map((ch) => {
+                        const meta = channelMeta[ch];
+                        const isChecked = planningChannels.includes(ch);
+                        return (
+                          <button
+                            key={ch}
+                            type="button"
+                            onClick={() => {
+                              setPlanningChannels(prev => 
+                                prev.includes(ch) 
+                                  ? (prev.length > 1 ? prev.filter(c => c !== ch) : prev) 
+                                  : [...prev, ch]
+                              );
+                            }}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold border transition-all select-none ${
+                              isChecked
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                : "bg-background text-muted-foreground border-muted-foreground/20 hover:bg-muted/10"
+                            }`}
+                          >
+                            {meta?.icon}
+                            {meta?.label || ch}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Fecha de Inicio (Opcional)</label>
+                      <Input
+                        type="date"
+                        value={planningStartDate}
+                        onChange={(e) => setPlanningStartDate(e.target.value)}
+                        className="text-xs h-9 focus-visible:ring-blue-600 px-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Fecha Fin (Opcional)</label>
+                      <Input
+                        type="date"
+                        value={planningEndDate}
+                        onChange={(e) => setPlanningEndDate(e.target.value)}
+                        className="text-xs h-9 focus-visible:ring-blue-600 px-2"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Nº Publicaciones a Generar</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={planningQuantity}
+                        onChange={(e) => setPlanningQuantity(Math.max(1, Number(e.target.value)))}
+                        className="text-xs h-9 focus-visible:ring-blue-600 px-2"
+                      />
+                    </div>
+                    <div className="flex flex-col justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (planningStartDate && planningEndDate) {
+                            const days = Math.max(1, Math.round((new Date(planningEndDate).getTime() - new Date(planningStartDate).getTime()) / (1000 * 60 * 60 * 24))) + 1;
+                            setPlanningQuantity(days);
+                            toast.success(`Establecido a 1 publicación por día (${days} posts en total)`);
+                          } else {
+                            toast.error("Por favor, selecciona Fecha de Inicio y Fecha Fin primero.");
+                          }
+                        }}
+                        className="text-[10px] h-9 border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold"
+                      >
+                        Autocalcular 1 post/día
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-950/30 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-[10.5px] font-bold text-foreground block">
+                          Replicar en múltiples canales
+                        </span>
+                        <span className="text-[9.5px] text-muted-foreground block text-left">
+                          Duplica cada publicación generada en todos los canales activos de la campaña
+                        </span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        id="replicateChannels"
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                        defaultChecked={true}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-3 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/50 dark:border-indigo-950/30 rounded-xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <span className="text-[10.5px] font-bold text-foreground block">
-                        Replicar en múltiples canales
-                      </span>
-                      <span className="text-[9.5px] text-muted-foreground block">
-                        Duplica cada publicación generada en todos los canales activos de la campaña
-                      </span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      id="replicateChannels"
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                      defaultChecked={true}
-                    />
-                  </div>
+                {/* COLUMNA DERECHA: CONTEXTO Y ESTRATEGIA */}
+                <div className="p-6 bg-muted/5 flex flex-col space-y-4 overflow-y-auto">
+                  {(() => {
+                    const currentCamp = campaigns.find(c => c.id === planningCampaignId);
+                    if (!currentCamp) {
+                      return (
+                        <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground space-y-2">
+                          <AlertTriangle className="h-8 w-8 text-muted-foreground/40" />
+                          <p className="text-xs font-semibold">Sin campaña seleccionada</p>
+                          <p className="text-[10px] text-muted-foreground/75">
+                            Selecciona una campaña de referencia a la izquierda para cargar su estrategia e información de contexto para la IA.
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    const objectiveTranslations: Record<string, string> = {
+                      AWARENESS: "Reconocimiento de Marca (Awareness)",
+                      ENGAGEMENT: "Interacción / Engagement",
+                      TRAFFIC: "Tráfico de Visitas",
+                      LEADS: "Generación de Clientes Potenciales",
+                      SALES: "Ventas / Conversión",
+                      RETENTION: "Retención / Fidelización",
+                    };
+
+                    let targetingObj: any = null;
+                    if (currentCamp.targeting) {
+                      try {
+                        targetingObj = typeof currentCamp.targeting === "string"
+                          ? JSON.parse(currentCamp.targeting)
+                          : currentCamp.targeting;
+                      } catch (e) {}
+                    }
+
+                    let strategyObjectives: any = null;
+                    if (currentCamp.strategy?.objectives) {
+                      try {
+                        strategyObjectives = typeof currentCamp.strategy.objectives === "string"
+                          ? JSON.parse(currentCamp.strategy.objectives)
+                          : currentCamp.strategy.objectives;
+                      } catch (e) {}
+                    }
+
+                    let contentPillars: any = null;
+                    if (currentCamp.strategy?.contentPillars) {
+                      try {
+                        contentPillars = typeof currentCamp.strategy.contentPillars === "string"
+                          ? JSON.parse(currentCamp.strategy.contentPillars)
+                          : currentCamp.strategy.contentPillars;
+                      } catch (e) {}
+                    }
+
+                    return (
+                      <div className="space-y-4 text-left">
+                        {/* Campaña Info */}
+                        <div className="space-y-2">
+                          <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                            Contexto de la Campaña
+                          </h4>
+                          <div className="bg-background border border-muted/20 p-3 rounded-xl space-y-2.5 shadow-sm">
+                            <div>
+                              <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Nombre</span>
+                              <span className="text-xs font-bold text-foreground">{currentCamp.name}</span>
+                            </div>
+                            
+                            {currentCamp.description && (
+                              <div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Descripción</span>
+                                <p className="text-xs text-muted-foreground leading-relaxed">{currentCamp.description}</p>
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-muted/10">
+                              <div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Objetivo</span>
+                                <Badge variant="secondary" className="text-[9.5px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-50 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30">
+                                  {objectiveTranslations[currentCamp.objective || ""] || currentCamp.objective}
+                                </Badge>
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Presupuesto</span>
+                                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                  {currentCamp.budget ? `$${Number(currentCamp.budget).toLocaleString()}` : "No definido"}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Canales activos de la campaña */}
+                            {(() => {
+                              let campChannels: { platform: string; isActive: boolean }[] = [];
+                              try {
+                                const parsed = typeof currentCamp.channels === "string"
+                                  ? JSON.parse(currentCamp.channels)
+                                  : currentCamp.channels;
+                                if (Array.isArray(parsed)) {
+                                  campChannels = parsed.filter((ch: any) => ch && ch.isActive);
+                                }
+                              } catch (e) {}
+
+                              if (campChannels.length === 0) return null;
+
+                              return (
+                                <div className="pt-1.5 border-t border-muted/10">
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Canales de Distribución</span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {campChannels.map((ch: any, idx: number) => {
+                                      const platform = (ch.platform || "").toUpperCase();
+                                      const meta = channelMeta[platform];
+                                      return (
+                                        <Badge key={idx} variant="outline" className={`text-[9px] font-semibold gap-1 ${meta?.badge || ""}`}>
+                                          {meta?.icon}
+                                          {meta?.label || platform}
+                                        </Badge>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
+                        {/* Segmentación Info */}
+                        {targetingObj && (
+                          <div className="space-y-2">
+                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                              Segmentación de Audiencia
+                            </h4>
+                            <div className="bg-background border border-muted/20 p-3 rounded-xl space-y-2.5 shadow-sm">
+                              {targetingObj.locations && (
+                                <div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Ubicaciones</span>
+                                  <span className="text-xs text-foreground font-medium">
+                                    {Array.isArray(targetingObj.locations) ? targetingObj.locations.join(", ") : targetingObj.locations}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {targetingObj.ageRange && (
+                                <div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Rango de Edad</span>
+                                  <span className="text-xs text-foreground font-medium">{targetingObj.ageRange} años</span>
+                                </div>
+                              )}
+
+                              {targetingObj.interests && (
+                                <div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Intereses Clave</span>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {(Array.isArray(targetingObj.interests) 
+                                      ? targetingObj.interests 
+                                      : String(targetingObj.interests).split(",")
+                                    ).map((interest: string, idx: number) => (
+                                      <Badge key={idx} variant="outline" className="text-[9px] font-medium text-muted-foreground border-muted-foreground/20">
+                                        {interest.trim()}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Estrategia Info */}
+                        {currentCamp.strategy && (
+                          <div className="space-y-2">
+                            <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                              Estrategia de Marketing Asociada
+                            </h4>
+                            <div className="bg-background border border-muted/20 p-3 rounded-xl space-y-2.5 shadow-sm">
+                              <div>
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Estrategia</span>
+                                <span className="text-xs font-bold text-foreground">{currentCamp.strategy.name}</span>
+                              </div>
+
+                              {currentCamp.strategy.description && (
+                                <div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Enfoque Estratégico</span>
+                                  <p className="text-xs text-muted-foreground leading-relaxed">{currentCamp.strategy.description}</p>
+                                </div>
+                              )}
+
+                              {strategyObjectives && (
+                                <div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Objetivos del Negocio</span>
+                                  <div className="space-y-2 mt-1">
+                                    {(Array.isArray(strategyObjectives) ? strategyObjectives : [strategyObjectives]).map((obj: any, idx: number) => {
+                                      if (typeof obj === "string") {
+                                        return <p key={idx} className="text-xs text-muted-foreground leading-relaxed">• {obj}</p>;
+                                      }
+                                      return (
+                                        <div key={idx} className="bg-muted/10 border border-muted/15 rounded-lg p-2.5 space-y-1.5">
+                                          {(obj.title || obj.name || obj.description) && (
+                                            <span className="text-[10.5px] font-bold text-foreground block">
+                                              {obj.title || obj.name || obj.description}
+                                            </span>
+                                          )}
+                                          <div className="flex flex-wrap gap-x-3 gap-y-1">
+                                            {obj.metric && (
+                                              <span className="text-[9px] text-muted-foreground">
+                                                <span className="font-semibold">Métrica:</span> {obj.metric}
+                                              </span>
+                                            )}
+                                            {obj.target && (
+                                              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                                Meta: {obj.target}
+                                              </span>
+                                            )}
+                                            {obj.timeframe && (
+                                              <span className="text-[9px] text-muted-foreground">
+                                                <span className="font-semibold">Plazo:</span> {obj.timeframe}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {contentPillars && (
+                                <div>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block">Pilares de Contenido</span>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {(Array.isArray(contentPillars) ? contentPillars : [contentPillars]).map((pillar: any, idx: number) => (
+                                      <Badge key={idx} variant="outline" className="text-[9px] font-semibold bg-indigo-50/50 text-indigo-750 border-indigo-100 dark:bg-indigo-950/10 dark:text-indigo-400 dark:border-indigo-950/30">
+                                        {typeof pillar === "string" ? pillar : (pillar.name || pillar.title || JSON.stringify(pillar))}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

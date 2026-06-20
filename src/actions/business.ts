@@ -41,6 +41,35 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
       });
     }
 
+    // Disparar scraping automático para todos los canales que tengan URL en el nuevo negocio
+    const socialLinks = (business.socialLinks as any) || {};
+    const channelUrls = [
+      { name: "WEBSITE", url: business.website },
+      { name: "FACEBOOK", url: socialLinks.facebook },
+      { name: "INSTAGRAM", url: socialLinks.instagram },
+      { name: "TIKTOK", url: socialLinks.tiktok },
+      { name: "LINKEDIN", url: socialLinks.linkedin },
+      { name: "YOUTUBE", url: socialLinks.youtube },
+    ];
+
+    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    channelUrls.forEach((ch) => {
+      if (ch.url && ch.url.trim() !== "") {
+        fetch(`${appUrl}/api/analysis/request`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "MY_BUSINESS",
+            entityId: business.id,
+            channel: ch.name,
+            url: ch.url,
+          }),
+        }).catch((err) => {
+          console.error(`Error al disparar scraping automático de negocio para canal ${ch.name}:`, err);
+        });
+      }
+    });
+
     revalidatePath("/business");
     revalidatePath("/");
     return { success: true, message: "Negocio creado exitosamente", data: business };
@@ -102,10 +131,10 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
       return { success: false, error: "No autorizado" };
     }
 
-    const business = await prisma.business.findFirst({
+    const oldBusiness = await prisma.business.findFirst({
       where: { id, userId: session.user.id }
     });
-    if (!business) {
+    if (!oldBusiness) {
       return { success: false, error: "Negocio no encontrado o no autorizado" };
     }
 
@@ -113,6 +142,36 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
     const validated = businessSchema.parse(data);
     
     await updateBusinessService(id, validated as any);
+
+    // Disparar scraping automático si cambiaron o se agregaron URLs
+    const oldLinks = (oldBusiness.socialLinks as any) || {};
+    const newLinks = validated.socialLinks || {};
+    const channelsToCheck = [
+      { name: "WEBSITE", oldUrl: oldBusiness.website, newUrl: validated.website },
+      { name: "FACEBOOK", oldUrl: oldLinks.facebook, newUrl: newLinks.facebook },
+      { name: "INSTAGRAM", oldUrl: oldLinks.instagram, newUrl: newLinks.instagram },
+      { name: "TIKTOK", oldUrl: oldLinks.tiktok, newUrl: newLinks.tiktok },
+      { name: "LINKEDIN", oldUrl: oldLinks.linkedin, newUrl: newLinks.linkedin },
+      { name: "YOUTUBE", oldUrl: oldLinks.youtube, newUrl: newLinks.youtube },
+    ];
+
+    const appUrl = process.env.APP_URL || "http://localhost:3000";
+    channelsToCheck.forEach((ch) => {
+      if (ch.newUrl && ch.newUrl.trim() !== "" && ch.newUrl !== ch.oldUrl) {
+        fetch(`${appUrl}/api/analysis/request`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "MY_BUSINESS",
+            entityId: id,
+            channel: ch.name,
+            url: ch.newUrl,
+          }),
+        }).catch((err) => {
+          console.error(`Error al disparar scraping automático tras editar negocio para canal ${ch.name}:`, err);
+        });
+      }
+    });
 
     revalidatePath("/business");
     return { success: true, message: "Negocio actualizado" };

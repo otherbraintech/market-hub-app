@@ -76,7 +76,7 @@ export function BusinessExtraInfoCard({
   const [newCompData, setNewCompData] = useState<Partial<Competitor>>({
     name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: ''
   })
-  const [newCompPlatforms, setNewCompPlatforms] = useState<string[]>(['website'])
+  const [newCompPlatforms, setNewCompPlatforms] = useState<string[]>([])
 
   // Auto-abrir diálogo de competidor si el negocio tiene 0 competidores
   useEffect(() => {
@@ -233,7 +233,7 @@ export function BusinessExtraInfoCard({
       return
     }
     setNewCompData({ name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' })
-    setNewCompPlatforms(['website'])
+    setNewCompPlatforms([])
     setIsNewCompOpen(true)
   }
 
@@ -578,7 +578,7 @@ export function BusinessExtraInfoCard({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Plataformas a analizar</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">selecciona plataforma... </Label>
               <div className="flex flex-wrap gap-2">
                 {platforms.map((platform) => {
                   const PlatformIcon = platform.icon

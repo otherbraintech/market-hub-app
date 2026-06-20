@@ -14,8 +14,6 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Users, Target } from "lucide-react";
 
-import { AgentPipelineMonitor } from "@/components/business/agent-pipeline-monitor";
-
 export default async function BusinessDetailPage({ 
   params,
 }: { 
@@ -92,10 +90,7 @@ export default async function BusinessDetailPage({
     <div className="flex flex-col h-full bg-background pb-12">
       <BusinessHeader business={business} />
       
-      <div className="flex-1 p-8 pt-6 space-y-8 max-w-[1200px]">
-        {/* Monitor de Pipeline de Agentes IA */}
-        <AgentPipelineMonitor businessId={business.id} />
-
+      <div className="flex-1 p-8 pt-6 space-y-8 w-full">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
              <h2 className="text-3xl font-black tracking-tight mb-2">Resumen de Negocio</h2>

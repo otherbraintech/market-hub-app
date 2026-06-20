@@ -40,6 +40,14 @@ export function CampaignsClientPage({
     COMPLETED: "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/50 dark:text-purple-400 dark:border-purple-800",
   };
 
+  const statusTranslations: Record<string, string> = {
+    DRAFT: "Borrador",
+    SCHEDULED: "Programada",
+    ACTIVE: "Activa",
+    PAUSED: "Pausada",
+    COMPLETED: "Completada",
+  };
+
   // Efecto para autogenerar las 6 campañas y planificaciones si no hay ninguna
   useEffect(() => {
     if (initialCampaigns.length === 0 && !isAutoGenerating) {
@@ -176,7 +184,7 @@ export function CampaignsClientPage({
                     <div className="flex-1 p-6 space-y-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className={`${statusColors[campaign.status]} text-[10px] font-bold border`}>
-                          {campaign.status}
+                          {statusTranslations[campaign.status] || campaign.status}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{campaign.business.name}</span>
                         {campaign.strategy?.name && (

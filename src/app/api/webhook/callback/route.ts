@@ -52,15 +52,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, report });
     }
 
-    if (!data) {
-      return NextResponse.json({ error: "Falta el payload: data" }, { status: 400 });
+    // Si no viene "data", pero viene "status" o la respuesta completa, usar el cuerpo entero como data
+    let reportData = data;
+    if (!reportData) {
+      if (body.status === true || body.status === "true") {
+        reportData = body;
+      } else {
+        return NextResponse.json({ error: "Falta el payload: data o status exitoso" }, { status: 400 });
+      }
     }
 
     const report = await prisma.analysisReport.update({
       where: { id: reportId },
       data: {
         status: "COMPLETED",
-        data,
+        data: reportData,
         completedAt: new Date(),
       },
     });
@@ -94,30 +100,35 @@ export async function POST(request: Request) {
       }).catch((err: any) => console.error("Error creating agent notification for callback success:", err));
     }
 
-    // Si el reporte completado es de tipo COMPETITOR, actualizar automáticamente el Diagnóstico y el Informe General del Negocio
-    if (report.type === "COMPETITOR") {
-      try {
-        const competitor = await prisma.competitor.findUnique({
-          where: { id: report.entityId },
-          select: { businessId: true }
+    // Si el reporte es exitoso, actualizar automáticamente el informe consolidado / análisis general del negocio
+    try {
+      const host = request.headers.get("host") || "localhost:3000";
+      const protocol = host.includes("localhost") ? "http" : "https";
+
+      if (report.type === "COMPETITOR" && resolvedBusinessId) {
+        // 1. Regenerar el informe general consolidado de competidores de la IA
+        const generateReportUrl = `${protocol}://${host}/api/competitors/${resolvedBusinessId}/generate-general-report`;
+        console.log(`🤖 Disparando regeneración automática de Informe General de Competidores para negocio: ${resolvedBusinessId}`);
+        fetch(generateReportUrl, { method: "POST" }).catch((err) => {
+          console.error("Error en regeneración automática de informe general de competidores:", err);
         });
 
-        if (competitor?.businessId) {
-          const businessId = competitor.businessId;
-          const host = request.headers.get("host") || "localhost:3000";
-          const protocol = host.includes("localhost") ? "http" : "https";
-          const generateUrl = `${protocol}://${host}/api/competitors/${businessId}/generate-general-report`;
-          
-          console.log(`🤖 Disparando regeneración automática de Informe General para negocio: ${businessId}`);
-          
-          // Hacemos el fetch de forma asíncrona (no bloqueante) para no demorar la respuesta al webhook
-          fetch(generateUrl, { method: "POST" }).catch((err) => {
-            console.error("Error en regeneración automática de informe general de competidores:", err);
-          });
-        }
-      } catch (err) {
-        console.error("Error al procesar disparador automático de informe general de competidores:", err);
+        // 2. Regenerar el análisis consolidado de competidores (la matriz consolidada)
+        const competitorConsolidatedUrl = `${protocol}://${host}/api/competitors/${resolvedBusinessId}/consolidated-analysis`;
+        console.log(`🤖 Disparando regeneración automática de Análisis Consolidado de Competidores para negocio: ${resolvedBusinessId}`);
+        fetch(competitorConsolidatedUrl, { method: "POST" }).catch((err) => {
+          console.error("Error en consolidación automática de competidores:", err);
+        });
+      } else if (report.type === "MY_BUSINESS" && resolvedBusinessId) {
+        // Regenerar el análisis consolidado del propio negocio (FODA, etc.)
+        const myConsolidatedUrl = `${protocol}://${host}/api/business/${resolvedBusinessId}/consolidated-analysis`;
+        console.log(`🤖 Disparando regeneración automática de Análisis Consolidado Propio para negocio: ${resolvedBusinessId}`);
+        fetch(myConsolidatedUrl, { method: "POST" }).catch((err) => {
+          console.error("Error en consolidación automática propia de negocio:", err);
+        });
       }
+    } catch (err) {
+      console.error("Error al procesar los triggers automáticos de consolidación/informe general:", err);
     }
 
     return NextResponse.json({ success: true, report });

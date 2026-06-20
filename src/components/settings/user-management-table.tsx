@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { updateUserLimitAction } from "@/app/(dashboard)/settings/users/actions"
 import { toast } from "sonner"
-import { Save, User as UserIcon, Shield, Briefcase } from "lucide-react"
+import { Save, User as UserIcon, Shield, Briefcase, Users } from "lucide-react"
 
 interface User {
   id: string
@@ -22,7 +22,7 @@ interface User {
   role: string
   maxBusinesses: number
   maxCompetitors: number
-  _count: { businesses: number }
+  _count: { businesses: number; competitors: number }
 }
 
 interface UserManagementTableProps {
@@ -62,6 +62,7 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
             <TableHead className="w-[200px]">Usuario</TableHead>
             <TableHead>Rol</TableHead>
             <TableHead>Negocios</TableHead>
+            <TableHead>Competidores</TableHead>
             <TableHead className="w-[120px]">Límite Neg.</TableHead>
             <TableHead className="w-[120px]">Límite Comp.</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
@@ -92,6 +93,12 @@ export function UserManagementTable({ initialUsers }: UserManagementTableProps) 
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <span className="font-bold">{user._count.businesses}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-bold">{user._count.competitors || 0}</span>
                 </div>
               </TableCell>
               <TableCell>

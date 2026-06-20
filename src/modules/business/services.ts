@@ -21,15 +21,23 @@ import {
 export async function createBusiness(
   input: CreateBusinessInput
 ): Promise<BusinessWithTypes> {
-  const slug = input.slug || slugify(input.name)
+  let slug = input.slug || slugify(input.name)
   
-  // Verificar que el slug sea único
-  const existing = await prisma.business.findUnique({
+  // Verificar que el slug sea único y autogenerar uno con sufijo numérico si ya existe
+  let existing = await prisma.business.findUnique({
     where: { slug },
   })
   
   if (existing) {
-    throw new Error(`Ya existe un negocio con el slug: ${slug}`)
+    let counter = 1
+    let baseSlug = slug
+    while (existing) {
+      slug = `${baseSlug}-${counter}`
+      existing = await prisma.business.findUnique({
+        where: { slug },
+      })
+      counter++
+    }
   }
 
   // Verificar límite por usuario (basado en BDD)

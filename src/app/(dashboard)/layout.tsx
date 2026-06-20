@@ -9,6 +9,7 @@ import {
 import { getBusinesses, getSelectedBusinessId } from "@/actions/business";
 import { getSession } from "@/lib/auth";
 import { BusinessRedirector } from "@/components/business/business-redirector";
+import { SessionWatcher } from "@/components/auth/session-watcher";
 
 export default async function DashboardLayout({
   children,
@@ -29,6 +30,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
+      <SessionWatcher initialExpired={!session} />
       <BusinessRedirector hasBusinesses={businesses.length > 0} />
       <AppSidebar businesses={businesses} selectedId={selectedId} session={session} />
       <SidebarInset>

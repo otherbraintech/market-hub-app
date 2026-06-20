@@ -21,9 +21,14 @@ export async function decrypt(input: string): Promise<any> {
 }
 
 export async function getSession() {
-  const session = (await cookies()).get("session")?.value;
-  if (!session) return null;
-  return await decrypt(session);
+  try {
+    const session = (await cookies()).get("session")?.value;
+    if (!session) return null;
+    return await decrypt(session);
+  } catch (error) {
+    console.error("Error al obtener o descifrar la sesión:", error);
+    return null;
+  }
 }
 
 export async function updateSession(request: NextRequest) {

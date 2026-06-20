@@ -138,7 +138,13 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
   return (
     <TooltipProvider>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form 
+          onSubmit={form.handleSubmit(onSubmit, (errors) => {
+            console.error("Form validation errors:", errors);
+            toast.error("Hay errores en el formulario. Revisa los campos.");
+          })} 
+          className="space-y-4"
+        >
         {!isEditing && (
           <div className="flex items-center justify-between mb-4 p-3 bg-primary/5 rounded-xl border border-primary/20">
             <div className="flex flex-col">

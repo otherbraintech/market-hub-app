@@ -90,11 +90,15 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
         result = await createBusiness(data);
       }
 
-      if (result.success) {
-        toast.success(result.message);
+      const res = result as any;
+      if (res.success) {
+        toast.success(res.message);
         onSuccess?.();
+        if (res.data?.id) {
+          window.location.href = `/business/${res.data.id}`;
+        }
       } else {
-        toast.error(result.error);
+        toast.error(res.error);
       }
     } catch (error) {
       toast.error("Ocurrió un error inesperado");

@@ -59,17 +59,27 @@ export async function createBusinessWithAI(data: {
   socialLinks?: any;
 }) {
   try {
-    // 1. Analizar con IA
-    const analysis = await analyzeBusiness(data.name, data.description, data.website);
+    // 1. Analizar con IA con fallback si falla
+    let analysis;
+    try {
+      analysis = await analyzeBusiness(data.name, data.description, data.website);
+    } catch (aiError) {
+      console.error("AI analysis failed, falling back to empty profile:", aiError);
+      analysis = {
+        industry: "",
+        brandVoice: { tone: [], personality: [], values: [] },
+        targetAudience: { demographics: "", psychographics: "" }
+      };
+    }
     
     // 2. Preparar datos completos
     const fullData = {
       name: data.name,
-      description: data.description,
+      description: data.description || "",
       website: data.website || "",
-      industry: analysis.industry,
-      brandVoice: analysis.brandVoice,
-      targetAudience: analysis.targetAudience,
+      industry: analysis.industry || "",
+      brandVoice: analysis.brandVoice || { tone: [], personality: [], values: [] },
+      targetAudience: analysis.targetAudience || { demographics: "", psychographics: "" },
       phoneNumbers: data.phoneNumbers || "",
       location: data.location || "",
       socialLinks: data.socialLinks || { facebook: "", instagram: "", tiktok: "" },
@@ -79,7 +89,7 @@ export async function createBusinessWithAI(data: {
     return await createBusiness(fullData as any);
   } catch (error) {
     console.error("AI Creation Error:", error);
-    return { success: false, error: "Error al generar datos con IA" };
+    return { success: false, error: "Error al registrar el negocio" };
   }
 }
 

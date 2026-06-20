@@ -145,7 +145,7 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
 
     // Disparar scraping automático si cambiaron o se agregaron URLs
     const oldLinks = (oldBusiness.socialLinks as any) || {};
-    const newLinks = validated.socialLinks || {};
+    const newLinks = (validated.socialLinks as any) || {};
     const channelsToCheck = [
       { name: "WEBSITE", oldUrl: oldBusiness.website, newUrl: validated.website },
       { name: "FACEBOOK", oldUrl: oldLinks.facebook, newUrl: newLinks.facebook },

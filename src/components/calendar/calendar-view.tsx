@@ -99,6 +99,7 @@ interface CalendarViewProps {
   campaigns: {
     id: string;
     name: string;
+    status: string;
     description?: string | null;
     objective?: string;
     budget?: any;

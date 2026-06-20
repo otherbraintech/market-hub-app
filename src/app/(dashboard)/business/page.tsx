@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { BusinessList } from "@/components/business/business-list";
 import { CreateBusinessDialog } from "@/components/business/create-business-dialog";
+import { EmptyBusinessState } from "@/components/business/empty-business-state";
 import { Plus, Briefcase } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -65,16 +66,7 @@ export default async function BusinessPage() {
       </div>
 
       {businesses.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[400px] border rounded-lg bg-muted/20 border-dashed text-center p-8">
-          <div className="p-4 rounded-full bg-background mb-4 shadow-sm">
-            <Plus className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-semibold">No hay negocios creados</h3>
-          <p className="text-muted-foreground mb-6 max-w-sm">
-            Empieza creando tu primer perfil de negocio para organizar tus campañas y productos.
-          </p>
-          <CreateBusinessDialog />
-        </div>
+        <EmptyBusinessState />
       ) : (
         <BusinessList businesses={businesses} />
       )}

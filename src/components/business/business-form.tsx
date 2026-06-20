@@ -29,12 +29,15 @@ import { HelpCircle, Sparkles, MapPin, Phone, Globe, Facebook, Instagram, Chevro
 interface BusinessFormProps {
   defaultValues?: BusinessFormValues & { id?: string };
   onSuccess?: () => void;
+  isTutorialActive?: boolean;
 }
 
-export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
+export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: BusinessFormProps) {
   const [loading, setLoading] = useState(false);
   const [useAI, setUseAI] = useState(!defaultValues?.id);
   const [step, setStep] = useState(1);
+  const [showStep1Overlay, setShowStep1Overlay] = useState(isTutorialActive);
+  const [showStep2Overlay, setShowStep2Overlay] = useState(isTutorialActive);
   const isEditing = !!defaultValues?.id;
 
   const form = useForm<BusinessFormValues>({
@@ -156,13 +159,86 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
               {useAI ? "Activado" : "Usar IA"}
             </Button>
           </div>
-        )}
-
-        {useAI && !isEditing ? (
+        )}        {useAI && !isEditing ? (
           <div className="space-y-6 py-2">
+            {isTutorialActive && (
+              <>
+                {/* 1. Indicador de pasos visual tipo Line/Wizard */}
+                <div className="flex items-center justify-between px-4 mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${step === 1 ? 'bg-primary text-primary-foreground ring-4 ring-primary/20 scale-110 shadow-md' : 'bg-primary/20 text-primary'}`}>
+                      1
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paso 1</span>
+                      <span className={`text-[11px] font-bold transition-colors ${step === 1 ? 'text-primary' : 'text-muted-foreground'}`}>Perfil del Negocio</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 h-0.5 bg-muted mx-4 relative rounded-full">
+                    <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${step === 2 ? 'w-full' : 'w-0'}`} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${step === 2 ? 'bg-primary text-primary-foreground ring-4 ring-primary/20 scale-110 shadow-md' : 'bg-muted text-muted-foreground'}`}>
+                      2
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paso 2</span>
+                      <span className={`text-[11px] font-bold transition-colors ${step === 2 ? 'text-primary' : 'text-muted-foreground'}`}>Contacto y Redes</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Tarjeta premium del asistente de IA */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-purple-500/5 to-transparent border border-primary/20 p-5 shadow-inner animate-in fade-in duration-300">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-xl -z-10" />
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0 shadow-sm border border-primary/20 animate-bounce-slow">
+                      <Sparkles className="h-5 w-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest bg-primary/20 text-primary px-2.5 py-0.5 rounded-full">Asistente de Inicio</span>
+                        <span className="text-xs font-bold text-muted-foreground">
+                          {step === 1 ? 'Paso 1 de 2' : 'Paso 2 de 2'}
+                        </span>
+                      </div>
+                      <h5 className="text-sm font-bold text-foreground">
+                        {step === 1 ? 'Definir perfil e identidad de marca' : 'Vincular canales de contacto'}
+                      </h5>
+                      <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                        {step === 1 
+                          ? 'Ingresa el nombre de tu negocio, sitio web y una descripción de tu marca. La IA analizará la web y la descripción para generar la estrategia y el perfil del negocio automáticamente.'
+                          : 'Completa los teléfonos, ubicación y redes sociales de tu marca. Cuando termines, dale click a Generar con IA y Crear para finalizar y activar tu panel.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             {step === 1 ? (
-              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-4 relative animate-in fade-in slide-in-from-right-4 duration-300">
+                {isTutorialActive && showStep1Overlay && (
+                  <div className="absolute -inset-2 bg-background/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 border border-primary/10 shadow-sm">
+                    <div className="flex flex-col items-center gap-2.5 max-w-xs text-center">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-1">
+                        <Sparkles className="h-5 w-5 animate-pulse" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider text-primary">Identidad de Marca</span>
+                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                        Completa los campos básicos del negocio para que la IA diseñe tu estrategia.
+                      </p>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        onClick={() => setShowStep1Overlay(false)}
+                        className="mt-3 rounded-xl font-bold shadow-md hover:shadow-lg px-5 h-9"
+                      >
+                        Entendido
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <FormField
                   control={form.control}
                   name="name"
@@ -208,7 +284,28 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
                 />
               </div>
             ) : (
-              <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="space-y-4 relative animate-in fade-in slide-in-from-right-4 duration-300">
+                {isTutorialActive && showStep2Overlay && (
+                  <div className="absolute -inset-2 bg-background/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 border border-primary/10 shadow-sm">
+                    <div className="flex flex-col items-center gap-2.5 max-w-xs text-center">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-1">
+                        <Sparkles className="h-5 w-5 animate-pulse" />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider text-primary">Contacto y Redes</span>
+                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                        Completa la información de contacto para que el sistema la integre en tus canales sociales.
+                      </p>
+                      <Button 
+                        type="button" 
+                        size="sm" 
+                        onClick={() => setShowStep2Overlay(false)}
+                        className="mt-3 rounded-xl font-bold shadow-md hover:shadow-lg px-5 h-9"
+                      >
+                        Entendido
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                     <FormField
                         control={form.control}
@@ -520,12 +617,22 @@ export function BusinessForm({ defaultValues, onSuccess }: BusinessFormProps) {
 
         <DialogFooter className="mt-8 gap-2 sm:gap-0">
           {useAI && step === 2 && (
-              <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={loading} className="rounded-xl h-11 px-6">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setStep(1)} 
+                disabled={loading || (isTutorialActive && showStep2Overlay)} 
+                className="rounded-xl h-11 px-6"
+              >
                 <ChevronLeft className="h-4 w-4 mr-2" /> Atrás
               </Button>
           )}
           
-          <Button type="submit" disabled={loading} className={`${useAI ? "flex-1 h-11" : "h-11 px-8"} rounded-xl font-bold`}>
+          <Button 
+            type="submit" 
+            disabled={loading || (isTutorialActive && ((step === 1 && showStep1Overlay) || (step === 2 && showStep2Overlay)))} 
+            className={`${useAI ? "flex-1 h-11" : "h-11 px-8"} rounded-xl font-bold`}
+          >
             {loading ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />

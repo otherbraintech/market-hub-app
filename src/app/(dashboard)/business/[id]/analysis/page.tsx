@@ -11,7 +11,7 @@ export default async function BusinessAnalysisPage({
   const { id } = await params;
   const session = await getSession();
 
-  if (!session || !session.userId) {
+  if (!session || !session.user?.id) {
     redirect("/login");
   }
 
@@ -31,7 +31,7 @@ export default async function BusinessAnalysisPage({
   }
 
   // Authorization check: ensure the business belongs to the current user
-  if (business.userId !== session.userId) {
+  if (business.userId !== session.user.id) {
     redirect("/business");
   }
 

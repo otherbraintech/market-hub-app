@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sidebar"
 import { getBusinesses, getSelectedBusinessId } from "@/actions/business";
 import { getSession } from "@/lib/auth";
+import { BusinessRedirector } from "@/components/business/business-redirector";
 
 export default async function DashboardLayout({
   children,
@@ -28,6 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
+      <BusinessRedirector hasBusinesses={businesses.length > 0} />
       <AppSidebar businesses={businesses} selectedId={selectedId} session={session} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">

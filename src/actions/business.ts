@@ -24,7 +24,25 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
       userId: session.user.id,
     } as any);
 
+    // Contar negocios del usuario
+    const businessCount = await prisma.business.count({
+      where: { userId: session.user.id }
+    });
+
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const currentSelected = cookieStore.get("selectedBusinessId")?.value;
+
+    // Si es su primer negocio o no tiene ninguno seleccionado actualmente
+    if (businessCount === 1 || !currentSelected) {
+      cookieStore.set("selectedBusinessId", business.id, { 
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30 // 30 días
+      });
+    }
+
     revalidatePath("/business");
+    revalidatePath("/");
     return { success: true, message: "Negocio creado exitosamente", data: business };
   } catch (error: any) {
     console.error("Create Business Error:", error);

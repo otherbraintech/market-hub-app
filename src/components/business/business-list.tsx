@@ -28,6 +28,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Building2, MoreHorizontal, Globe, Trash, Edit } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -39,16 +49,17 @@ interface BusinessListProps {
 export function BusinessList({ businesses }: BusinessListProps) {
   const [editingBusiness, setEditingBusiness] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [deletingBusinessId, setDeletingBusinessId] = useState<string | null>(null);
 
-  async function handleDelete(id: string) {
-    if (confirm("¿Estás seguro de eliminar este negocio? Se perderán todas sus campañas.")) {
-      const result = await deleteBusiness(id);
-      if (result.success) {
-        toast.success("Negocio eliminado");
-      } else {
-        toast.error("Error al eliminar");
-      }
+  async function handleDelete() {
+    if (!deletingBusinessId) return;
+    const result = await deleteBusiness(deletingBusinessId);
+    if (result.success) {
+      toast.success("Negocio eliminado");
+    } else {
+      toast.error("Error al eliminar");
     }
+    setDeletingBusinessId(null);
   }
 
   return (
@@ -86,7 +97,7 @@ export function BusinessList({ businesses }: BusinessListProps) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     className="text-destructive focus:text-destructive"
-                    onClick={() => handleDelete(business.id)}
+                    onClick={() => setDeletingBusinessId(business.id)}
                   >
                     <Trash className="mr-2 h-4 w-4" /> Eliminar
                   </DropdownMenuItem>
@@ -152,6 +163,26 @@ export function BusinessList({ businesses }: BusinessListProps) {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deletingBusinessId} onOpenChange={(open) => !open && setDeletingBusinessId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Esto eliminará permanentemente el negocio y todas sus campañas asociadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -24,9 +24,9 @@ export function SessionWatcher({ initialExpired = false }: SessionWatcherProps) 
   const checkSession = React.useCallback(async () => {
     try {
       const res = await fetch("/api/auth/session", { cache: "no-store" });
-      if (!res.ok) {
+      if (res.status === 401) {
         setIsOpen(true);
-      } else {
+      } else if (res.ok) {
         const data = await res.json();
         if (!data.authenticated) {
           setIsOpen(true);

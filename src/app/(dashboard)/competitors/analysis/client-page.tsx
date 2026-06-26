@@ -615,6 +615,8 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
   const [loadingReport, setLoadingReport] = useState(true);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [executiveSummary, setExecutiveSummary] = useState<any>(null);
+  const [showFullGeneralReport, setShowFullGeneralReport] = useState(false);
+  const [showFullDiagnostic, setShowFullDiagnostic] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -1233,8 +1235,23 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
               {generatingReport ? 'Generando...' : 'Actualizar Informe'}
             </Button>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {typeof executiveSummary === 'object' ? renderExecutiveSummaryObject(executiveSummary) : parseMarkdown(executiveSummary)}
+          <CardContent className="space-y-4 pb-4">
+            <div className={`relative transition-all duration-500 ease-in-out overflow-hidden ${!showFullGeneralReport ? 'max-h-[380px]' : 'max-h-[5000px]'}`}>
+              {typeof executiveSummary === 'object' ? renderExecutiveSummaryObject(executiveSummary) : parseMarkdown(executiveSummary)}
+              {!showFullGeneralReport && (
+                <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-slate-905 dark:via-slate-905/90 pointer-events-none" />
+              )}
+            </div>
+            <div className="flex justify-center pt-2 border-t border-slate-100 dark:border-slate-800">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFullGeneralReport(!showFullGeneralReport)}
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+              >
+                {showFullGeneralReport ? "Ver menos detalles" : "Ver informe completo"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -1344,59 +1361,76 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* Desempeño de Canales */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Desempeño de Canales
-                  </h4>
-                  <ul className="space-y-2">
-                    {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.desempenoCanales) 
-                      ? strategicAnalysisIndividual.desempenoCanales 
-                      : []).map((item: string, i: number) => (
-                      <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
-                        <ChevronRight className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              <CardContent className="pt-4 pb-4">
+                <div className={`relative transition-all duration-500 ease-in-out overflow-hidden ${!showFullDiagnostic ? 'max-h-[220px]' : 'max-h-[2000px]'}`}>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* Desempeño de Canales */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        Desempeño de Canales
+                      </h4>
+                      <ul className="space-y-2">
+                        {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.desempenoCanales) 
+                          ? strategicAnalysisIndividual.desempenoCanales 
+                          : []).map((item: string, i: number) => (
+                          <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                            <ChevronRight className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
-                {/* Debilidades e Identificación de Brechas */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-rose-500" />
-                    Debilidades e Identificación de Brechas
-                  </h4>
-                  <ul className="space-y-2">
-                    {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.debilidadesGaps) 
-                      ? strategicAnalysisIndividual.debilidadesGaps 
-                      : []).map((item: string, i: number) => (
-                      <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
-                        <ChevronRight className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                    {/* Debilidades e Identificación de Brechas */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-rose-500" />
+                        Debilidades e Identificación de Brechas
+                      </h4>
+                      <ul className="space-y-2">
+                        {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.debilidadesGaps) 
+                          ? strategicAnalysisIndividual.debilidadesGaps 
+                          : []).map((item: string, i: number) => (
+                          <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                            <ChevronRight className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
-                {/* Plan de Acción Contramedida */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-indigo-500" />
-                    Plan de Acción Contramedida
-                  </h4>
-                  <ul className="space-y-2">
-                    {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.planContramedida) 
-                      ? strategicAnalysisIndividual.planContramedida 
-                      : []).map((item: string, i: number) => (
-                      <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
-                        <ChevronRight className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+                    {/* Plan de Acción Contramedida */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                        Plan de Acción Contramedida
+                      </h4>
+                      <ul className="space-y-2">
+                        {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.planContramedida) 
+                          ? strategicAnalysisIndividual.planContramedida 
+                          : []).map((item: string, i: number) => (
+                          <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                            <ChevronRight className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  {!showFullDiagnostic && (
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-slate-905 dark:via-slate-905/90 pointer-events-none" />
+                  )}
+                </div>
+                <div className="flex justify-center pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFullDiagnostic(!showFullDiagnostic)}
+                    className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/20"
+                  >
+                    {showFullDiagnostic ? "Ver menos detalles" : "Ver diagnóstico completo"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -1913,7 +1947,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                 </Select>
               </div>
             </CardHeader>
-            <CardContent className="p-0 overflow-x-auto">
+            <CardContent className="p-4 sm:p-6">
               {completedCompetitors.length === 0 || !activeMyAnalysis ? (
                 <div className="text-center py-16 text-muted-foreground">
                   <Sparkles className="h-10 w-10 text-indigo-300 mx-auto mb-3 animate-pulse" />
@@ -1923,143 +1957,150 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                   </p>
                 </div>
               ) : (
-                <Table className="w-full min-w-[700px] border-collapse">
-                  <TableHeader>
-                    <TableRow className="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-50/70 border-b border-slate-100 dark:border-slate-800">
-                      <TableHead className="w-[220px] font-bold text-xs uppercase tracking-wider text-slate-500 py-4 pl-6">Métrica / Aspecto</TableHead>
-                      <TableHead className="font-extrabold text-sm text-indigo-700 bg-indigo-50/20 dark:bg-indigo-950/20 dark:text-indigo-400 py-4 px-4 border-x border-slate-100/40 dark:border-slate-800/40">
-                        <div className="flex items-center gap-1.5 justify-center">
-                          <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-                          Mi Negocio
-                        </div>
-                      </TableHead>
-                      {completedCompetitors.map((c: any) => (
-                        <TableHead key={c.id} className="font-bold text-sm text-slate-800 dark:text-slate-100 py-4 px-4 text-center">{c.name}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {/* Posicionamiento */}
-                    <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
-                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Posicionamiento</TableCell>
-                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 text-xs font-semibold text-indigo-950 dark:text-indigo-300 py-5 px-4 leading-relaxed border-x border-slate-105/20 text-center">
-                        {activeMyAnalysis?.data?.brand_identity?.market_positioning || activeMyAnalysis?.data?.competitor_overview?.market_positioning || activeMyAnalysis?.data?.market_positioning || activeMyAnalysis?.data?.title || "No disponible"}
-                      </TableCell>
-                      {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top text-xs py-5 px-4 text-slate-700 dark:text-slate-300 leading-relaxed text-center font-medium">
-                          {c.reportsByChannel?.[comparisonChannel]?.data?.brand_identity?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.competitor_overview?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.title || "No disponible"}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    
-                    {/* Fortalezas */}
-                    <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
-                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Fortalezas / Productos</TableCell>
-                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-105/20">
-                        {(() => {
-                          const raw = activeMyAnalysis?.data?.business_insights?.main_strengths || activeMyAnalysis?.data?.ux_analysis?.ux_strengths || activeMyAnalysis?.data?.competitive_insights?.main_strengths || activeMyAnalysis?.data?.strengths || activeMyAnalysis?.data?.products || [];
-                          const list = Array.isArray(raw) ? raw : [raw];
-                          return (
-                            <ul className="space-y-1.5 pl-2">
-                              {list.slice(0, 3).map((p: string, i: number) => (
-                                <li key={i} className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-start gap-1.5">
-                                  <span className="text-emerald-500 mt-0.5 font-black">•</span>
-                                  <span>{p}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          );
-                        })()}
-                      </TableCell>
-                      {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top py-5 px-4">
-                          {(() => {
-                            const data = c.reportsByChannel?.[comparisonChannel]?.data;
-                            const raw = data?.business_insights?.main_strengths || data?.ux_analysis?.ux_strengths || data?.competitive_insights?.main_strengths || data?.strengths || data?.products || [];
-                            const list = Array.isArray(raw) ? raw : [raw];
-                            return (
-                              <ul className="space-y-1.5 pl-2">
-                                {list.slice(0, 3).map((p: string, i: number) => (
-                                  <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5">
-                                    <span className="text-slate-400 mt-0.5">•</span>
-                                    <span>{p}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            );
-                          })()}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-
-                    {/* Debilidades */}
-                    <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
-                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Debilidades / Brechas</TableCell>
-                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-105/20">
-                        {(() => {
-                          const raw = activeMyAnalysis?.data?.business_insights?.main_weaknesses || activeMyAnalysis?.data?.ux_analysis?.ux_weaknesses || activeMyAnalysis?.data?.competitive_insights?.main_weaknesses || activeMyAnalysis?.data?.weaknesses || activeMyAnalysis?.data?.promotions || [];
-                          const list = Array.isArray(raw) ? raw : [raw];
-                          return (
-                            <ul className="space-y-1.5 pl-2">
-                              {list.slice(0, 3).map((p: string, i: number) => (
-                                <li key={i} className="text-xs text-rose-600 dark:text-rose-450 font-semibold flex items-start gap-1.5">
-                                  <span className="text-rose-500 mt-0.5 font-black">•</span>
-                                  <span>{p}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          );
-                        })()}
-                      </TableCell>
-                      {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top py-5 px-4">
-                          {(() => {
-                            const data = c.reportsByChannel?.[comparisonChannel]?.data;
-                            const raw = data?.business_insights?.main_weaknesses || data?.ux_analysis?.ux_weaknesses || data?.competitive_insights?.main_weaknesses || data?.weaknesses || data?.promotions || [];
-                            const list = Array.isArray(raw) ? raw : [raw];
-                            return (
-                              <ul className="space-y-1.5 pl-2">
-                                {list.slice(0, 3).map((p: string, i: number) => (
-                                  <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5">
-                                    <span className="text-slate-400 mt-0.5">•</span>
-                                    <span>{p}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            );
-                          })()}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-
-                    {/* Recomendaciones */}
-                    <TableRow className="hover:bg-slate-50/20 transition-colors">
-                      <TableCell className="font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top">Recomendaciones Clave</TableCell>
-                      <TableCell className="align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-105/20">
-                        <ul className="space-y-2.5 pl-2">
-                          {getFlatRecommendations(activeMyAnalysis?.data).slice(0, 3).map((r: string, i: number) => (
-                            <li key={i} className="text-xs text-indigo-950 dark:text-indigo-350 leading-relaxed font-semibold flex items-start gap-1.5">
-                              <ChevronRight className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
-                              <span>{r}</span>
-                            </li>
+                <div className="space-y-2">
+                  <div className="block lg:hidden text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mb-1 text-right animate-pulse">
+                    ← Desliza horizontalmente para ver la tabla completa →
+                  </div>
+                  <div className="w-full overflow-x-auto border rounded-xl border-slate-100 dark:border-slate-800 shadow-inner">
+                    <Table className="w-full min-w-[850px] table-fixed border-collapse">
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-50/70 border-b border-slate-100 dark:border-slate-800">
+                          <TableHead className="w-[180px] font-bold text-xs uppercase tracking-wider text-slate-500 py-4 pl-6">Métrica / Aspecto</TableHead>
+                          <TableHead className="w-[280px] font-extrabold text-sm text-indigo-700 bg-indigo-50/25 dark:bg-indigo-950/30 dark:text-indigo-400 py-4 px-4 border-x border-slate-100/40 dark:border-slate-800/40 text-center">
+                            <div className="flex items-center gap-1.5 justify-center">
+                              <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+                              Mi Negocio
+                            </div>
+                          </TableHead>
+                          {completedCompetitors.map((c: any) => (
+                            <TableHead key={c.id} className="w-[280px] font-bold text-sm text-slate-800 dark:text-slate-100 py-4 px-4 text-center">{c.name}</TableHead>
                           ))}
-                        </ul>
-                      </TableCell>
-                      {completedCompetitors.map((c: any) => (
-                        <TableCell key={c.id} className="align-top py-5 px-4">
-                          <ul className="space-y-2.5 pl-2">
-                            {getFlatRecommendations(c.reportsByChannel?.[comparisonChannel]?.data).slice(0, 3).map((r: string, i: number) => (
-                              <li key={i} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium flex items-start gap-1.5">
-                                <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
-                                <span>{r}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableBody>
-                </Table>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {/* Posicionamiento */}
+                        <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
+                          <TableCell className="w-[180px] font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top whitespace-normal break-words">Posicionamiento</TableCell>
+                          <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 text-xs font-semibold text-indigo-950 dark:text-indigo-300 py-5 px-4 leading-relaxed border-x border-slate-100/20 text-center whitespace-normal break-words">
+                            {activeMyAnalysis?.data?.brand_identity?.market_positioning || activeMyAnalysis?.data?.competitor_overview?.market_positioning || activeMyAnalysis?.data?.market_positioning || activeMyAnalysis?.data?.title || "No disponible"}
+                          </TableCell>
+                          {completedCompetitors.map((c: any) => (
+                            <TableCell key={c.id} className="w-[280px] align-top text-xs py-5 px-4 text-slate-700 dark:text-slate-300 leading-relaxed text-center font-medium whitespace-normal break-words">
+                              {c.reportsByChannel?.[comparisonChannel]?.data?.brand_identity?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.competitor_overview?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.market_positioning || c.reportsByChannel?.[comparisonChannel]?.data?.title || "No disponible"}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                        
+                        {/* Fortalezas */}
+                        <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
+                          <TableCell className="w-[180px] font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top whitespace-normal break-words">Fortalezas / Productos</TableCell>
+                          <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-100/20 whitespace-normal break-words">
+                            {(() => {
+                              const raw = activeMyAnalysis?.data?.business_insights?.main_strengths || activeMyAnalysis?.data?.ux_analysis?.ux_strengths || activeMyAnalysis?.data?.competitive_insights?.main_strengths || activeMyAnalysis?.data?.strengths || activeMyAnalysis?.data?.products || [];
+                              const list = Array.isArray(raw) ? raw : [raw];
+                              return (
+                                <ul className="space-y-1.5 pl-2">
+                                  {list.slice(0, 3).map((p: string, i: number) => (
+                                    <li key={i} className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-start gap-1.5 whitespace-normal break-words">
+                                      <span className="text-emerald-500 mt-0.5 font-black">•</span>
+                                      <span>{p}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              );
+                            })()}
+                          </TableCell>
+                          {completedCompetitors.map((c: any) => (
+                            <TableCell key={c.id} className="w-[280px] align-top py-5 px-4 whitespace-normal break-words">
+                              {(() => {
+                                const data = c.reportsByChannel?.[comparisonChannel]?.data;
+                                const raw = data?.business_insights?.main_strengths || data?.ux_analysis?.ux_strengths || data?.competitive_insights?.main_strengths || data?.strengths || data?.products || [];
+                                const list = Array.isArray(raw) ? raw : [raw];
+                                return (
+                                  <ul className="space-y-1.5 pl-2">
+                                    {list.slice(0, 3).map((p: string, i: number) => (
+                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5 whitespace-normal break-words">
+                                        <span className="text-slate-400 mt-0.5">•</span>
+                                        <span>{p}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              })()}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+    
+                        {/* Debilidades */}
+                        <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
+                          <TableCell className="w-[180px] font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top whitespace-normal break-words">Debilidades / Brechas</TableCell>
+                          <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-100/20 whitespace-normal break-words">
+                            {(() => {
+                              const raw = activeMyAnalysis?.data?.business_insights?.main_weaknesses || activeMyAnalysis?.data?.ux_analysis?.ux_weaknesses || activeMyAnalysis?.data?.competitive_insights?.main_weaknesses || activeMyAnalysis?.data?.weaknesses || activeMyAnalysis?.data?.promotions || [];
+                              const list = Array.isArray(raw) ? raw : [raw];
+                              return (
+                                <ul className="space-y-1.5 pl-2">
+                                  {list.slice(0, 3).map((p: string, i: number) => (
+                                    <li key={i} className="text-xs text-rose-600 dark:text-rose-450 font-semibold flex items-start gap-1.5 whitespace-normal break-words">
+                                      <span className="text-rose-500 mt-0.5 font-black">•</span>
+                                      <span>{p}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              );
+                            })()}
+                          </TableCell>
+                          {completedCompetitors.map((c: any) => (
+                            <TableCell key={c.id} className="w-[280px] align-top py-5 px-4 whitespace-normal break-words">
+                              {(() => {
+                                const data = c.reportsByChannel?.[comparisonChannel]?.data;
+                                const raw = data?.business_insights?.main_weaknesses || data?.ux_analysis?.ux_weaknesses || data?.competitive_insights?.main_weaknesses || data?.weaknesses || data?.promotions || [];
+                                const list = Array.isArray(raw) ? raw : [raw];
+                                return (
+                                  <ul className="space-y-1.5 pl-2">
+                                    {list.slice(0, 3).map((p: string, i: number) => (
+                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5 whitespace-normal break-words">
+                                        <span className="text-slate-400 mt-0.5">•</span>
+                                        <span>{p}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              })()}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+    
+                        {/* Recomendaciones */}
+                        <TableRow className="hover:bg-slate-50/20 transition-colors">
+                          <TableCell className="w-[180px] font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top whitespace-normal break-words">Recomendaciones Clave</TableCell>
+                          <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-100/20 whitespace-normal break-words">
+                            <ul className="space-y-2.5 pl-2">
+                              {getFlatRecommendations(activeMyAnalysis?.data).slice(0, 3).map((r: string, i: number) => (
+                                <li key={i} className="text-xs text-indigo-950 dark:text-indigo-350 leading-relaxed font-semibold flex items-start gap-1.5 whitespace-normal break-words">
+                                  <ChevronRight className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                                  <span>{r}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </TableCell>
+                          {completedCompetitors.map((c: any) => (
+                            <TableCell key={c.id} className="w-[280px] align-top py-5 px-4 whitespace-normal break-words">
+                              <ul className="space-y-2.5 pl-2">
+                                {getFlatRecommendations(c.reportsByChannel?.[comparisonChannel]?.data).slice(0, 3).map((r: string, i: number) => (
+                                  <li key={i} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium flex items-start gap-1.5 whitespace-normal break-words">
+                                    <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                                    <span>{r}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

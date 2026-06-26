@@ -37,7 +37,7 @@ export function SocialAccountForm({ businessId, defaultValues, onSuccess }: Soci
   const [loading, setLoading] = useState(false);
 
   const form = useForm<SocialAccountFormValues>({
-    resolver: zodResolver(socialAccountSchema),
+    resolver: zodResolver(socialAccountSchema) as any,
     defaultValues: {
       channel: defaultValues?.channel || "INSTAGRAM",
       accountName: defaultValues?.accountName || "",

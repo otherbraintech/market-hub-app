@@ -10,6 +10,7 @@ import { getBusinesses, getSelectedBusinessId } from "@/actions/business";
 import { getSession } from "@/lib/auth";
 import { BusinessRedirector } from "@/components/business/business-redirector";
 import { SessionWatcher } from "@/components/auth/session-watcher";
+import { triggerMissingCompetitorAnalyses } from "@/app/(dashboard)/business/[id]/competitor-actions";
 
 export default async function DashboardLayout({
   children,
@@ -21,6 +22,12 @@ export default async function DashboardLayout({
     getSelectedBusinessId(),
     getSession()
   ]);
+
+  if (selectedId) {
+    triggerMissingCompetitorAnalyses(selectedId).catch((err) => {
+      console.error("Error triggering missing competitor analyses on layout load:", err);
+    });
+  }
 
   console.log("DashboardLayout Data:", { 
     businessesCount: businesses.length, 

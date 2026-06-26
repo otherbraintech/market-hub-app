@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { triggerAnalysis } from "@/lib/analysis-service"
 
 export async function upsertCompetitorAction(
   businessId: string,
@@ -51,10 +52,10 @@ export async function upsertCompetitorAction(
           step: "SCRAPING",
           status: "PROCESSING"
         }
-      }).catch((err: any) => console.error("Error creating competitor scraping notification:", err))
+      }).catch((err: unknown) => console.error("Error creating competitor scraping notification:", err))
     }
 
-    // Disparar scraping automático para todos los canales que tengan URL
+    // Disparar scraping automático para todos los canales que tengan URL y no estén analizados o haya cambiado la URL
     if (dbCompetitor) {
       const channelUrls = [
         { name: "WEBSITE", url: dbCompetitor.website },
@@ -66,25 +67,38 @@ export async function upsertCompetitorAction(
         { name: "SEO_GOOGLE", url: dbCompetitor.seoGoogle },
       ];
 
-      const appUrl = process.env.APP_URL || "http://localhost:3000";
+      const promises = channelUrls
+        .filter((ch) => ch.url && ch.url.trim() !== "")
+        .map(async (ch) => {
+          // Evitar re-analizar si ya existe un reporte con la misma URL y canal para este competidor,
+          // a menos que el reporte lleve más de 5 minutos en estado PENDING (lo que indica que se quedó atascado)
+          const existing = await prisma.analysisReport.findFirst({
+            where: {
+              entityId: dbCompetitor.id,
+              type: "COMPETITOR",
+              channel: ch.name,
+              url: ch.url!,
+            },
+            orderBy: { createdAt: "desc" }
+          });
 
-      // Disparar en segundo plano sin bloquear el hilo principal
-      channelUrls.forEach((ch) => {
-        if (ch.url && ch.url.trim() !== "") {
-          fetch(`${appUrl}/api/analysis/request`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          const isStuck = existing && 
+            existing.status === "PENDING" && 
+            (Date.now() - new Date(existing.createdAt).getTime() > 5 * 60 * 1000);
+
+          if (!existing || isStuck) {
+            return triggerAnalysis({
               type: "COMPETITOR",
               entityId: dbCompetitor.id,
               channel: ch.name,
-              url: ch.url,
-            }),
-          }).catch((err) => {
-            console.error(`Error al disparar scraping automático de competidor para canal ${ch.name}:`, err);
-          });
-        }
-      });
+              url: ch.url!,
+            }).catch((err) => {
+              console.error(`Error al disparar scraping automático de competidor para canal ${ch.name}:`, err);
+            });
+          }
+        });
+
+      await Promise.allSettled(promises);
     }
 
     // Trigger automatic consolidated analysis if conditions are met
@@ -95,6 +109,59 @@ export async function upsertCompetitorAction(
   } catch (error) {
     console.error('Competitor Action Error:', error)
     return { success: false, error: 'Error al procesar competidor' }
+  }
+}
+
+export async function triggerMissingCompetitorAnalyses(businessId: string) {
+  try {
+    const competitors = await prisma.competitor.findMany({
+      where: { businessId }
+    });
+
+    for (const comp of competitors) {
+      const channelUrls = [
+        { name: "WEBSITE", url: comp.website },
+        { name: "FACEBOOK", url: comp.facebook },
+        { name: "INSTAGRAM", url: comp.instagram },
+        { name: "TIKTOK", url: comp.tiktok },
+        { name: "LINKEDIN", url: comp.linkedin },
+        { name: "YOUTUBE", url: comp.youtube },
+        { name: "SEO_GOOGLE", url: comp.seoGoogle },
+      ];
+
+      for (const ch of channelUrls) {
+        if (ch.url && ch.url.trim() !== "") {
+          const existingReport = await prisma.analysisReport.findFirst({
+            where: {
+              entityId: comp.id,
+              type: "COMPETITOR",
+              channel: ch.name,
+              url: ch.url,
+            },
+            orderBy: { createdAt: "desc" }
+          });
+
+          const isStuck = existingReport && 
+            existingReport.status === "PENDING" && 
+            (Date.now() - new Date(existingReport.createdAt).getTime() > 5 * 60 * 1000);
+
+          if (!existingReport || isStuck) {
+            console.log(`[AUTO-SCRAP] No report found or report is stuck for competitor ${comp.name} on channel ${ch.name}. Triggering analysis...`);
+            // Disparar análisis en segundo plano
+            triggerAnalysis({
+              type: "COMPETITOR",
+              entityId: comp.id,
+              channel: ch.name,
+              url: ch.url,
+            }).catch((err) => {
+              console.error(`[AUTO-SCRAP] Error triggering automatic analysis for competitor ${comp.name} on channel ${ch.name}:`, err);
+            });
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error checking/triggering missing competitor analyses:", error);
   }
 }
 
@@ -154,7 +221,7 @@ export async function deleteCompetitorAction(businessId: string, competitorId: s
     await prisma.competitor.delete({ where: { id: competitorId } })
     revalidatePath(`/business/${businessId}`)
     return { success: true }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Error al eliminar competidor' }
   }
 }

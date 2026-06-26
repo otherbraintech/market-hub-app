@@ -3,6 +3,7 @@
 import { updateBusiness } from '@/modules/business/services'
 import { revalidatePath } from 'next/cache'
 import { SocialLinks } from '@/modules/business/types'
+import { triggerAnalysis } from '@/lib/analysis-service'
 
 export async function updateBusinessExtraInfo(
   businessId: string, 
@@ -27,7 +28,7 @@ export async function updateBusinessExtraInfo(
 
     // Disparar análisis automático si se agregaron o cambiaron enlaces
     if (oldBusiness) {
-      const oldLinks = (oldBusiness.socialLinks as any) || {};
+      const oldLinks = (oldBusiness.socialLinks as unknown as SocialLinks) || {};
       const newLinks = data.socialLinks || {};
       
       const channelsToCheck = [
@@ -36,23 +37,22 @@ export async function updateBusinessExtraInfo(
         { name: "TIKTOK", oldUrl: oldLinks.tiktok, newUrl: newLinks.tiktok },
       ];
 
-      const appUrl = process.env.APP_URL || "http://localhost:3000";
-      channelsToCheck.forEach((ch) => {
-        if (ch.newUrl && ch.newUrl.trim() !== "" && ch.newUrl !== ch.oldUrl) {
-          fetch(`${appUrl}/api/analysis/request`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "MY_BUSINESS",
-              entityId: businessId,
-              channel: ch.name,
-              url: ch.newUrl,
-            }),
+      const promises = channelsToCheck
+        .filter((ch) => ch.newUrl && ch.newUrl.trim() !== "" && ch.newUrl !== ch.oldUrl)
+        .map((ch) =>
+          triggerAnalysis({
+            type: "MY_BUSINESS",
+            entityId: businessId,
+            channel: ch.name,
+            url: ch.newUrl!,
           }).catch((err) => {
             console.error(`Error al disparar scraping automático tras actualizar canal ${ch.name}:`, err);
-          });
-        }
-      });
+          })
+        );
+
+      if (promises.length > 0) {
+        await Promise.allSettled(promises);
+      }
     }
     
     revalidatePath(`/business/${businessId}`)

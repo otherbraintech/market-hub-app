@@ -3,7 +3,6 @@
 import { prisma } from "@/lib/prisma";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
-import { z } from "zod";
 
 // Configuración de OpenRouter para la SDK de IA
 const openrouter = createOpenAI({
@@ -12,6 +11,11 @@ const openrouter = createOpenAI({
 });
 
 import { campaignSuggestionsListSchema } from "@/lib/schemas/campaign-suggestions";
+interface ReportData {
+  brand_summary?: string;
+  executiveSummary?: string;
+  competitive_observations?: string;
+}
 
 /**
  * Server Action para generar sugerencias inteligentes de campañas usando IA
@@ -25,7 +29,7 @@ export async function suggestCampaignsAction(businessId: string, strategyId?: st
 
     const business = await prisma.business.findUnique({
       where: { id: businessId }
-    }) as any;
+    });
 
     if (!business) {
       return { success: false, error: "Negocio no encontrado en el sistema" };
@@ -38,15 +42,14 @@ export async function suggestCampaignsAction(businessId: string, strategyId?: st
         where: { id: strategyId }
       });
     } else {
-      targetStrategy = await prisma.marketingStrategy.findFirst({
-        where: { businessId, isActive: true }
+      // Buscar la última estrategia activa o creada
+      const latestStrategy = await prisma.marketingStrategy.findFirst({
+        where: { businessId },
+        orderBy: { createdAt: "desc" }
       });
-      if (!targetStrategy) {
-        // Fallback a cualquier estrategia del negocio
-        targetStrategy = await prisma.marketingStrategy.findFirst({
-          where: { businessId },
-          orderBy: { updatedAt: "desc" }
-        });
+      
+      if (latestStrategy) {
+        targetStrategy = latestStrategy;
       }
     }
 
@@ -115,8 +118,8 @@ ESTRATEGIA DE MARKETING DEL NEGOCIO (Las campañas recomendadas DEBEN estar alin
     
     // Simplificar reportes para no saturar tokens
     const reportsSummary = businessReports.length > 0
-      ? businessReports.map((r: { channel: string; data: any }) => {
-          const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+      ? businessReports.map((r: { channel: string; data: unknown }) => {
+          const dataObj = (typeof r.data === "string" ? JSON.parse(r.data) : r.data) as ReportData | null | undefined;
           return {
             canal: r.channel,
             resumen: dataObj?.brand_summary || dataObj?.executiveSummary || "Informe de presencia"
@@ -125,8 +128,8 @@ ESTRATEGIA DE MARKETING DEL NEGOCIO (Las campañas recomendadas DEBEN estar alin
       : [{ canal: "Todos", resumen: "Sin reportes de redes completados aún." }];
 
     const competitorSummary = competitorReports.length > 0
-      ? competitorReports.map((r: { channel: string; data: any }) => {
-          const dataObj = typeof r.data === "string" ? JSON.parse(r.data) : r.data;
+      ? competitorReports.map((r: { channel: string; data: unknown }) => {
+          const dataObj = (typeof r.data === "string" ? JSON.parse(r.data) : r.data) as ReportData | null | undefined;
           return {
             canal: r.channel,
             observaciones: dataObj?.competitive_observations || dataObj?.executiveSummary || "Informe competitivo"
@@ -139,8 +142,8 @@ ESTRATEGIA DE MARKETING DEL NEGOCIO (Las campañas recomendadas DEBEN estar alin
       try {
         competitorGeneralReportSummary = typeof business.competitorGeneralReport === "string"
           ? JSON.parse(business.competitorGeneralReport).executiveSummary
-          : (business.competitorGeneralReport as any).executiveSummary;
-      } catch (e) {
+          : (business.competitorGeneralReport as Record<string, unknown>)?.executiveSummary as string;
+      } catch {
         competitorGeneralReportSummary = "Informe general de competencia presente pero con formato simple.";
       }
     }

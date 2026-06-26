@@ -2,12 +2,18 @@ import { getSelectedBusinessId } from "@/actions/business";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { CompetitorsAnalysisClient } from "./client-page";
+import { triggerMissingCompetitorAnalyses } from "@/app/(dashboard)/business/[id]/competitor-actions";
 
 export default async function CompetitorsAnalysisPage() {
   const businessId = await getSelectedBusinessId();
   if (!businessId) {
     redirect("/business");
   }
+
+  // Trigger check for any missing competitor channel analyses in the background
+  triggerMissingCompetitorAnalyses(businessId).catch((err) => {
+    console.error("Error triggering missing competitor analyses on page load:", err);
+  });
 
   // Fetch competitors
   const competitors = await prisma.competitor.findMany({

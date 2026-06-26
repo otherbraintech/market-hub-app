@@ -40,7 +40,13 @@ export async function login(prevState: any, formData: FormData) {
   const session = await encrypt({ user: { id: user.id, username: user.username, name: user.name }, expires });
 
   // Save in cookie
-  (await cookies()).set("session", session, { expires, httpOnly: true });
+  (await cookies()).set("session", session, { 
+    expires, 
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/"
+  });
 
   redirect("/dashboard");
 }
@@ -76,7 +82,13 @@ export async function signup(prevState: any, formData: FormData) {
   const expires = new Date(Date.now() + 120 * 60 * 1000); // 2 hours
   const session = await encrypt({ user: { id: user.id, username: user.username, name: user.name }, expires });
 
-  (await cookies()).set("session", session, { expires, httpOnly: true });
+  (await cookies()).set("session", session, { 
+    expires, 
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/"
+  });
 
   redirect("/dashboard");
 }

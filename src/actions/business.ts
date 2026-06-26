@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { businessSchema } from "@/lib/schemas/business";
 import { z } from "zod";
-import { slugify } from "@/lib/utils";
+import { triggerAnalysis } from "@/lib/analysis-service";
 
 import { analyzeBusiness } from "@/lib/ai/business-analyzer";
+import type { CreateBusinessInput, UpdateBusinessInput } from "@/modules/business/types";
 
 export async function createBusiness(data: z.infer<typeof businessSchema>) {
   try {
@@ -22,7 +23,7 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
     const business = await createBusinessService({
       ...validated,
       userId: session.user.id,
-    } as any);
+    } as unknown as CreateBusinessInput);
 
     // Contar negocios del usuario
     const businessCount = await prisma.business.count({
@@ -42,7 +43,7 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
     }
 
     // Disparar scraping automático para todos los canales que tengan URL en el nuevo negocio
-    const socialLinks = (business.socialLinks as any) || {};
+    const socialLinks = (business.socialLinks as Record<string, string | undefined>) || {};
     const channelUrls = [
       { name: "WEBSITE", url: business.website },
       { name: "FACEBOOK", url: socialLinks.facebook },
@@ -52,30 +53,30 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
       { name: "YOUTUBE", url: socialLinks.youtube },
     ];
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
-    channelUrls.forEach((ch) => {
-      if (ch.url && ch.url.trim() !== "") {
-        fetch(`${appUrl}/api/analysis/request`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "MY_BUSINESS",
-            entityId: business.id,
-            channel: ch.name,
-            url: ch.url,
-          }),
+    const promises = channelUrls
+      .filter((ch) => ch.url && ch.url.trim() !== "")
+      .map((ch) =>
+        triggerAnalysis({
+          type: "MY_BUSINESS",
+          entityId: business.id,
+          channel: ch.name,
+          url: ch.url!,
         }).catch((err) => {
           console.error(`Error al disparar scraping automático de negocio para canal ${ch.name}:`, err);
-        });
-      }
-    });
+        })
+      );
+
+    if (promises.length > 0) {
+      await Promise.allSettled(promises);
+    }
 
     revalidatePath("/business");
     revalidatePath("/");
     return { success: true, message: "Negocio creado exitosamente", data: business };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Create Business Error:", error);
-    return { success: false, error: error.message || "Error al crear el negocio" };
+    const errorMessage = error instanceof Error ? error.message : "Error al crear el negocio";
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -85,7 +86,7 @@ export async function createBusinessWithAI(data: {
   website?: string;
   phoneNumbers?: string;
   location?: string;
-  socialLinks?: any;
+  socialLinks?: Record<string, string | undefined>;
 }) {
   try {
     // 1. Analizar con IA con fallback si falla
@@ -115,7 +116,7 @@ export async function createBusinessWithAI(data: {
     };
 
     // 3. Crear el negocio
-    return await createBusiness(fullData as any);
+    return await createBusiness(fullData as z.infer<typeof businessSchema>);
   } catch (error) {
     console.error("AI Creation Error:", error);
     return { success: false, error: "Error al registrar el negocio" };
@@ -141,11 +142,11 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
     const { updateBusiness: updateBusinessService } = await import("@/modules/business/services");
     const validated = businessSchema.parse(data);
     
-    await updateBusinessService(id, validated as any);
+    await updateBusinessService(id, validated as unknown as UpdateBusinessInput);
 
     // Disparar scraping automático si cambiaron o se agregaron URLs
-    const oldLinks = (oldBusiness.socialLinks as any) || {};
-    const newLinks = (validated.socialLinks as any) || {};
+    const oldLinks = (oldBusiness.socialLinks as Record<string, string | undefined>) || {};
+    const newLinks = (validated.socialLinks as Record<string, string | undefined>) || {};
     const channelsToCheck = [
       { name: "WEBSITE", oldUrl: oldBusiness.website, newUrl: validated.website },
       { name: "FACEBOOK", oldUrl: oldLinks.facebook, newUrl: newLinks.facebook },
@@ -155,28 +156,28 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
       { name: "YOUTUBE", oldUrl: oldLinks.youtube, newUrl: newLinks.youtube },
     ];
 
-    const appUrl = process.env.APP_URL || "http://localhost:3000";
-    channelsToCheck.forEach((ch) => {
-      if (ch.newUrl && ch.newUrl.trim() !== "" && ch.newUrl !== ch.oldUrl) {
-        fetch(`${appUrl}/api/analysis/request`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "MY_BUSINESS",
-            entityId: id,
-            channel: ch.name,
-            url: ch.newUrl,
-          }),
+    const promises = channelsToCheck
+      .filter((ch) => ch.newUrl && ch.newUrl.trim() !== "" && ch.newUrl !== ch.oldUrl)
+      .map((ch) =>
+        triggerAnalysis({
+          type: "MY_BUSINESS",
+          entityId: id,
+          channel: ch.name,
+          url: ch.newUrl!,
         }).catch((err) => {
           console.error(`Error al disparar scraping automático tras editar negocio para canal ${ch.name}:`, err);
-        });
-      }
-    });
+        })
+      );
+
+    if (promises.length > 0) {
+      await Promise.allSettled(promises);
+    }
 
     revalidatePath("/business");
     return { success: true, message: "Negocio actualizado" };
-  } catch (error: any) {
-    return { success: false, error: error.message || "Error al actualizar" };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error al actualizar";
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -200,7 +201,7 @@ export async function deleteBusiness(id: string) {
     });
     revalidatePath("/business");
     return { success: true };
-  } catch (error) {
+  } catch {
     return { success: false, error: "Error al eliminar" };
   }
 }
@@ -227,25 +228,35 @@ export async function setSelectedBusinessAction(id: string) {
 }
 
 export async function getSelectedBusinessId() {
-  const { cookies } = await import("next/headers");
-  const selectedId = (await cookies()).get("selectedBusinessId")?.value;
-  if (!selectedId) return undefined;
-
   const { getSession } = await import("@/lib/auth");
   const session = await getSession();
   if (!session || !session.user?.id) {
     return undefined;
   }
 
-  const business = await prisma.business.findFirst({
-    where: { id: selectedId, userId: session.user.id }
-  });
+  const { cookies } = await import("next/headers");
+  const selectedId = (await cookies()).get("selectedBusinessId")?.value;
 
-  if (!business) {
-    return undefined;
+  if (selectedId) {
+    const business = await prisma.business.findFirst({
+      where: { id: selectedId, userId: session.user.id }
+    });
+    if (business) {
+      return selectedId;
+    }
   }
 
-  return selectedId;
+  // Fallback to the first business if user has one
+  const firstBusiness = await prisma.business.findFirst({
+    where: { userId: session.user.id },
+    orderBy: { name: "asc" }
+  });
+
+  if (firstBusiness) {
+    return firstBusiness.id;
+  }
+
+  return undefined;
 }
 
 export async function getBusinessAction(id: string) {

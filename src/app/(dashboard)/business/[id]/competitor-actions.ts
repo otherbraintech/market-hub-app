@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { triggerAnalysis } from "@/lib/analysis-service"
 
+import { sanitizeSocialUrl } from "@/lib/url"
+
 export async function upsertCompetitorAction(
   businessId: string,
   competitorId: string | undefined,
@@ -19,12 +21,24 @@ export async function upsertCompetitorAction(
   }
 ) {
   try {
+    // Sanitizar URLs antes de guardar o actualizar
+    const sanitizedData = {
+      name: data.name,
+      website: data.website ? sanitizeSocialUrl(data.website) : data.website,
+      facebook: data.facebook ? sanitizeSocialUrl(data.facebook) : data.facebook,
+      instagram: data.instagram ? sanitizeSocialUrl(data.instagram) : data.instagram,
+      tiktok: data.tiktok ? sanitizeSocialUrl(data.tiktok) : data.tiktok,
+      linkedin: data.linkedin ? sanitizeSocialUrl(data.linkedin) : data.linkedin,
+      youtube: data.youtube ? sanitizeSocialUrl(data.youtube) : data.youtube,
+      seoGoogle: data.seoGoogle ? sanitizeSocialUrl(data.seoGoogle) : data.seoGoogle,
+    };
+
     let dbCompetitor;
 
     if (competitorId) {
       dbCompetitor = await prisma.competitor.update({
         where: { id: competitorId },
-        data
+        data: sanitizedData
       })
     } else {
       // Check limit
@@ -40,7 +54,7 @@ export async function upsertCompetitorAction(
       }
 
       dbCompetitor = await prisma.competitor.create({
-        data: { ...data, businessId }
+        data: { ...sanitizedData, businessId }
       })
 
       // Notificar al usuario sobre el inicio del scraping

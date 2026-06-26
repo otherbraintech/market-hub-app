@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { sanitizeSocialUrl } from "@/lib/url";
 
 export async function POST(
   request: Request,
@@ -25,6 +26,8 @@ export async function POST(
       );
     }
 
+    const sanitizedUrl = sanitizeSocialUrl(url);
+
     // Default channel to WEBSITE if not provided
     const reportChannel = channel || "WEBSITE";
 
@@ -45,7 +48,7 @@ export async function POST(
       data: {
         type: "MY_BUSINESS",
         entityId: businessId,
-        url,
+        url: sanitizedUrl,
         channel: reportChannel,
         status: "PENDING",
       },
@@ -60,7 +63,7 @@ export async function POST(
         step: "SCRAPING",
         status: "PROCESSING"
       }
-    }).catch((err: any) => console.error("Error al crear notificación de extracción manual de negocio:", err));
+    }).catch((err: unknown) => console.error("Error al crear notificación de extracción manual de negocio:", err));
 
     // Trigger external webhook (n8n) for business scraping
     const n8nWebhookUrl = "https://otherbrain-n8n.c1hohn.easypanel.host/webhook/scrap-negocio";
@@ -73,30 +76,32 @@ export async function POST(
           reportId: report.id,
           type: "MY_BUSINESS",
           channel: reportChannel,
-          url,
+          url: sanitizedUrl,
           businessId,
           businessName: business.name,
           callbackUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhook/callback`,
         }),
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error triggering external webhook:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       // We'll update to ERROR if it completely fails to send
       await prisma.analysisReport.update({
         where: { id: report.id },
-        data: { status: "ERROR", error: `Error al conectar con n8n: ${error?.message || error}` },
+        data: { status: "ERROR", error: `Error al conectar con n8n: ${errorMessage}` },
       });
       return NextResponse.json(
-        { error: "Error al iniciar el análisis", details: error?.message || String(error) }, 
+        { error: "Error al iniciar el análisis", details: errorMessage }, 
         { status: 500 }
       );
     }
 
     return NextResponse.json({ reportId: report.id, status: report.status });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("CRITICAL ERROR IN BUSINESS SCRAP ROUTE:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Error interno del servidor", details: error?.message || String(error) }, 
+      { error: "Error interno del servidor", details: errorMessage }, 
       { status: 500 }
     );
   }

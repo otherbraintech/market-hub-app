@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { sanitizeSocialUrl } from "@/lib/url";
 
 export interface TriggerAnalysisParams {
   type: "COMPETITOR" | "MY_BUSINESS";
@@ -13,6 +14,7 @@ export async function triggerAnalysis({
   url,
   channel,
 }: TriggerAnalysisParams) {
+  const sanitizedUrl = sanitizeSocialUrl(url);
   const reportChannel = channel || "WEBSITE";
 
   // Enriquecer datos con info de competidor o negocio
@@ -45,7 +47,7 @@ export async function triggerAnalysis({
     data: {
       type,
       entityId,
-      url,
+      url: sanitizedUrl,
       channel: reportChannel,
       status: "PENDING",
     },
@@ -77,7 +79,7 @@ export async function triggerAnalysis({
         reportId: report.id,
         type,
         channel: reportChannel,
-        url,
+        url: sanitizedUrl,
         businessId,
         competitorName,
         businessName, // Para MY_BUSINESS

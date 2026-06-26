@@ -1,20 +1,18 @@
 import { z } from "zod";
 
+import { sanitizeSocialUrl } from "../url";
+
 const normalizeUrl = (val: unknown) => {
   if (typeof val !== "string" || val.trim() === "") return "";
-  let v = val.trim();
-  if (!/^https?:\/\//i.test(v)) {
-    return `https://${v}`;
-  }
-  return v;
+  return sanitizeSocialUrl(val);
 };
 
 const normalizeSocialLink = (platform: "facebook" | "instagram" | "tiktok") => (val: unknown) => {
   if (typeof val !== "string" || val.trim() === "") return "";
-  let v = val.trim();
+  const v = val.trim();
   if (!/^https?:\/\//i.test(v)) {
     if (v.includes(".") || v.includes("/")) {
-      return `https://${v}`;
+      return sanitizeSocialUrl(v);
     }
     // Convert handles/usernames to urls
     if (platform === "tiktok") {
@@ -22,7 +20,7 @@ const normalizeSocialLink = (platform: "facebook" | "instagram" | "tiktok") => (
     }
     return `https://${platform}.com/${v.replace(/^@/, "")}`;
   }
-  return v;
+  return sanitizeSocialUrl(v);
 };
 
 export const businessSchema = z.object({

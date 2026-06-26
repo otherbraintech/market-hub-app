@@ -5,6 +5,8 @@ import { revalidatePath } from 'next/cache'
 import { SocialLinks } from '@/modules/business/types'
 import { triggerAnalysis } from '@/lib/analysis-service'
 
+import { sanitizeSocialUrl } from '@/lib/url'
+
 export async function updateBusinessExtraInfo(
   businessId: string, 
   data: { 
@@ -20,10 +22,17 @@ export async function updateBusinessExtraInfo(
       select: { website: true, socialLinks: true }
     });
 
+    const sanitizedSocialLinks: SocialLinks = {};
+    if (data.socialLinks) {
+      for (const [key, val] of Object.entries(data.socialLinks)) {
+        sanitizedSocialLinks[key as keyof SocialLinks] = val ? sanitizeSocialUrl(val) : val;
+      }
+    }
+
     await updateBusiness(businessId, {
       phoneNumbers: data.phoneNumbers,
       location: data.location,
-      socialLinks: data.socialLinks,
+      socialLinks: sanitizedSocialLinks,
     })
 
     // Disparar análisis automático si se agregaron o cambiaron enlaces

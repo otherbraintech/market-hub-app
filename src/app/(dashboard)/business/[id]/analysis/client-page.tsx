@@ -32,6 +32,13 @@ function TikTokIcon({ className }: { className?: string }) {
   );
 }
 
+const formatLocaleNumber = (val: any): string => {
+  if (val === undefined || val === null) return "N/D";
+  const num = Number(val);
+  if (isNaN(num)) return typeof val === "string" ? val.trim() : val.toString();
+  return num.toLocaleString('es-ES');
+};
+
 const getPlatformTheme = (channel: string) => {
   const c = channel?.toUpperCase();
   if (c === "FACEBOOK") {
@@ -292,14 +299,14 @@ export function BusinessAnalysisClient({ businessId, businessName, business, myA
               }
 
               if (dataObj?.profile) {
-                if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.profile.followers !== undefined ? dataObj.profile.followers.toLocaleString() : "N/D";
-                if (tiktokLikes === "N/D") tiktokLikes = dataObj.profile.total_likes !== undefined ? dataObj.profile.total_likes.toLocaleString() : "N/D";
-                if (tiktokVideos === "N/D") tiktokVideos = dataObj.profile.total_videos !== undefined ? dataObj.profile.total_videos.toLocaleString() : "N/D";
+                if (tiktokFollowers === "N/D") tiktokFollowers = dataObj.profile.followers !== undefined ? formatLocaleNumber(dataObj.profile.followers) : "N/D";
+                if (tiktokLikes === "N/D") tiktokLikes = dataObj.profile.total_likes !== undefined ? formatLocaleNumber(dataObj.profile.total_likes) : "N/D";
+                if (tiktokVideos === "N/D") tiktokVideos = dataObj.profile.total_videos !== undefined ? formatLocaleNumber(dataObj.profile.total_videos) : "N/D";
                 if (tiktokUsername === "N/D") tiktokUsername = dataObj.profile.username || "N/D";
               }
 
               if (dataObj?.engagement) {
-                if (tiktokAverageViews === "N/D") tiktokAverageViews = dataObj.engagement.views !== undefined ? dataObj.engagement.views.toLocaleString() : "N/D";
+                if (tiktokAverageViews === "N/D") tiktokAverageViews = dataObj.engagement.views !== undefined ? formatLocaleNumber(dataObj.engagement.views) : "N/D";
               }
 
               if (tiktokFollowers === "N/D" || tiktokLikes === "N/D" || tiktokVideos === "N/D" || tiktokUsername === "N/D") {
@@ -307,9 +314,9 @@ export function BusinessAnalysisClient({ businessId, businessName, business, myA
                 const firstItem = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : null;
                 const author = dataObj?.authorMeta || firstItem?.authorMeta;
                 if (author) {
-                  if (tiktokFollowers === "N/D") tiktokFollowers = author.fans !== undefined ? author.fans.toLocaleString() : "N/D";
-                  if (tiktokLikes === "N/D") tiktokLikes = author.heart !== undefined ? author.heart.toLocaleString() : "N/D";
-                  if (tiktokVideos === "N/D") tiktokVideos = author.video !== undefined ? author.video.toLocaleString() : "N/D";
+                  if (tiktokFollowers === "N/D") tiktokFollowers = author.fans !== undefined ? formatLocaleNumber(author.fans) : "N/D";
+                  if (tiktokLikes === "N/D") tiktokLikes = author.heart !== undefined ? formatLocaleNumber(author.heart) : "N/D";
+                  if (tiktokVideos === "N/D") tiktokVideos = author.video !== undefined ? formatLocaleNumber(author.video) : "N/D";
                   if (tiktokUsername === "N/D") tiktokUsername = author.name || author.nickName || "N/D";
                 }
               }

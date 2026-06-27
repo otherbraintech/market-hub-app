@@ -35,6 +35,13 @@ function TikTokIcon({ className }: { className?: string }) {
   );
 }
 
+const formatLocaleNumber = (val: any): string => {
+  if (val === undefined || val === null) return "N/D";
+  const num = Number(val);
+  if (isNaN(num)) return typeof val === "string" ? val.trim() : val.toString();
+  return num.toLocaleString('es-ES');
+};
+
 interface ReportData {
   strengths: string[];
   weaknesses: string[];
@@ -400,22 +407,22 @@ export function ScrapingReportDialog({
     }
 
     if (processedRawData?.profile) {
-      if (tiktokFollowers === "N/D") tiktokFollowers = processedRawData.profile.followers !== undefined ? processedRawData.profile.followers.toLocaleString() : "N/D";
-      if (tiktokLikes === "N/D") tiktokLikes = processedRawData.profile.total_likes !== undefined ? processedRawData.profile.total_likes.toLocaleString() : "N/D";
-      if (tiktokVideos === "N/D") tiktokVideos = processedRawData.profile.total_videos !== undefined ? processedRawData.profile.total_videos.toLocaleString() : "N/D";
+      if (tiktokFollowers === "N/D") tiktokFollowers = processedRawData.profile.followers !== undefined ? formatLocaleNumber(processedRawData.profile.followers) : "N/D";
+      if (tiktokLikes === "N/D") tiktokLikes = processedRawData.profile.total_likes !== undefined ? formatLocaleNumber(processedRawData.profile.total_likes) : "N/D";
+      if (tiktokVideos === "N/D") tiktokVideos = processedRawData.profile.total_videos !== undefined ? formatLocaleNumber(processedRawData.profile.total_videos) : "N/D";
       if (tiktokUsername === "N/D") tiktokUsername = processedRawData.profile.username || "N/D";
     }
 
     if (processedRawData?.engagement) {
-      if (tiktokAverageViews === "N/D") tiktokAverageViews = processedRawData.engagement.views !== undefined ? processedRawData.engagement.views.toLocaleString() : "N/D";
+      if (tiktokAverageViews === "N/D") tiktokAverageViews = processedRawData.engagement.views !== undefined ? formatLocaleNumber(processedRawData.engagement.views) : "N/D";
     }
 
     const firstItem = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : null;
     const author = processedRawData?.authorMeta || firstItem?.authorMeta;
     if (author) {
-      if (tiktokFollowers === "N/D") tiktokFollowers = author.fans !== undefined ? author.fans.toLocaleString() : "N/D";
-      if (tiktokLikes === "N/D") tiktokLikes = author.heart !== undefined ? author.heart.toLocaleString() : "N/D";
-      if (tiktokVideos === "N/D") tiktokVideos = author.video !== undefined ? author.video.toLocaleString() : "N/D";
+      if (tiktokFollowers === "N/D") tiktokFollowers = author.fans !== undefined ? formatLocaleNumber(author.fans) : "N/D";
+      if (tiktokLikes === "N/D") tiktokLikes = author.heart !== undefined ? formatLocaleNumber(author.heart) : "N/D";
+      if (tiktokVideos === "N/D") tiktokVideos = author.video !== undefined ? formatLocaleNumber(author.video) : "N/D";
       if (tiktokUsername === "N/D") tiktokUsername = author.name || author.nickName || "N/D";
     }
   }
@@ -540,7 +547,7 @@ export function ScrapingReportDialog({
                     <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
                       <span className="text-xs text-slate-400 block mb-1">Siguiendo</span>
                       <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                        {processedRawData?.profile?.following !== undefined ? processedRawData.profile.following.toLocaleString() : "N/D"}
+                        {processedRawData?.profile?.following !== undefined ? formatLocaleNumber(processedRawData.profile.following) : "N/D"}
                       </p>
                     </div>
                   </div>
@@ -554,25 +561,25 @@ export function ScrapingReportDialog({
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
                         <span className="text-xs text-slate-400 block mb-1">Visualizaciones</span>
                         <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.views !== undefined ? processedRawData.engagement.views.toLocaleString() : "N/D"}
+                          {processedRawData.engagement.views !== undefined ? formatLocaleNumber(processedRawData.engagement.views) : "N/D"}
                         </p>
                       </div>
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
                         <span className="text-xs text-slate-400 block mb-1">Me gusta</span>
                         <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.likes !== undefined ? processedRawData.engagement.likes.toLocaleString() : "N/D"}
+                          {processedRawData.engagement.likes !== undefined ? formatLocaleNumber(processedRawData.engagement.likes) : "N/D"}
                         </p>
                       </div>
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
                         <span className="text-xs text-slate-400 block mb-1">Compartidos</span>
                         <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.shares !== undefined ? processedRawData.engagement.shares.toLocaleString() : "N/D"}
+                          {processedRawData.engagement.shares !== undefined ? formatLocaleNumber(processedRawData.engagement.shares) : "N/D"}
                         </p>
                       </div>
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
                         <span className="text-xs text-slate-400 block mb-1">Comentarios</span>
                         <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.comments !== undefined ? processedRawData.engagement.comments.toLocaleString() : "N/D"}
+                          {processedRawData.engagement.comments !== undefined ? formatLocaleNumber(processedRawData.engagement.comments) : "N/D"}
                         </p>
                       </div>
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800 col-span-2 md:col-span-1">

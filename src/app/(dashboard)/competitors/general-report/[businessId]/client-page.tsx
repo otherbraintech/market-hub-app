@@ -1039,13 +1039,13 @@ export function GeneralReportClient({ businessId, businessName }: GeneralReportC
         </div>
         {/* Executive Summary */}
         {reportData.executiveSummary && (
-          <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-l-4 border-l-blue-500 shadow-md">
+          <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900/50 dark:via-slate-950 dark:to-slate-950 border-l-4 border-l-blue-500 shadow-md">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-xl font-black text-blue-950">
-                <Sparkles className="h-6 w-6 text-blue-600 animate-pulse" />
+              <CardTitle className="flex items-center gap-2 text-xl font-black text-blue-950 dark:text-slate-100">
+                <Sparkles className="h-6 w-6 text-blue-600 dark:text-blue-400 animate-pulse" />
                 Análisis y Resumen Estratégico de Competidores
               </CardTitle>
-              <p className="text-sm text-blue-700/70 mt-1">Informe completo y detallado del análisis competitivo consolidado.</p>
+              <p className="text-sm text-blue-700/70 dark:text-slate-400 mt-1">Informe completo y detallado del análisis competitivo consolidado.</p>
             </CardHeader>
             <CardContent>
               {(() => {

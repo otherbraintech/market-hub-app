@@ -364,10 +364,10 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
           </CardContent>
         </Card>
       ) : consolidatedAnalysis ? (
-        <Card className="bg-gradient-to-br from-violet-50/40 via-white to-white border-violet-100/80 shadow-md">
+        <Card className="bg-gradient-to-br from-violet-50/40 via-white to-white dark:from-slate-900/50 dark:via-slate-950 dark:to-slate-950 border-violet-100/80 dark:border-slate-800 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-violet-950">
-              <Sparkles className="h-5 w-5 text-violet-600" />
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-violet-950 dark:text-slate-100">
+              <Sparkles className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               Análisis Consolidado con IA
             </CardTitle>
             <Button 
@@ -375,7 +375,7 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
               size="sm" 
               onClick={generateConsolidatedAnalysis}
               disabled={generatingAnalysis}
-              className="gap-2 text-violet-700 border-violet-200 bg-violet-50 hover:bg-violet-100 hover:text-violet-800"
+              className="gap-2 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-slate-800 bg-violet-50 dark:bg-slate-900 hover:bg-violet-100 dark:hover:bg-slate-800"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${generatingAnalysis ? 'animate-spin' : ''}`} />
               {generatingAnalysis ? 'Generando...' : 'Actualizar Análisis'}
@@ -384,43 +384,43 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
           <CardContent className="space-y-6">
             {/* Executive Summary */}
             {consolidatedAnalysis.executiveSummary && (
-              <div className="bg-violet-50/30 rounded-xl p-4 border border-violet-100/50">
-                <h3 className="text-xs font-bold text-violet-900 mb-1.5 uppercase tracking-wider flex items-center gap-2">
-                  <Target className="h-4 w-4 text-violet-600" />
+              <div className="bg-violet-50/30 dark:bg-violet-950/20 rounded-xl p-4 border border-violet-100/50 dark:border-violet-900/30">
+                <h3 className="text-xs font-bold text-violet-900 dark:text-violet-300 mb-1.5 uppercase tracking-wider flex items-center gap-2">
+                  <Target className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   Resumen Ejecutivo
                 </h3>
-                <p className="text-sm text-slate-700 leading-relaxed">{consolidatedAnalysis.executiveSummary}</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{consolidatedAnalysis.executiveSummary}</p>
               </div>
             )}
 
             {/* Market Position */}
             {consolidatedAnalysis.marketPosition && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Posición Actual</h4>
-                  <p className="text-xs text-slate-700 leading-relaxed">{consolidatedAnalysis.marketPosition.currentPosition}</p>
+                <div className="bg-white dark:bg-slate-900/60 rounded-lg p-3 border border-slate-100 dark:border-slate-800 shadow-sm">
+                  <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Posición Actual</h4>
+                  <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed">{consolidatedAnalysis.marketPosition.currentPosition}</p>
                 </div>
-                <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ventaja Competitiva</h4>
-                  <p className="text-xs text-slate-700 leading-relaxed">{consolidatedAnalysis.marketPosition.competitiveAdvantage}</p>
+                <div className="bg-white dark:bg-slate-900/60 rounded-lg p-3 border border-slate-100 dark:border-slate-800 shadow-sm">
+                  <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Ventaja Competitiva</h4>
+                  <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed">{consolidatedAnalysis.marketPosition.competitiveAdvantage}</p>
                 </div>
-                <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Oportunidad de Mercado</h4>
-                  <p className="text-xs text-slate-700 leading-relaxed">{consolidatedAnalysis.marketPosition.marketGap}</p>
+                <div className="bg-white dark:bg-slate-900/60 rounded-lg p-3 border border-slate-100 dark:border-slate-800 shadow-sm">
+                  <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Oportunidad de Mercado</h4>
+                  <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed">{consolidatedAnalysis.marketPosition.marketGap}</p>
                 </div>
               </div>
             )}
 
             {/* SWOT (Matriz FODA) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="bg-emerald-50/50 rounded-xl p-3 border border-emerald-100">
-                <h4 className="text-xs font-bold text-emerald-800 mb-2 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <div className="bg-emerald-50/50 dark:bg-emerald-950/10 rounded-xl p-3 border border-emerald-100 dark:border-emerald-900/20">
+                <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
                   Fortalezas
                 </h4>
                 <ul className="space-y-1.5">
                   {consolidatedAnalysis.strengths?.slice(0, 4).map((s: string, i: number) => (
-                    <li key={i} className="text-xs text-emerald-900/80 flex gap-1.5 items-start">
+                    <li key={i} className="text-xs text-emerald-900/80 dark:text-emerald-100/90 flex gap-1.5 items-start">
                       <span className="text-emerald-500 mt-0.5">•</span>
                       <span>{s}</span>
                     </li>
@@ -428,14 +428,14 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                 </ul>
               </div>
 
-              <div className="bg-rose-50/50 rounded-xl p-3 border border-rose-100">
-                <h4 className="text-xs font-bold text-rose-800 mb-2 flex items-center gap-1.5">
-                  <AlertCircle className="h-4 w-4 text-rose-600" />
+              <div className="bg-rose-50/50 dark:bg-rose-950/10 rounded-xl p-3 border border-rose-100 dark:border-rose-900/20">
+                <h4 className="text-xs font-bold text-rose-800 dark:text-rose-450 mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-500" />
                   Debilidades
                 </h4>
                 <ul className="space-y-1.5">
                   {consolidatedAnalysis.weaknesses?.slice(0, 4).map((w: string, i: number) => (
-                    <li key={i} className="text-xs text-rose-900/80 flex gap-1.5 items-start">
+                    <li key={i} className="text-xs text-rose-900/80 dark:text-rose-100/90 flex gap-1.5 items-start">
                       <span className="text-rose-500 mt-0.5">•</span>
                       <span>{w}</span>
                     </li>
@@ -443,14 +443,14 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                 </ul>
               </div>
 
-              <div className="bg-blue-50/50 rounded-xl p-3 border border-blue-100">
-                <h4 className="text-xs font-bold text-blue-800 mb-2 flex items-center gap-1.5">
-                  <Lightbulb className="h-4 w-4 text-blue-600" />
+              <div className="bg-blue-50/50 dark:bg-blue-950/10 rounded-xl p-3 border border-blue-100 dark:border-blue-900/20">
+                <h4 className="text-xs font-bold text-blue-800 dark:text-blue-400 mb-2 flex items-center gap-1.5">
+                  <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   Oportunidades
                 </h4>
                 <ul className="space-y-1.5">
                   {consolidatedAnalysis.opportunities?.slice(0, 4).map((o: string, i: number) => (
-                    <li key={i} className="text-xs text-blue-900/80 flex gap-1.5 items-start">
+                    <li key={i} className="text-xs text-blue-900/80 dark:text-blue-100/90 flex gap-1.5 items-start">
                       <span className="text-blue-500 mt-0.5">•</span>
                       <span>{o}</span>
                     </li>
@@ -458,14 +458,14 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
                 </ul>
               </div>
 
-              <div className="bg-amber-50/50 rounded-xl p-3 border border-amber-100">
-                <h4 className="text-xs font-bold text-amber-800 mb-2 flex items-center gap-1.5">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
+              <div className="bg-amber-50/50 dark:bg-amber-950/10 rounded-xl p-3 border border-amber-100 dark:border-amber-900/20">
+                <h4 className="text-xs font-bold text-amber-800 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
                   Amenazas
                 </h4>
                 <ul className="space-y-1.5">
                   {consolidatedAnalysis.threats?.slice(0, 4).map((t: string, i: number) => (
-                    <li key={i} className="text-xs text-amber-900/80 flex gap-1.5 items-start">
+                    <li key={i} className="text-xs text-amber-900/80 dark:text-amber-100/90 flex gap-1.5 items-start">
                       <span className="text-amber-500 mt-0.5">•</span>
                       <span>{t}</span>
                     </li>
@@ -478,16 +478,16 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Recommendations */}
               <div>
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-violet-600" />
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <Lightbulb className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   Recomendaciones Clave
                 </h3>
                 <div className="space-y-2">
                   {consolidatedAnalysis.strategicRecommendations?.slice(0, 3).map((rec: any, i: number) => (
-                    <div key={i} className="bg-slate-50/50 rounded-lg p-2.5 border border-slate-100 flex items-start justify-between gap-3">
+                    <div key={i} className="bg-slate-50/50 dark:bg-slate-900/60 rounded-lg p-2.5 border border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
                       <div className="space-y-0.5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{rec.category}</span>
-                        <p className="text-xs text-slate-700 leading-relaxed">{rec.action}</p>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{rec.category}</span>
+                        <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{rec.action}</p>
                       </div>
                       <Badge variant={rec.priority === 'alta' ? 'default' : rec.priority === 'media' ? 'secondary' : 'outline'} className="text-[9px] uppercase tracking-wide px-1.5 py-0">
                         {rec.priority}
@@ -500,14 +500,14 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
               {/* Next Steps */}
               {consolidatedAnalysis.nextSteps && (
                 <div>
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-violet-600" />
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Target className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                     Próximos Pasos Recomendados
                   </h3>
-                  <div className="bg-violet-50/20 border border-violet-100/50 rounded-xl p-3 space-y-2">
+                  <div className="bg-violet-50/20 dark:bg-violet-950/10 border border-violet-100/50 dark:border-violet-900/20 rounded-xl p-3 space-y-2">
                     {consolidatedAnalysis.nextSteps.slice(0, 4).map((step: string, i: number) => (
-                      <div key={i} className="flex gap-2 text-xs text-slate-700">
-                        <span className="text-violet-600 font-bold">{i + 1}.</span>
+                      <div key={i} className="flex gap-2 text-xs text-slate-700 dark:text-slate-350">
+                        <span className="text-violet-600 dark:text-violet-400 font-bold">{i + 1}.</span>
                         <span className="leading-relaxed">{step}</span>
                       </div>
                     ))}

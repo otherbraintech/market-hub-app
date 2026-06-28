@@ -890,47 +890,47 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
       <div className="space-y-6">
         {/* Resumen Ejecutivo */}
         {pg.resumen && (
-          <div className="bg-blue-50/30 rounded-xl p-4 border border-blue-100/50">
-            <h3 className="text-xs font-bold text-blue-900 mb-1.5 uppercase tracking-wider flex items-center gap-2">
-              <Target className="h-4 w-4 text-blue-600" />
+          <div className="bg-blue-50/30 dark:bg-blue-950/20 rounded-xl p-4 border border-blue-100/50 dark:border-blue-900/30">
+            <h3 className="text-xs font-bold text-blue-900 dark:text-blue-300 mb-1.5 uppercase tracking-wider flex items-center gap-2">
+              <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               Resumen Ejecutivo
             </h3>
-            <p className="text-sm text-slate-705 leading-relaxed">{pg.resumen}</p>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{pg.resumen}</p>
           </div>
         )}
 
         {/* Grid de Panorama Digital */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {pg.digitalizacion && (
-            <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Digitalización</h4>
-              <p className="text-xs text-slate-705 leading-relaxed">{pg.digitalizacion}</p>
+            <div className="bg-white dark:bg-slate-900/60 rounded-lg p-3 border border-slate-100 dark:border-slate-800 shadow-sm">
+              <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Digitalización</h4>
+              <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed">{pg.digitalizacion}</p>
             </div>
           )}
           {pg.branding && (
-            <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Branding General</h4>
-              <p className="text-xs text-slate-705 leading-relaxed">{pg.branding}</p>
+            <div className="bg-white dark:bg-slate-900/60 rounded-lg p-3 border border-slate-100 dark:border-slate-800 shadow-sm">
+              <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Branding General</h4>
+              <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed">{pg.branding}</p>
             </div>
           )}
           {pg.interaccion && (
-            <div className="bg-white rounded-lg p-3 border border-slate-100 shadow-sm">
-              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Interacción y Engagement</h4>
-              <p className="text-xs text-slate-705 leading-relaxed">{pg.interaccion}</p>
+            <div className="bg-white dark:bg-slate-900/60 rounded-lg p-3 border border-slate-100 dark:border-slate-800 shadow-sm">
+              <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Interacción y Engagement</h4>
+              <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed">{pg.interaccion}</p>
             </div>
           )}
         </div>
 
         {/* Observaciones Clave */}
         {pg.observacionesClave && pg.observacionesClave.length > 0 && (
-          <div className="bg-slate-50/50 rounded-xl p-3 border border-slate-100">
-            <h4 className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
-              <Lightbulb className="h-4 w-4 text-blue-600" />
+          <div className="bg-slate-50/50 dark:bg-slate-900/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80">
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2 flex items-center gap-1.5">
+              <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               Observaciones Clave del Mercado
             </h4>
             <ul className="space-y-1.5">
               {pg.observacionesClave.map((o: string, i: number) => (
-                <li key={i} className="text-xs text-slate-650 flex gap-1.5 items-start">
+                <li key={i} className="text-xs text-slate-600 dark:text-slate-300 flex gap-1.5 items-start">
                   <span className="text-blue-500 mt-0.5">•</span>
                   <span>{o}</span>
                 </li>
@@ -942,36 +942,36 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
         {/* Posicionamiento Estratégico y Propuesta de Valor */}
         {estPos.propuestaValor && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="bg-emerald-50/30 rounded-xl p-3.5 border border-emerald-100/50">
-              <h4 className="text-xs font-bold text-emerald-800 mb-2 flex items-center gap-1.5">
-                <Award className="h-4 w-4 text-emerald-600" />
+            <div className="bg-emerald-50/30 dark:bg-emerald-950/10 rounded-xl p-3.5 border border-emerald-100/50 dark:border-emerald-900/20">
+              <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+                <Award className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
                 Propuesta de Valor Sugerida
               </h4>
-              <p className="text-xs text-emerald-950/80 leading-relaxed">{estPos.propuestaValor}</p>
+              <p className="text-xs text-emerald-950/80 dark:text-emerald-100/90 leading-relaxed">{estPos.propuestaValor}</p>
               {estPos.anguloComunicacion && (
-                <div className="mt-2.5 pt-2 border-t border-emerald-100/40">
-                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Ángulo recomendado</span>
-                  <span className="text-xs text-emerald-900 font-semibold">{estPos.anguloComunicacion}</span>
+                <div className="mt-2.5 pt-2 border-t border-emerald-100/40 dark:border-emerald-900/20">
+                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">Ángulo recomendado</span>
+                  <span className="text-xs text-emerald-900 dark:text-emerald-300 font-semibold">{estPos.anguloComunicacion}</span>
                 </div>
               )}
             </div>
 
             {/* Dolores y Formatos Desatendidos */}
-            <div className="bg-rose-50/30 rounded-xl p-3.5 border border-rose-100/50">
-              <h4 className="text-xs font-bold text-rose-800 mb-2 flex items-center gap-1.5">
-                <AlertCircle className="h-4 w-4 text-rose-600" />
+            <div className="bg-rose-50/30 dark:bg-rose-950/10 rounded-xl p-3.5 border border-rose-100/50 dark:border-rose-900/20">
+              <h4 className="text-xs font-bold text-rose-800 dark:text-rose-400 mb-2 flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4 text-rose-600 dark:text-rose-500" />
                 Oportunidades de Diferenciación (Brechas)
               </h4>
               {opGaps.necesidadesNoResueltas && (
                 <div className="mb-2">
-                  <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Necesidades no resueltas</span>
-                  <p className="text-xs text-rose-950/80 leading-relaxed">{opGaps.necesidadesNoResueltas}</p>
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-450 uppercase tracking-wider block">Necesidades no resueltas</span>
+                  <p className="text-xs text-rose-950/80 dark:text-rose-100/90 leading-relaxed">{opGaps.necesidadesNoResueltas}</p>
                 </div>
               )}
               {opGaps.formatosDesatendidos && (
-                <div className="pt-2 border-t border-rose-100/40">
-                  <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Formatos desatendidos</span>
-                  <p className="text-xs text-rose-950/80 leading-relaxed">{opGaps.formatosDesatendidos}</p>
+                <div className="pt-2 border-t border-rose-100/40 dark:border-rose-900/20">
+                  <span className="text-[10px] font-bold text-rose-700 dark:text-rose-450 uppercase tracking-wider block">Formatos desatendidos</span>
+                  <p className="text-xs text-rose-950/80 dark:text-rose-100/90 leading-relaxed">{opGaps.formatosDesatendidos}</p>
                 </div>
               )}
             </div>
@@ -983,16 +983,16 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
           {/* Oportunidades de Crecimiento */}
           {opGaps.oportunidadesCrecimiento && opGaps.oportunidadesCrecimiento.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-blue-600" />
+              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 Oportunidades de Crecimiento
               </h3>
               <div className="space-y-2">
                 {opGaps.oportunidadesCrecimiento.map((op: any, i: number) => (
-                  <div key={i} className="bg-slate-50/50 rounded-lg p-2.5 border border-slate-100 flex items-start justify-between gap-3">
+                  <div key={i} className="bg-slate-50/50 dark:bg-slate-900/60 rounded-lg p-2.5 border border-slate-100 dark:border-slate-800 flex items-start justify-between gap-3">
                     <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{op.titulo}</span>
-                      <p className="text-xs text-slate-707 leading-relaxed">{op.accion}</p>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{op.titulo}</span>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{op.accion}</p>
                     </div>
                     <Badge variant={op.impacto === 'Alto' ? 'default' : 'secondary'} className="text-[9px] uppercase tracking-wide px-1.5 py-0">
                       Impacto: {op.impacto}
@@ -1006,24 +1006,24 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
           {/* Frecuencia y Estrategia de Contenidos */}
           {estCont.pilaresContenido && estCont.pilaresContenido.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-blue-600" />
+              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 Pilares de Contenido Sugeridos
               </h3>
-              <div className="bg-blue-50/10 border border-blue-100/50 rounded-xl p-3 space-y-3">
+              <div className="bg-blue-50/10 dark:bg-blue-950/10 border border-blue-100/50 dark:border-blue-900/20 rounded-xl p-3 space-y-3">
                 <div className="flex flex-wrap gap-1.5">
                   {estCont.pilaresContenido.map((pilar: string, i: number) => (
-                    <Badge key={i} variant="outline" className="text-xs text-blue-700 border-blue-200 bg-blue-50/20">
+                    <Badge key={i} variant="outline" className="text-xs text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900/50 bg-blue-50/20 dark:bg-blue-950/30">
                       {pilar}
                     </Badge>
                   ))}
                 </div>
                 {estCont.frecuenciaCanal && estCont.frecuenciaCanal.length > 0 && (
-                  <div className="pt-2.5 border-t border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Frecuencia por Canal</span>
+                  <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Frecuencia por Canal</span>
                     <div className="space-y-1">
                       {estCont.frecuenciaCanal.map((freq: string, i: number) => (
-                        <div key={i} className="text-xs text-slate-650 flex gap-2">
+                        <div key={i} className="text-xs text-slate-600 dark:text-slate-350 flex gap-2">
                           <span className="text-blue-500 font-bold">•</span>
                           <span>{freq}</span>
                         </div>
@@ -1293,10 +1293,10 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
           </CardContent>
         </Card>
       ) : executiveSummary ? (
-        <Card className="bg-gradient-to-br from-blue-50/40 via-white to-white border-blue-100/80 shadow-md">
+        <Card className="bg-gradient-to-br from-blue-50/40 via-white to-white dark:from-slate-900/50 dark:via-slate-950 dark:to-slate-950 border-blue-100/80 dark:border-slate-800 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-bold flex items-center gap-2 text-blue-950">
-              <Sparkles className="h-5 w-5 text-blue-600" />
+            <CardTitle className="text-lg font-bold flex items-center gap-2 text-blue-950 dark:text-slate-100">
+              <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               Informe General de Competidores (IA)
             </CardTitle>
             <Button 
@@ -1304,7 +1304,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
               size="sm" 
               onClick={handleGenerateReport}
               disabled={generatingReport}
-              className="gap-2 text-blue-750 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:text-blue-800"
+              className="gap-2 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-slate-800 bg-blue-50 dark:bg-slate-900 hover:bg-blue-100 dark:hover:bg-slate-800"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${generatingReport ? 'animate-spin' : ''}`} />
               {generatingReport ? 'Generando...' : 'Actualizar Informe'}
@@ -1314,7 +1314,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
             <div className={`relative transition-all duration-500 ease-in-out overflow-hidden ${!showFullGeneralReport ? 'max-h-[380px]' : 'max-h-[5000px]'}`}>
               {typeof executiveSummary === 'object' ? renderExecutiveSummaryObject(executiveSummary) : parseMarkdown(executiveSummary)}
               {!showFullGeneralReport && (
-                <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-slate-905 dark:via-slate-905/90 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-slate-950 dark:via-slate-950/90 pointer-events-none" />
               )}
             </div>
             <div className="flex justify-center pt-2 border-t border-slate-100 dark:border-slate-800">
@@ -1359,14 +1359,14 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
       )}
 
       {/* Subsección: Diagnóstico Particular por Competidor */}
-      <div className="pt-6 border-t border-slate-100 space-y-4">
+      <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2 mb-1">
-              <Compass className="h-5 w-5 text-blue-500" />
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-2 mb-1">
+              <Compass className="h-5 w-5 text-blue-500 dark:text-blue-400" />
               Diagnóstico Particular por Competidor
             </h3>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground dark:text-slate-400">
               Navega y visualiza el análisis específico del competidor seleccionado.
             </p>
           </div>
@@ -1377,21 +1377,21 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
               <Button 
                 variant="outline" 
                 size="icon" 
-                className="h-9 w-9 border-muted-foreground/20 hover:bg-muted" 
+                className="h-9 w-9 border-muted-foreground/20 dark:border-slate-800 hover:bg-muted dark:hover:bg-slate-800" 
                 onClick={handlePrevCompetitor}
               >
-                <ChevronLeft className="h-4 w-4 text-slate-700" />
+                <ChevronLeft className="h-4 w-4 text-slate-700 dark:text-white" />
               </Button>
               <Select 
                 value={selectedCompetitorId} 
                 onValueChange={(val) => setSelectedCompetitorId(val)}
               >
-                <SelectTrigger className="w-[200px] h-9 font-semibold text-slate-800">
+                <SelectTrigger className="w-[200px] h-9 font-semibold text-slate-800 dark:text-white dark:bg-slate-900 dark:border-slate-800">
                   <SelectValue placeholder="Competidor" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="dark:bg-slate-950 dark:border-slate-800">
                   {competitors.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id} className="font-medium">
+                    <SelectItem key={c.id} value={c.id} className="font-medium dark:text-slate-200 dark:focus:bg-slate-900 dark:focus:text-white">
                       {c.name}
                     </SelectItem>
                   ))}
@@ -1400,10 +1400,10 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
               <Button 
                 variant="outline" 
                 size="icon" 
-                className="h-9 w-9 border-muted-foreground/20 hover:bg-muted" 
+                className="h-9 w-9 border-muted-foreground/20 dark:border-slate-800 hover:bg-muted dark:hover:bg-slate-800" 
                 onClick={handleNextCompetitor}
               >
-                <ChevronRight className="h-4 w-4 text-slate-700" />
+                <ChevronRight className="h-4 w-4 text-slate-700 dark:text-white" />
               </Button>
             </div>
           )}
@@ -1412,15 +1412,15 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
         {/* Renderizado de Diagnóstico Estratégico del Competidor Seleccionado */}
         {selectedCompetitor && (
           strategicAnalysisIndividual ? (
-            <Card className="bg-gradient-to-br from-indigo-50/20 via-white to-white border-indigo-100 shadow-sm">
-              <CardHeader className="pb-3 border-b border-indigo-100/30">
+            <Card className="bg-gradient-to-br from-indigo-50/20 via-white to-white dark:from-slate-900/50 dark:via-slate-950 dark:to-slate-950 border-indigo-100 dark:border-slate-800 shadow-sm">
+              <CardHeader className="pb-3 border-b border-indigo-100/30 dark:border-slate-800/30">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-md font-bold text-indigo-950 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-indigo-650" />
+                    <CardTitle className="text-md font-bold text-indigo-950 dark:text-slate-100 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-indigo-650 dark:text-indigo-400" />
                       Diagnóstico Estratégico: {selectedCompetitor.name} (IA)
                     </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">
+                    <CardDescription className="text-xs text-muted-foreground dark:text-slate-400">
                       Análisis particular del competidor e insights de posicionamiento.
                     </CardDescription>
                   </div>
@@ -1429,7 +1429,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     size="sm" 
                     onClick={handleGenerateReport}
                     disabled={generatingReport}
-                    className="gap-1.5 text-xs text-indigo-700 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100"
+                    className="gap-1.5 text-xs text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-slate-800 bg-indigo-50/50 dark:bg-slate-900 hover:bg-indigo-100 dark:hover:bg-slate-800"
                   >
                     <RefreshCw className={`h-3 w-3 ${generatingReport ? 'animate-spin' : ''}`} />
                     Actualizar Informe
@@ -1441,7 +1441,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {/* Desempeño de Canales */}
                     <div className="space-y-3">
-                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <h4 className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-emerald-500" />
                         Desempeño de Canales
                       </h4>
@@ -1449,7 +1449,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.desempenoCanales) 
                           ? strategicAnalysisIndividual.desempenoCanales 
                           : []).map((item: string, i: number) => (
-                          <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                          <li key={i} className="text-xs text-slate-600 dark:text-slate-200 leading-relaxed flex items-start gap-2">
                             <ChevronRight className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
                             <span>{item}</span>
                           </li>
@@ -1459,7 +1459,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
                     {/* Debilidades e Identificación de Brechas */}
                     <div className="space-y-3">
-                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <h4 className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-rose-500" />
                         Debilidades e Identificación de Brechas
                       </h4>
@@ -1467,7 +1467,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.debilidadesGaps) 
                           ? strategicAnalysisIndividual.debilidadesGaps 
                           : []).map((item: string, i: number) => (
-                          <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                          <li key={i} className="text-xs text-slate-600 dark:text-slate-200 leading-relaxed flex items-start gap-2">
                             <ChevronRight className="h-3.5 w-3.5 text-rose-500 shrink-0 mt-0.5" />
                             <span>{item}</span>
                           </li>
@@ -1477,7 +1477,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
 
                     {/* Plan de Acción Contramedida */}
                     <div className="space-y-3">
-                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <h4 className="text-xs font-bold text-slate-700 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full bg-indigo-500" />
                         Plan de Acción Contramedida
                       </h4>
@@ -1485,7 +1485,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         {((typeof strategicAnalysisIndividual === 'object' && strategicAnalysisIndividual.planContramedida) 
                           ? strategicAnalysisIndividual.planContramedida 
                           : []).map((item: string, i: number) => (
-                          <li key={i} className="text-xs text-slate-650 leading-relaxed flex items-start gap-2">
+                          <li key={i} className="text-xs text-slate-600 dark:text-slate-200 leading-relaxed flex items-start gap-2">
                             <ChevronRight className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
                             <span>{item}</span>
                           </li>
@@ -1494,7 +1494,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     </div>
                   </div>
                   {!showFullDiagnostic && (
-                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-slate-905 dark:via-slate-905/90 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-slate-950 dark:via-slate-950/90 pointer-events-none" />
                   )}
                 </div>
                 <div className="flex justify-center pt-2 border-t border-slate-100 dark:border-slate-800 mt-2">
@@ -2021,7 +2021,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <TableHeader>
                           <TableRow className="bg-slate-50/70 dark:bg-slate-800/40 hover:bg-slate-50/70 border-b border-slate-100 dark:border-slate-800">
                             <TableHead className="w-[180px] font-bold text-xs uppercase tracking-wider text-slate-500 py-4 pl-6">Métrica / Aspecto</TableHead>
-                            <TableHead className="w-[280px] font-extrabold text-sm text-indigo-700 bg-indigo-50/25 dark:bg-indigo-950/30 dark:text-indigo-400 py-4 px-4 border-x border-slate-100/40 dark:border-slate-800/40 text-center">
+                            <TableHead className="w-[280px] font-extrabold text-sm text-indigo-700 bg-indigo-50/25 dark:bg-indigo-950/30 dark:text-indigo-200 py-4 px-4 border-x border-slate-100/40 dark:border-slate-800/40 text-center">
                               <div className="flex items-center gap-1.5 justify-center">
                                 <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
                                 Mi Negocio (Consolidado)
@@ -2036,13 +2036,13 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                           {/* Posicionamiento */}
                           <TableRow className="border-b border-slate-100 dark:border-slate-850 hover:bg-slate-50/20 transition-colors">
                             <TableCell className="w-[180px] font-extrabold text-xs uppercase tracking-wider text-slate-500 py-5 pl-6 align-top whitespace-normal break-words">Posicionamiento</TableCell>
-                            <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 text-xs font-semibold text-indigo-955 dark:text-indigo-300 py-5 px-4 leading-relaxed border-x border-slate-100/20 text-center whitespace-normal break-words">
+                            <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 text-xs font-semibold text-indigo-950 dark:text-indigo-200 py-5 px-4 leading-relaxed border-x border-slate-100/20 text-center whitespace-normal break-words">
                               {myDetails.positioning}
                             </TableCell>
                             {completedCompetitorsGeneral.map((c: any) => {
                               const cDetails = getConsolidatedDetails(c.reportsByChannel);
                               return (
-                                <TableCell key={c.id} className="w-[280px] align-top text-xs py-5 px-4 text-slate-700 dark:text-slate-300 leading-relaxed text-center font-medium whitespace-normal break-words">
+                                <TableCell key={c.id} className="w-[280px] align-top text-xs py-5 px-4 text-slate-700 dark:text-slate-200 leading-relaxed text-center font-medium whitespace-normal break-words">
                                   {cDetails.positioning}
                                 </TableCell>
                               );
@@ -2055,7 +2055,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                             <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-100/20 whitespace-normal break-words">
                               <ul className="space-y-1.5 pl-2">
                                 {myDetails.strengths.map((p: string, i: number) => (
-                                  <li key={i} className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-start gap-1.5 whitespace-normal break-words">
+                                  <li key={i} className="text-xs text-emerald-600 dark:text-emerald-300 font-semibold flex items-start gap-1.5 whitespace-normal break-words">
                                     <span className="text-emerald-500 mt-0.5 font-black">•</span>
                                     <span>{p}</span>
                                   </li>
@@ -2069,7 +2069,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                                 <TableCell key={c.id} className="w-[280px] align-top py-5 px-4 whitespace-normal break-words">
                                   <ul className="space-y-1.5 pl-2">
                                     {cDetails.strengths.map((p: string, i: number) => (
-                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5 whitespace-normal break-words">
+                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-200 font-medium flex items-start gap-1.5 whitespace-normal break-words">
                                         <span className="text-slate-400 mt-0.5">•</span>
                                         <span>{p}</span>
                                       </li>
@@ -2087,7 +2087,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                             <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-100/20 whitespace-normal break-words">
                               <ul className="space-y-1.5 pl-2">
                                 {myDetails.weaknesses.map((p: string, i: number) => (
-                                  <li key={i} className="text-xs text-rose-600 dark:text-rose-450 font-semibold flex items-start gap-1.5 whitespace-normal break-words">
+                                  <li key={i} className="text-xs text-rose-600 dark:text-rose-300 font-semibold flex items-start gap-1.5 whitespace-normal break-words">
                                     <span className="text-rose-500 mt-0.5 font-black">•</span>
                                     <span>{p}</span>
                                   </li>
@@ -2101,7 +2101,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                                 <TableCell key={c.id} className="w-[280px] align-top py-5 px-4 whitespace-normal break-words">
                                   <ul className="space-y-1.5 pl-2">
                                     {cDetails.weaknesses.map((p: string, i: number) => (
-                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5 whitespace-normal break-words">
+                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-200 font-medium flex items-start gap-1.5 whitespace-normal break-words">
                                         <span className="text-slate-400 mt-0.5">•</span>
                                         <span>{p}</span>
                                       </li>
@@ -2119,7 +2119,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                             <TableCell className="w-[280px] align-top bg-indigo-50/10 dark:bg-indigo-950/10 py-5 px-4 border-x border-slate-100/20 whitespace-normal break-words">
                               <ul className="space-y-2.5 pl-2">
                                 {myDetails.recommendations.map((r: string, i: number) => (
-                                  <li key={i} className="text-xs text-indigo-950 dark:text-indigo-350 leading-relaxed font-semibold flex items-start gap-1.5 whitespace-normal break-words">
+                                  <li key={i} className="text-xs text-indigo-950 dark:text-indigo-200 leading-relaxed font-semibold flex items-start gap-1.5 whitespace-normal break-words">
                                     <ChevronRight className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
                                     <span>{r}</span>
                                   </li>
@@ -2133,7 +2133,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                                 <TableCell key={c.id} className="w-[280px] align-top py-5 px-4 whitespace-normal break-words">
                                   <ul className="space-y-2.5 pl-2">
                                     {cDetails.recommendations.map((r: string, i: number) => (
-                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium flex items-start gap-1.5 whitespace-normal break-words">
+                                      <li key={i} className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-medium flex items-start gap-1.5 whitespace-normal break-words">
                                         <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
                                         <span>{r}</span>
                                       </li>
@@ -2177,7 +2177,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                           {c.name}
                         </span>
-                        <p className="text-xs text-slate-700 dark:text-slate-350 leading-relaxed">
+                        <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">
                           {cDetails.positioning}
                         </p>
                       </div>
@@ -2200,7 +2200,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     </span>
                     <ul className="space-y-1.5 pl-1.5">
                       {myDetails.strengths.map((p: string, i: number) => (
-                        <li key={i} className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold flex items-start gap-1.5">
+                        <li key={i} className="text-xs text-emerald-600 dark:text-emerald-300 font-semibold flex items-start gap-1.5">
                           <span className="text-emerald-500 font-black">•</span>
                           <span>{p}</span>
                         </li>
@@ -2217,7 +2217,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         </span>
                         <ul className="space-y-1.5 pl-1.5">
                           {cDetails.strengths.map((p: string, i: number) => (
-                            <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5">
+                            <li key={i} className="text-xs text-slate-700 dark:text-slate-200 font-medium flex items-start gap-1.5">
                               <span className="text-slate-400">•</span>
                               <span>{p}</span>
                             </li>
@@ -2244,7 +2244,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     </span>
                     <ul className="space-y-1.5 pl-1.5">
                       {myDetails.weaknesses.map((p: string, i: number) => (
-                        <li key={i} className="text-xs text-rose-600 dark:text-rose-450 font-semibold flex items-start gap-1.5">
+                        <li key={i} className="text-xs text-rose-600 dark:text-rose-300 font-semibold flex items-start gap-1.5">
                           <span className="text-rose-500 font-black">•</span>
                           <span>{p}</span>
                         </li>
@@ -2261,7 +2261,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         </span>
                         <ul className="space-y-1.5 pl-1.5">
                           {cDetails.weaknesses.map((p: string, i: number) => (
-                            <li key={i} className="text-xs text-slate-700 dark:text-slate-300 font-medium flex items-start gap-1.5">
+                            <li key={i} className="text-xs text-slate-700 dark:text-slate-200 font-medium flex items-start gap-1.5">
                               <span className="text-slate-400">•</span>
                               <span>{p}</span>
                             </li>
@@ -2288,7 +2288,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     </span>
                     <ul className="space-y-2 pl-1.5">
                       {myDetails.recommendations.map((r: string, i: number) => (
-                        <li key={i} className="text-xs text-indigo-950 dark:text-indigo-350 leading-relaxed font-semibold flex items-start gap-1.5">
+                        <li key={i} className="text-xs text-indigo-950 dark:text-indigo-200 leading-relaxed font-semibold flex items-start gap-1.5">
                           <ChevronRight className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
                           <span>{r}</span>
                         </li>
@@ -2305,7 +2305,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                         </span>
                         <ul className="space-y-2 pl-1.5">
                           {cDetails.recommendations.map((r: string, i: number) => (
-                            <li key={i} className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium flex items-start gap-1.5">
+                            <li key={i} className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed font-medium flex items-start gap-1.5">
                               <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
                               <span>{r}</span>
                             </li>

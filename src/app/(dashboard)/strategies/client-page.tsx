@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { StrategyForm } from "@/components/strategy/strategy-form";
 import { useEffect } from "react";
 import { deleteStrategyAction, deleteStrategiesAction } from "@/actions/strategy";
+import { updateBusinessSettings } from "@/actions/business";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -32,12 +33,16 @@ interface StrategiesClientPageProps {
   initialStrategies: any[];
   selectedBusinessId: string;
   businessName: string;
+  initialAutoGenerateEnabled: boolean;
+  lastCascadeGeneratedAt: string | null;
 }
 
 export function StrategiesClientPage({
   initialStrategies,
   selectedBusinessId,
   businessName,
+  initialAutoGenerateEnabled,
+  lastCascadeGeneratedAt,
 }: StrategiesClientPageProps) {
   const [strategies, setStrategies] = useState(initialStrategies);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -47,26 +52,58 @@ export function StrategiesClientPage({
   const [selectedStrategyIds, setSelectedStrategyIds] = useState<string[]>([]);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(true);
+  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(initialAutoGenerateEnabled);
 
-  // Cargar preferencia del localStorage después del montaje en el cliente
   useEffect(() => {
     setIsMounted(true);
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ob_markethub_auto_generate_strategies");
-      if (saved === "false") {
-        setIsAutoGenerateEnabled(false);
-      }
-    }
   }, []);
 
-  const handleToggleAutoGenerate = (checked: boolean) => {
+  const handleToggleAutoGenerate = async (checked: boolean) => {
     setIsAutoGenerateEnabled(checked);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ob_markethub_auto_generate_strategies", String(checked));
-      toast.success(checked ? "Auto-generación de IA activada para onboarding" : "Auto-generación de IA desactivada");
+    toast.success(checked ? "Auto-generación de IA activada para onboarding" : "Auto-generación de IA desactivada");
+    try {
+      const res = await updateBusinessSettings(selectedBusinessId, { autoGenerateCampaigns: checked });
+      if (!res.success) {
+        toast.error("No se pudo guardar la preferencia en la base de datos.");
+      }
+    } catch (err) {
+      console.error("Error updating auto-generate settings:", err);
     }
   };
+
+  // Helper to format last cascade run
+  const getCooldownStatus = () => {
+    if (!lastCascadeGeneratedAt) return null;
+    const lastRun = new Date(lastCascadeGeneratedAt);
+    const timeSince = Date.now() - lastRun.getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    
+    if (timeSince < oneDayMs) {
+      const remainingMs = oneDayMs - timeSince;
+      const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+      const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+      return {
+        label: `Auto-generación en cooldown. Siguiente en ${hours}h ${minutes}m.`,
+        isCooldown: true
+      };
+    }
+    
+    const hoursSince = Math.floor(timeSince / (1000 * 60 * 60));
+    if (hoursSince < 24) {
+      return {
+        label: `Última generación: Hace ${hoursSince} horas`,
+        isCooldown: false
+      };
+    }
+    
+    const daysSince = Math.floor(hoursSince / 24);
+    return {
+      label: `Última generación: Hace ${daysSince} días`,
+      isCooldown: false
+    };
+  };
+
+  const cooldownStatus = getCooldownStatus();
 
   const handleCreateNew = () => {
     setEditingStrategy(null);
@@ -115,6 +152,13 @@ export function StrategiesClientPage({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Estrategias de Marketing: {businessName}</h1>
           <p className="text-muted-foreground">Gestiona las estrategias maestras de tus negocios y genera planes asistidos por IA.</p>
+          {cooldownStatus && (
+            <div className="mt-2">
+              <span className={`text-[10px] font-semibold px-2 py-1 rounded-md border ${cooldownStatus.isCooldown ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/50' : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'}`}>
+                {cooldownStatus.label}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {strategies.length > 0 && (
@@ -301,7 +345,7 @@ export function StrategiesClientPage({
         </TabsContent>
 
         <TabsContent value="ai-suggestions" className="space-y-6">
-          <AiStrategiesPanel businessId={selectedBusinessId} existingStrategiesCount={strategies.length} />
+          <AiStrategiesPanel businessId={selectedBusinessId} existingStrategies={strategies} />
         </TabsContent>
       </Tabs>
       )}

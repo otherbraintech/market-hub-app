@@ -30,9 +30,12 @@ export default async function StrategiesPage() {
 
   const business = await prisma.business.findUnique({
     where: { id: selectedBusinessId },
-    select: { name: true }
+    select: { name: true, settings: true }
   });
   const businessName = business?.name || "";
+  const settings = (business?.settings as Record<string, any>) || {};
+  const lastCascadeGeneratedAt = settings.lastCascadeGeneratedAt || null;
+  const initialAutoGenerateEnabled = settings.autoGenerateCampaigns !== false;
 
   // Normalizar para eliminar fechas complejas antes de pasar al componente cliente
   const serializedStrategies = strategies.map((s: any) => ({
@@ -57,6 +60,8 @@ export default async function StrategiesPage() {
       initialStrategies={serializedStrategies}
       selectedBusinessId={selectedBusinessId}
       businessName={businessName}
+      lastCascadeGeneratedAt={lastCascadeGeneratedAt}
+      initialAutoGenerateEnabled={initialAutoGenerateEnabled}
     />
   );
 }

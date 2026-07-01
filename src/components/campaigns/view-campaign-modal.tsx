@@ -24,6 +24,7 @@ import {
   Zap,
   TrendingUp,
   Megaphone,
+  ListTodo,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -40,8 +41,11 @@ interface ViewCampaignModalProps {
     budget: any; // Decimal
     channels: any; // Json list of channels
     targeting: any; // Json object
+    objectiveDetails?: any;
+    metrics?: any;
     strategy?: { name: string } | null;
     _count?: { contents: number };
+    contents?: any[];
   };
 }
 
@@ -116,6 +120,15 @@ export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
 
   // Parse channels details safely
   const channels = (campaign.channels as any[]) || [];
+
+  // Parse metrics
+  const metrics = campaign.metrics as any;
+
+  // Parse objectiveDetails
+  const objectiveDetails = campaign.objectiveDetails as any;
+
+  // Parse contents list
+  const contents = campaign.contents || [];
 
   return (
     <Dialog>
@@ -214,12 +227,29 @@ export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
             </div>
           </div>
 
-          {/* TARGET SEGMENT */}
-          {(locations.length > 0 || interests.length > 0 || ageRange.length > 0) && (
+          {/* DETALLES DE OBJETIVO ADICIONALES */}
+          {objectiveDetails && typeof objectiveDetails === 'object' && Object.keys(objectiveDetails).length > 0 && (
             <div className="space-y-3">
               <h4 className="font-bold text-xs uppercase tracking-wider text-violet-750 dark:text-violet-300 flex items-center gap-1.5 border-b border-muted/20 pb-1">
-                <Users className="h-4 w-4 text-violet-650" /> Segmentación de Audiencia
+                <Target className="h-4 w-4 text-violet-650" /> Detalles del Objetivo
               </h4>
+              <div className="grid gap-3 bg-muted/5 p-4 rounded-xl border border-muted/20 text-xs">
+                {Object.entries(objectiveDetails).map(([key, val]: [string, any]) => (
+                  <div key={key} className="flex justify-between py-1 border-b border-muted/10 last:border-0">
+                    <span className="font-medium text-muted-foreground capitalize">{key.replace(/([A-Z])/g, ' $1')}</span>
+                    <span className="font-bold text-foreground">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TARGET SEGMENT */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-violet-750 dark:text-violet-300 flex items-center gap-1.5 border-b border-muted/20 pb-1">
+              <Users className="h-4 w-4 text-violet-650" /> Segmentación de Audiencia
+            </h4>
+            {locations.length > 0 || interests.length > 0 || ageRange.length > 0 ? (
               <div className="grid gap-3 bg-muted/5 p-4 rounded-xl border border-muted/20">
                 <div className="grid gap-3 sm:grid-cols-2">
                   {/* Ubicaciones */}
@@ -263,15 +293,19 @@ export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-muted-foreground italic bg-muted/5 p-4 rounded-xl border border-muted/20">
+                No se ha especificado segmentación detallada para esta campaña.
+              </p>
+            )}
+          </div>
 
           {/* CHANNELS DISTRIBUTION */}
-          {channels.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-violet-750 dark:text-violet-300 flex items-center gap-1.5 border-b border-muted/20 pb-1">
-                <Sparkles className="h-4 w-4 text-violet-650" /> Distribución por Canal
-              </h4>
+          <div className="space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-violet-750 dark:text-violet-300 flex items-center gap-1.5 border-b border-muted/20 pb-1">
+              <Sparkles className="h-4 w-4 text-violet-650" /> Distribución por Canal
+            </h4>
+            {channels.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {channels.map((ch: any, idx: number) => (
                   <Card key={idx} className={`p-3 rounded-xl border ${ch.isActive ? "border-violet-200 dark:border-violet-900 bg-background shadow-sm" : "border-muted/30 opacity-50 bg-background/50"}`}>
@@ -288,8 +322,106 @@ export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
                   </Card>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-xs text-muted-foreground italic bg-muted/5 p-4 rounded-xl border border-muted/20">
+                No se han configurado canales para esta campaña.
+              </p>
+            )}
+          </div>
+
+          {/* METRICS & PERFORMANCE */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-violet-750 dark:text-violet-300 flex items-center gap-1.5 border-b border-muted/20 pb-1">
+              <TrendingUp className="h-4 w-4 text-violet-650" /> Métricas e Inversión (Resultados)
+            </h4>
+            {metrics && typeof metrics === 'object' && Object.keys(metrics).length > 0 ? (
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                {metrics.impressions !== undefined && (
+                  <div className="bg-muted/5 p-3 rounded-xl border border-muted/20 space-y-0.5">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Impresiones</span>
+                    <span className="text-sm font-bold text-foreground">{Number(metrics.impressions).toLocaleString()}</span>
+                  </div>
+                )}
+                {metrics.reach !== undefined && (
+                  <div className="bg-muted/5 p-3 rounded-xl border border-muted/20 space-y-0.5">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Alcance</span>
+                    <span className="text-sm font-bold text-foreground">{Number(metrics.reach).toLocaleString()}</span>
+                  </div>
+                )}
+                {metrics.clicks !== undefined && (
+                  <div className="bg-muted/5 p-3 rounded-xl border border-muted/20 space-y-0.5">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Clics</span>
+                    <span className="text-sm font-bold text-foreground">{Number(metrics.clicks).toLocaleString()}</span>
+                  </div>
+                )}
+                {metrics.engagement !== undefined && (
+                  <div className="bg-muted/5 p-3 rounded-xl border border-muted/20 space-y-0.5">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Interacción</span>
+                    <span className="text-sm font-bold text-foreground">{Number(metrics.engagement).toLocaleString()}</span>
+                  </div>
+                )}
+                {metrics.conversions !== undefined && (
+                  <div className="bg-muted/5 p-3 rounded-xl border border-muted/20 space-y-0.5">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Conversiones</span>
+                    <span className="text-sm font-bold text-foreground">{Number(metrics.conversions).toLocaleString()}</span>
+                  </div>
+                )}
+                {metrics.spend !== undefined && (
+                  <div className="bg-muted/5 p-3 rounded-xl border border-muted/20 space-y-0.5">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Gasto Real</span>
+                    <span className="text-sm font-bold text-foreground">${Number(metrics.spend).toLocaleString()} USD</span>
+                  </div>
+                )}
+                {metrics.roas !== undefined && (
+                  <div className="bg-muted/5 p-3 rounded-xl border border-muted/20 space-y-0.5 col-span-2 sm:col-span-1">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">ROAS</span>
+                    <span className="text-sm font-bold text-foreground">{Number(metrics.roas).toFixed(2)}x</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic bg-muted/5 p-4 rounded-xl border border-muted/20">
+                Las métricas aún no están disponibles para esta campaña (se sincronizarán automáticamente al activarse).
+              </p>
+            )}
+          </div>
+
+          {/* PLANIFICACIÓN DE PUBLICACIONES */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-violet-750 dark:text-violet-300 flex items-center gap-1.5 border-b border-muted/20 pb-1">
+              <ListTodo className="h-4 w-4 text-violet-650" /> Planificación de Contenidos ({contents.length})
+            </h4>
+            {contents.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {contents.map((post: any, idx: number) => (
+                  <Card key={idx} className="p-3.5 rounded-xl border border-muted/20 bg-background shadow-sm space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">{post.title}</span>
+                      <Badge className="bg-violet-100 text-violet-750 dark:bg-violet-900 border-none font-bold text-[9px] uppercase shrink-0">
+                        {post.type} - {post.channel}
+                      </Badge>
+                    </div>
+                    {post.body && (
+                      <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-3">{post.body}</p>
+                    )}
+                    {post.caption && (
+                      <p className="text-[10px] text-slate-500 italic leading-relaxed line-clamp-2 border-t border-muted/5 pt-1">
+                        {post.caption}
+                      </p>
+                    )}
+                    <div className="text-[9px] text-muted-foreground flex items-center gap-1 pt-0.5">
+                      <Calendar className="h-3 w-3 text-slate-400" />
+                      <span>Programada: {format(new Date(post.scheduledAt), "d 'de' MMMM", { locale: es })}</span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground italic bg-muted/5 p-4 rounded-xl border border-muted/20">
+                No hay publicaciones programadas para esta campaña.
+              </p>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

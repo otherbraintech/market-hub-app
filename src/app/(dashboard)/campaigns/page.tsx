@@ -23,6 +23,9 @@ export default async function CampaignsPage() {
     include: {
       business: { select: { name: true } },
       strategy: { select: { name: true } },
+      contents: {
+        orderBy: { scheduledAt: "asc" }
+      },
       _count: { select: { contents: true } }
     },
     orderBy: { startDate: "desc" }
@@ -30,9 +33,12 @@ export default async function CampaignsPage() {
 
   const business = await prisma.business.findUnique({
     where: { id: selectedBusinessId },
-    select: { name: true }
+    select: { name: true, settings: true }
   });
   const businessName = business?.name || "";
+  const settings = (business?.settings as Record<string, any>) || {};
+  const initialAutoGenerateEnabled = settings.autoGenerateCampaigns !== false;
+  const lastCascadeGeneratedAt = settings.lastCascadeGeneratedAt || null;
 
   const campaigns = rawCampaigns.map((c: any) => ({
     ...c,
@@ -48,6 +54,8 @@ export default async function CampaignsPage() {
       initialCampaigns={campaigns}
       selectedBusinessId={selectedBusinessId}
       businessName={businessName}
+      initialAutoGenerateEnabled={initialAutoGenerateEnabled}
+      lastCascadeGeneratedAt={lastCascadeGeneratedAt}
     />
   );
 }

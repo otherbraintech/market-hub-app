@@ -17,15 +17,24 @@ import { es } from "date-fns/locale";
 
 interface AiCampaignsPanelProps {
   businessId: string;
-  existingCampaignsCount: number;
+  existingCampaigns: any[];
 }
 
-export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampaignsPanelProps) {
+export function AiCampaignsPanel({ businessId, existingCampaigns }: AiCampaignsPanelProps) {
   const [loading, setLoading] = useState(true);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [importingIdx, setImportingIdx] = useState<number | null>(null);
   const [importedIndices, setImportedIndices] = useState<number[]>([]);
   const router = useRouter();
+
+  // Helper to determine if a suggested campaign has already been imported/saved
+  const isCampaignAlreadyImported = (campaignName: string) => {
+    const cleanCampName = campaignName.trim().toLowerCase();
+    return existingCampaigns.some((c: any) => {
+      const cleanExistingName = c.name.trim().toLowerCase();
+      return cleanExistingName === cleanCampName;
+    });
+  };
 
   // Carga automática inicial de las sugerencias preguardadas
   useEffect(() => {
@@ -59,11 +68,10 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
       if (res.ok) {
         const data = await res.json();
         if (data.campaigns && data.campaigns.length > 0) {
+          setCampaigns(data.campaigns);
           if (forceRefresh) {
-            setCampaigns(prev => [...prev, ...data.campaigns]);
-            toast.success("¡Nuevas propuestas de campaña añadidas!");
+            toast.success("¡Propuestas de campaña regeneradas y actualizadas!");
           } else {
-            setCampaigns(data.campaigns);
             toast.success("¡Propuestas de campaña generadas con éxito!");
           }
           setImportedIndices([]);
@@ -90,7 +98,7 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
       if (res.success) {
         toast.success(res.message);
         setImportedIndices([...importedIndices, idx]);
-        router.refresh();
+        window.location.reload();
       } else {
         toast.error(res.error || "Error al importar la campaña.");
       }
@@ -107,7 +115,7 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
       setLoading(true);
       let successCount = 0;
       for (let i = 0; i < campaigns.length; i++) {
-        if (importedIndices.includes(i)) continue;
+        if (importedIndices.includes(i) || isCampaignAlreadyImported(campaigns[i].name)) continue;
         
         const campaign = campaigns[i];
         const res = await importCampaignAction(businessId, campaign);
@@ -120,7 +128,7 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
       if (successCount > 0) {
         toast.success(`¡${successCount} campañas importadas exitosamente!`);
         setImportedIndices(campaigns.map((_, idx) => idx));
-        router.refresh();
+        window.location.reload();
       } else {
         toast.error("Error al importar las campañas.");
       }
@@ -199,7 +207,7 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
                 variant="default"
                 size="sm"
                 onClick={handleImportAll}
-                disabled={loading || importedIndices.length === campaigns.length}
+                disabled={loading || campaigns.every((camp, idx) => importedIndices.includes(idx) || isCampaignAlreadyImported(camp.name))}
                 className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-xs gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
               >
                 <Check className="h-3.5 w-3.5" />
@@ -216,7 +224,7 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
           ) : (
             <div className="grid gap-6 lg:grid-cols-3">
               {campaigns.map((camp, idx) => {
-                const isImported = importedIndices.includes(idx);
+                const isImported = importedIndices.includes(idx) || isCampaignAlreadyImported(camp.name);
                 return (
                   <Card key={idx} className="border border-violet-100/80 bg-gradient-to-b from-white to-slate-50/20 shadow-sm flex flex-col justify-between group hover:shadow-md hover:border-violet-200/50 transition-all duration-300">
                     <CardHeader className="pb-4 border-b border-slate-50">
@@ -240,7 +248,13 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
                             Objetivo
                           </h4>
                           <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md inline-block">
-                            {camp.objective}
+                            {camp.objective === "AWARENESS" ? "Reconocimiento de Marca" :
+                             camp.objective === "ENGAGEMENT" ? "Interacción / Comunidad" :
+                             camp.objective === "TRAFFIC" ? "Tráfico / Visitas" :
+                             camp.objective === "LEADS" ? "Generación de Leads" :
+                             camp.objective === "SALES" ? "Ventas / Conversión" :
+                             camp.objective === "RETENTION" ? "Fidelización / Retención" :
+                             camp.objective}
                           </span>
                         </div>
                         <div className="space-y-1">
@@ -296,7 +310,7 @@ export function AiCampaignsPanel({ businessId, existingCampaignsCount }: AiCampa
                                   <div className="flex justify-between items-center mb-1">
                                     <span className="font-bold text-slate-800 text-[11px] truncate max-w-[130px]">{post.title}</span>
                                     <Badge className="bg-slate-200 text-slate-700 border-none font-bold text-[9px] uppercase">
-                                      {post.type} - {post.channel}
+                                      {post.type} - Idea {pIdx + 1}
                                     </Badge>
                                   </div>
                                   <p className="text-[10px] text-muted-foreground line-clamp-2 leading-relaxed">{post.caption}</p>

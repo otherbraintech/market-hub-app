@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, Plus, Calendar as CalendarIcon, Users, Sparkles, RefreshCw } from "lucide-react";
+import { Target, Plus, Calendar as CalendarIcon, Users, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AiCampaignsPanel } from "@/components/campaigns/ai-campaigns-panel";
 import { Trash, AlertTriangle } from "lucide-react";
 import { deleteCampaignsAction } from "@/actions/campaign";
+import { updateBusinessSettings } from "@/actions/business";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,16 +38,20 @@ interface CampaignsClientPageProps {
   initialCampaigns: any[];
   selectedBusinessId: string;
   businessName: string;
+  initialAutoGenerateEnabled: boolean;
+  lastCascadeGeneratedAt: string | null;
 }
 
 export function CampaignsClientPage({
   initialCampaigns,
   selectedBusinessId,
   businessName,
+  initialAutoGenerateEnabled,
+  lastCascadeGeneratedAt,
 }: CampaignsClientPageProps) {
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [isAutoGenerating, setIsAutoGenerating] = useState(false);
-  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(true);
+  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(initialAutoGenerateEnabled);
   const [isMounted, setIsMounted] = useState(false);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
@@ -69,26 +74,58 @@ export function CampaignsClientPage({
     COMPLETED: "Completada",
   };
 
-  // Cargar preferencia del localStorage
   useEffect(() => {
     setIsMounted(true);
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ob_markethub_auto_generate_campaigns");
-      if (saved === "false") {
-        setIsAutoGenerateEnabled(false);
-      }
-    }
   }, []);
 
-  const handleToggleAutoGenerate = (checked: boolean) => {
+  const handleToggleAutoGenerate = async (checked: boolean) => {
     setIsAutoGenerateEnabled(checked);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ob_markethub_auto_generate_campaigns", String(checked));
-      toast.success(checked ? "Auto-generación de IA activada para onboarding" : "Auto-generación de IA desactivada");
+    toast.success(checked ? "Auto-generación de IA activada para onboarding" : "Auto-generación de IA desactivada");
+    try {
+      const res = await updateBusinessSettings(selectedBusinessId, { autoGenerateCampaigns: checked });
+      if (!res.success) {
+        toast.error("No se pudo guardar la preferencia en la base de datos.");
+      }
+    } catch (err) {
+      console.error("Error updating auto-generate settings:", err);
     }
   };
 
-  // Efecto para autogenerar las 6 campañas y planificaciones si no hay ninguna
+  // Helper to format last cascade run
+  const getCooldownStatus = () => {
+    if (!lastCascadeGeneratedAt) return null;
+    const lastRun = new Date(lastCascadeGeneratedAt);
+    const timeSince = Date.now() - lastRun.getTime();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    
+    if (timeSince < oneDayMs) {
+      const remainingMs = oneDayMs - timeSince;
+      const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+      const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+      return {
+        label: `Auto-generación en cooldown. Siguiente en ${hours}h ${minutes}m.`,
+        isCooldown: true
+      };
+    }
+    
+    const hoursSince = Math.floor(timeSince / (1000 * 60 * 60));
+    if (hoursSince < 24) {
+      return {
+        label: `Última generación: Hace ${hoursSince} horas`,
+        isCooldown: false
+      };
+    }
+    
+    const daysSince = Math.floor(hoursSince / 24);
+    return {
+      label: `Última generación: Hace ${daysSince} días`,
+      isCooldown: false
+    };
+  };
+
+  const cooldownStatus = getCooldownStatus();
+
+  // Efecto para autogenerar las 3 campañas y planificaciones si no hay ninguna
   useEffect(() => {
     if (!isMounted) return;
     if (initialCampaigns.length === 0 && !isAutoGenerating && isAutoGenerateEnabled) {
@@ -114,26 +151,6 @@ export function CampaignsClientPage({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted, isAutoGenerateEnabled]);
 
-  const handleRegenerateAll = async () => {
-    try {
-      setIsAutoGenerating(true);
-      const res = await fetch(`/api/business/${selectedBusinessId}/auto-generate-cascade`, {
-        method: "POST"
-      });
-      if (res.ok) {
-        toast.success("¡Campaña y calendario regenerados con éxito!");
-        window.location.reload();
-      } else {
-        toast.error("Error al regenerar el circuito.");
-        setIsAutoGenerating(false);
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error("Error inesperado al intentar regenerar.");
-      setIsAutoGenerating(false);
-    }
-  };
-
   const handleBulkDeleteConfirm = async () => {
     if (selectedCampaignIds.length === 0) return;
     const res = await deleteCampaignsAction(selectedCampaignIds, selectedBusinessId);
@@ -155,6 +172,13 @@ export function CampaignsClientPage({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Campañas de Marketing: {businessName}</h1>
           <p className="text-muted-foreground text-sm">Monitorea y previsualiza las campañas sincronizadas con tus estrategias.</p>
+          {cooldownStatus && (
+            <div className="mt-2">
+              <span className={`text-[10px] font-semibold px-2 py-1 rounded-md border ${cooldownStatus.isCooldown ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/50' : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800'}`}>
+                {cooldownStatus.label}
+              </span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {campaigns.length > 0 && (
@@ -197,15 +221,6 @@ export function CampaignsClientPage({
             </Label>
           </div>
 
-          <Button 
-            variant="outline" 
-            onClick={handleRegenerateAll}
-            disabled={isAutoGenerating}
-            className="text-xs font-semibold gap-1.5 border-violet-200 bg-violet-50/50 text-violet-700 hover:bg-violet-100 cursor-pointer"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${isAutoGenerating ? 'animate-spin' : ''}`} />
-            Regenerar Circuito IA (6 Campañas)
-          </Button>
           <CreateCampaignModal businessId={selectedBusinessId} />
         </div>
       </div>
@@ -220,10 +235,10 @@ export function CampaignsClientPage({
           </div>
           <div className="space-y-3 max-w-md">
             <CardTitle className="text-2xl font-bold text-slate-800">
-              Creando tu circuito de marketing (6 Campañas)...
+              Creando tu circuito de marketing (3 Campañas)...
             </CardTitle>
             <CardDescription className="text-sm text-slate-500">
-              La IA está estructurando 6 campañas temáticas asociadas a tus estrategias e insertando publicaciones de calendario automáticas para que las puedas ver organizadas por días y redes sociales.
+              La IA está estructurando 3 campañas temáticas asociadas a tus estrategias e insertando publicaciones de calendario automáticas para que las puedas ver organizadas por días y redes sociales.
             </CardDescription>
           </div>
         </Card>
@@ -239,35 +254,37 @@ export function CampaignsClientPage({
 
           <TabsContent value="list" className="space-y-6">
             {/* METRICAS RAPIDAS */}
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card className="bg-primary/5 border-primary/20 hover:scale-[1.01] transition-transform duration-300">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Campañas</span>
-                  </div>
-                  <div className="text-3xl font-black tracking-tight">{campaigns.length}</div>
-                </CardContent>
-              </Card>
-              <Card className="hover:scale-[1.01] transition-transform duration-300">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Activas Ahora</span>
-                  </div>
-                  <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'ACTIVE').length}</div>
-                </CardContent>
-              </Card>
-              <Card className="hover:scale-[1.01] transition-transform duration-300">
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Programadas</span>
-                  </div>
-                  <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'SCHEDULED').length}</div>
-                </CardContent>
-              </Card>
-            </div>
+            {campaigns.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card className="bg-primary/5 border-primary/20 hover:scale-[1.01] transition-transform duration-300">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Campañas</span>
+                    </div>
+                    <div className="text-3xl font-black tracking-tight">{campaigns.length}</div>
+                  </CardContent>
+                </Card>
+                <Card className="hover:scale-[1.01] transition-transform duration-300">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Activas Ahora</span>
+                    </div>
+                    <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'ACTIVE').length}</div>
+                  </CardContent>
+                </Card>
+                <Card className="hover:scale-[1.01] transition-transform duration-300">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Programadas</span>
+                    </div>
+                    <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'SCHEDULED').length}</div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* LISTADO DE CAMPAÑAS */}
             {campaigns.length === 0 ? (
@@ -323,7 +340,13 @@ export function CampaignsClientPage({
                           </div>
                           <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
                             <Target className="h-3.5 w-3.5" />
-                            {campaign.objective}
+                            {campaign.objective === "AWARENESS" ? "Reconocimiento de Marca" :
+                             campaign.objective === "ENGAGEMENT" ? "Interacción / Comunidad" :
+                             campaign.objective === "TRAFFIC" ? "Tráfico / Visitas" :
+                             campaign.objective === "LEADS" ? "Generación de Leads" :
+                             campaign.objective === "SALES" ? "Ventas / Conversión" :
+                             campaign.objective === "RETENTION" ? "Fidelización / Retención" :
+                             campaign.objective}
                           </div>
                           <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
                             <Users className="h-3.5 w-3.5" />
@@ -376,7 +399,7 @@ export function CampaignsClientPage({
           </TabsContent>
 
           <TabsContent value="ai-suggestions" className="space-y-6">
-            <AiCampaignsPanel businessId={selectedBusinessId} existingCampaignsCount={campaigns.length} />
+            <AiCampaignsPanel businessId={selectedBusinessId} existingCampaigns={campaigns} />
           </TabsContent>
         </Tabs>
       )}

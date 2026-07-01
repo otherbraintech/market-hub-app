@@ -57,6 +57,35 @@ export async function triggerCascadeGeneration(businessId: string) {
       return;
     }
 
+    // Check if autoGenerateCampaigns is enabled in settings
+    const settings = (business.settings as Record<string, any>) || {};
+    if (settings.autoGenerateCampaigns === false) {
+      console.log(`[CASCADE] Autogeneración de campañas/estrategias desactivada para el negocio: ${businessId}`);
+      return;
+    }
+
+    // Evitar múltiples ejecuciones paralelas buscando si hay alguna notificación activa en estado PROCESSING
+    const activeProcessing = await prisma.agentNotification.findFirst({
+      where: {
+        businessId,
+        status: 'PROCESSING'
+      }
+    });
+    if (activeProcessing) {
+      console.log(`[CASCADE] Ya existe un agente procesando el diagnóstico para el negocio: ${businessId}. Cancelando ejecución paralela.`);
+      return;
+    }
+
+    // Cooldown de 24 horas (1 generación al día)
+    if (settings.lastCascadeGeneratedAt) {
+      const lastRun = new Date(settings.lastCascadeGeneratedAt);
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      if (Date.now() - lastRun.getTime() < oneDayMs) {
+        console.log(`[CASCADE] Cooldown de 24 horas activo para el negocio: ${businessId}.`);
+        return;
+      }
+    }
+
     // Comprobar reportes consolidados
     const reports = await prisma.analysisReport.findMany({
       where: {
@@ -88,20 +117,20 @@ export async function triggerCascadeGeneration(businessId: string) {
       "COMPLETED"
     );
 
-    // 2. Generar y guardar Estrategias de Marketing para alcanzar un mínimo de 8 sin borrar las existentes
+    // 2. Generar y guardar Estrategias de Marketing para alcanzar un mínimo de 3 sin borrar las existentes
     const existingStrategies = await prisma.marketingStrategy.findMany({
       where: { businessId }
     });
     const existingCount = existingStrategies.length;
     const savedStrategies = [...existingStrategies];
 
-    if (existingCount < 8) {
-      const needed = 8 - existingCount;
+    if (existingCount < 3) {
+      const needed = 3 - existingCount;
       console.log(`[CASCADE] Detectadas ${existingCount} estrategias. Generando ${needed} estrategias adicionales...`);
       await addAgentNotification(
         businessId, 
         "Agente de Diagnóstico y Estrategia", 
-        `Detectadas ${existingCount} estrategias. Iniciando generación de ${needed} estrategias adicionales para alcanzar el mínimo de 8.`, 
+        `Detectadas ${existingCount} estrategias. Iniciando generación de ${needed} estrategias adicionales para alcanzar el mínimo de 3.`, 
         "DIAGNOSTIC", 
         "PROCESSING"
       );
@@ -209,20 +238,20 @@ export async function triggerCascadeGeneration(businessId: string) {
       await addAgentNotification(
         businessId, 
         "Agente de Growth & Estrategia", 
-        `Ya tienes ${existingCount} estrategias en tu panel (mínimo de 8 cubierto).`, 
+        `Ya tienes ${existingCount} estrategias en tu panel (mínimo de 3 cubierto).`, 
         "STRATEGY", 
         "COMPLETED"
       );
     }
 
-    // 3. Generar Campañas de Marketing para alcanzar un mínimo de 8 sin borrar nada
+    // 3. Generar Campañas de Marketing para alcanzar un mínimo de 3 sin borrar nada
     const existingCampaigns = await prisma.campaign.findMany({
       where: { businessId }
     });
     const campaignsCount = existingCampaigns.length;
 
-    if (campaignsCount < 8) {
-      const neededCampaigns = 8 - campaignsCount;
+    if (campaignsCount < 3) {
+      const neededCampaigns = 3 - campaignsCount;
       console.log(`[CASCADE] Detectadas ${campaignsCount} campañas. Generando ${neededCampaigns} campañas adicionales...`);
       
       await addAgentNotification(
@@ -252,26 +281,41 @@ export async function triggerCascadeGeneration(businessId: string) {
             startDate: new Date(camp.startDate),
             endDate: new Date(camp.endDate),
             status: "ACTIVE",
-            channels: camp.channels || ['INSTAGRAM'],
+            channels: (camp.channels || ['FACEBOOK', 'INSTAGRAM', 'TIKTOK']).map((chan: any) => {
+              if (typeof chan === 'object' && chan !== null) return chan;
+              return {
+                platform: chan,
+                isActive: true,
+                budget: Math.round((camp.budget || 100) / (camp.channels?.length || 3))
+              };
+            }),
             budget: camp.budget || 100,
+            targeting: camp.targeting || {},
           }
         });
 
-        // Crear planificación de publicaciones (Content)
+        // Crear planificación de publicaciones (Content) para todos los canales de la campaña
         if (camp.contents && Array.isArray(camp.contents)) {
+          const campaignChannels = Array.isArray(createdCampaign.channels) 
+            ? (createdCampaign.channels as any[]).map(c => c.platform || String(c))
+            : ['INSTAGRAM'];
+
           for (const post of camp.contents) {
-            await prisma.content.create({
-              data: {
-                campaignId: createdCampaign.id,
-                type: (post.type as any) || "POST",
-                title: post.title,
-                body: post.body || '',
-                caption: post.caption || '',
-                channel: (post.channel as any) || "INSTAGRAM",
-                status: "SCHEDULED",
-                scheduledAt: new Date(post.scheduledAt),
-              }
-            });
+            for (const chan of campaignChannels) {
+              const normalizedChannel = String(chan).toUpperCase();
+              await prisma.content.create({
+                data: {
+                  campaignId: createdCampaign.id,
+                  type: (post.type as any) || "POST",
+                  title: post.title,
+                  body: post.body || '',
+                  caption: post.caption || '',
+                  channel: (normalizedChannel as any) || "INSTAGRAM",
+                  status: "SCHEDULED",
+                  scheduledAt: new Date(post.scheduledAt),
+                }
+              });
+            }
           }
         }
       }
@@ -289,7 +333,7 @@ export async function triggerCascadeGeneration(businessId: string) {
       await addAgentNotification(
         businessId, 
         "Agente de Campañas de Marketing", 
-        `Ya tienes ${campaignsCount} campañas activas y programadas en tu panel (mínimo de 8 cubierto).`, 
+        `Ya tienes ${campaignsCount} campañas activas y programadas en tu panel (mínimo de 3 cubierto).`, 
         "CAMPAIGN", 
         "COMPLETED"
       );
@@ -302,6 +346,17 @@ export async function triggerCascadeGeneration(businessId: string) {
       "CALENDAR", 
       "COMPLETED"
     );
+
+    // Guardar fecha de última generación exitosa en settings
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        settings: {
+          ...settings,
+          lastCascadeGeneratedAt: new Date().toISOString()
+        }
+      }
+    });
 
   } catch (error) {
     console.error('[CASCADE] Error en el flujo de cascada:', error);
@@ -430,6 +485,11 @@ export async function generateCampaignsCascade(business: { name: string }, strat
           endDate: z.string(),
           channels: z.array(z.string()),
           budget: z.number(),
+          targeting: z.object({
+            locations: z.array(z.string()),
+            ageRange: z.array(z.number()),
+            interests: z.array(z.string())
+          }),
           contents: z.array(z.object({
             type: z.enum(['POST', 'STORY', 'REEL', 'VIDEO', 'CAROUSEL', 'EMAIL', 'AD']),
             title: z.string(),
@@ -440,7 +500,7 @@ export async function generateCampaignsCascade(business: { name: string }, strat
           }))
         }))
       }),
-      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes.`,
+      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes. Regla clave: Cada campaña generada debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas).`,
       prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
         `\nGenera fechas coherentes de planificación en formato ISO que inicien desde hoy en adelante.`,

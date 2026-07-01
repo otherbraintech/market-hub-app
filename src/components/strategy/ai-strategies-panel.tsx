@@ -15,15 +15,24 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 interface AiStrategiesPanelProps {
   businessId: string;
-  existingStrategiesCount: number;
+  existingStrategies: any[];
 }
 
-export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStrategiesPanelProps) {
+export function AiStrategiesPanel({ businessId, existingStrategies }: AiStrategiesPanelProps) {
   const [loading, setLoading] = useState(true);
   const [strategies, setStrategies] = useState<any[]>([]);
   const [importingIdx, setImportingIdx] = useState<number | null>(null);
   const [importedIndices, setImportedIndices] = useState<number[]>([]);
   const router = useRouter();
+
+  // Helper to determine if a suggested strategy has already been imported/saved
+  const isStrategyAlreadyImported = (stratName: string) => {
+    const cleanStratName = stratName.replace(/✨/g, "").replace(/\[IA\]/g, "").trim().toLowerCase();
+    return existingStrategies.some((s: any) => {
+      const cleanExistingName = s.name.replace(/✨/g, "").replace(/\[IA\]/g, "").trim().toLowerCase();
+      return cleanExistingName === cleanStratName;
+    });
+  };
 
   // Carga automática inicial de las sugerencias preguardadas en la base de datos
   useEffect(() => {
@@ -57,12 +66,10 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
       if (res.ok) {
         const data = await res.json();
         if (data.strategies && data.strategies.length > 0) {
+          setStrategies(data.strategies);
           if (forceRefresh) {
-            // Si es regenerar, añadimos las nuevas al final de las ya existentes (acumular abajo)
-            setStrategies(prev => [...prev, ...data.strategies]);
-            toast.success("¡Nuevas estrategias generadas y guardadas!");
+            toast.success("¡Propuestas de estrategia regeneradas y actualizadas!");
           } else {
-            setStrategies(data.strategies);
             toast.success("¡Estrategias generadas con éxito!");
           }
           // Limpiar índices importados anteriores al regenerar
@@ -97,7 +104,7 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
       if (res.success) {
         toast.success(`Estrategia "${strategy.name}" importada exitosamente.`);
         setImportedIndices([...importedIndices, idx]);
-        router.refresh();
+        window.location.reload();
       } else {
         toast.error(res.error || "Error al importar la estrategia.");
       }
@@ -136,7 +143,7 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
       if (successCount > 0) {
         toast.success(`¡${successCount} estrategias importadas exitosamente!`);
         setImportedIndices(strategies.map((_, idx) => idx));
-        router.refresh();
+        window.location.reload();
       } else {
         toast.error("Error al importar las estrategias.");
       }
@@ -215,7 +222,7 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
                 variant="default"
                 size="sm"
                 onClick={handleImportAll}
-                disabled={loading || importedIndices.length === strategies.length}
+                disabled={loading || strategies.every((strat, idx) => importedIndices.includes(idx) || isStrategyAlreadyImported(strat.name))}
                 className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-xs gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
               >
                 <Check className="h-3.5 w-3.5" />
@@ -232,7 +239,7 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
           ) : (
             <div className="grid gap-6 lg:grid-cols-3">
               {strategies.map((strat, idx) => {
-                const isImported = importedIndices.includes(idx);
+                const isImported = importedIndices.includes(idx) || isStrategyAlreadyImported(strat.name);
                 return (
                   <Card key={idx} className="border border-violet-100/80 bg-gradient-to-b from-white to-slate-50/20 shadow-sm flex flex-col justify-between group hover:shadow-md hover:border-violet-200/50 transition-all duration-300">
                     <CardHeader className="pb-4 border-b border-slate-50">

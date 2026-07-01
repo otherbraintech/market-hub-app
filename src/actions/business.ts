@@ -275,3 +275,33 @@ export async function getBusinessAction(id: string) {
   
   return business;
 }
+
+export async function updateBusinessSettings(id: string, settings: any) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const business = await prisma.business.findFirst({
+      where: { id, userId: session.user.id }
+    });
+    if (!business) {
+      return { success: false, error: "Negocio no encontrado o no autorizado" };
+    }
+
+    const currentSettings = (business.settings as Record<string, any>) || {};
+    const newSettings = { ...currentSettings, ...settings };
+
+    await prisma.business.update({
+      where: { id },
+      data: { settings: newSettings }
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating settings:", error);
+    return { success: false, error: error.message || "Error al actualizar la configuración" };
+  }
+}

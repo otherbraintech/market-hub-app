@@ -119,26 +119,41 @@ export async function importCampaignAction(businessId: string, camp: any) {
         startDate: new Date(camp.startDate),
         endDate: camp.endDate ? new Date(camp.endDate) : null,
         status: "ACTIVE",
-        channels: camp.channels || ['INSTAGRAM'],
+        channels: (camp.channels || ['FACEBOOK', 'INSTAGRAM', 'TIKTOK']).map((chan: any) => {
+          if (typeof chan === 'object' && chan !== null) return chan;
+          return {
+            platform: chan,
+            isActive: true,
+            budget: Math.round((camp.budget || 100) / (camp.channels?.length || 3))
+          };
+        }),
         budget: camp.budget || 100,
+        targeting: camp.targeting || {},
       }
     });
 
-    // Crear planificación de publicaciones (Content)
+    // Crear planificación de publicaciones (Content) para todos los canales de la campaña
     if (camp.contents && Array.isArray(camp.contents)) {
+      const campaignChannels = Array.isArray(createdCampaign.channels) 
+        ? (createdCampaign.channels as any[]).map(c => c.platform || String(c))
+        : ['INSTAGRAM'];
+
       for (const post of camp.contents) {
-        await prisma.content.create({
-          data: {
-            campaignId: createdCampaign.id,
-            type: (post.type as any) || "POST",
-            title: post.title,
-            body: post.body || '',
-            caption: post.caption || '',
-            channel: (post.channel as any) || "INSTAGRAM",
-            status: "SCHEDULED",
-            scheduledAt: new Date(post.scheduledAt),
-          }
-        });
+        for (const chan of campaignChannels) {
+          const normalizedChannel = String(chan).toUpperCase();
+          await prisma.content.create({
+            data: {
+              campaignId: createdCampaign.id,
+              type: (post.type as any) || "POST",
+              title: post.title,
+              body: post.body || '',
+              caption: post.caption || '',
+              channel: (normalizedChannel as any) || "INSTAGRAM",
+              status: "SCHEDULED",
+              scheduledAt: new Date(post.scheduledAt),
+            }
+          });
+        }
       }
     }
 

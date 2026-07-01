@@ -19,17 +19,39 @@ interface AiStrategiesPanelProps {
 }
 
 export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStrategiesPanelProps) {
-  const [loading, setLoading] = useState(existingStrategiesCount === 0);
+  const [loading, setLoading] = useState(true);
   const [strategies, setStrategies] = useState<any[]>([]);
   const [importingIdx, setImportingIdx] = useState<number | null>(null);
   const [importedIndices, setImportedIndices] = useState<number[]>([]);
   const router = useRouter();
 
+  // Carga automática inicial de las sugerencias preguardadas en la base de datos
+  useEffect(() => {
+    const fetchSavedProposals = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/business/${businessId}/suggest-complete-strategies`, {
+          method: "GET"
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.strategies && data.strategies.length > 0) {
+            setStrategies(data.strategies);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching saved proposals:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSavedProposals();
+  }, [businessId]);
+
   const handleGenerate = async (forceRefresh = false) => {
     try {
       setLoading(true);
-      // Siempre usamos ?autoSave=true para que las propuestas se graben directo en la BBDD de inmediato y no se pierdan
-      const res = await fetch(`/api/business/${businessId}/suggest-complete-strategies?autoSave=true${forceRefresh ? '&refresh=true' : ''}`, {
+      const res = await fetch(`/api/business/${businessId}/suggest-complete-strategies${forceRefresh ? '?refresh=true' : ''}`, {
         method: "POST"
       });
       if (res.ok) {
@@ -41,8 +63,10 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
             toast.success("¡Nuevas estrategias generadas y guardadas!");
           } else {
             setStrategies(data.strategies);
+            toast.success("¡Estrategias generadas con éxito!");
           }
-          router.refresh(); // Refrescar los datos del servidor para que aparezcan en la pestaña principal
+          // Limpiar índices importados anteriores al regenerar
+          setImportedIndices([]);
         } else {
           toast.error("No se pudieron generar propuestas viables.");
         }
@@ -57,19 +81,11 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
     }
   };
 
-  // Carga automática inicial SOLO si el negocio NO tiene ninguna estrategia creada
-  useEffect(() => {
-    if (existingStrategiesCount === 0) {
-      handleGenerate(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [businessId, existingStrategiesCount]);
-
   const handleImport = async (idx: number, strategy: any) => {
     try {
       setImportingIdx(idx);
       const res = await createStrategyAction(businessId, {
-        name: strategy.name,
+        name: strategy.name.startsWith("✨") ? strategy.name : `✨ ${strategy.name}`,
         description: strategy.description,
         isActive: false, // Inactiva por defecto para que el usuario la active cuando quiera
         objectives: strategy.objectives,
@@ -93,6 +109,45 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
     }
   };
 
+  const handleImportAll = async () => {
+    try {
+      setLoading(true);
+      let successCount = 0;
+      for (let i = 0; i < strategies.length; i++) {
+        // Omitir si ya está importada
+        if (importedIndices.includes(i)) continue;
+        
+        const strategy = strategies[i];
+        const res = await createStrategyAction(businessId, {
+          name: strategy.name.startsWith("✨") ? strategy.name : `✨ ${strategy.name}`,
+          description: strategy.description,
+          isActive: false,
+          objectives: strategy.objectives,
+          personas: strategy.personas,
+          funnelStages: strategy.funnelStages,
+          channels: strategy.channels,
+        });
+
+        if (res.success) {
+          successCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`¡${successCount} estrategias importadas exitosamente!`);
+        setImportedIndices(strategies.map((_, idx) => idx));
+        router.refresh();
+      } else {
+        toast.error("Error al importar las estrategias.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Error inesperado al intentar guardar todas.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {strategies.length === 0 ? (
@@ -106,10 +161,10 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
             </div>
             <div className="space-y-2 max-w-sm">
               <CardTitle className="text-lg font-bold text-slate-800">
-                Generando sugerencias estratégicas con IA...
+                Cargando sugerencias...
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                Estamos analizando tus productos y los canales de tu competencia para formular propuestas personalizadas.
+                Buscando propuestas preguardadas o analizando el perfil del negocio.
               </CardDescription>
             </div>
             <Loader2 className="h-5 w-5 animate-spin text-violet-600" />
@@ -131,7 +186,7 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
             <Button 
               onClick={() => handleGenerate(false)} 
               disabled={loading}
-              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-6 py-5 rounded-xl shadow-md shadow-violet-500/15 flex items-center gap-2 transition-all active:scale-[0.98]"
+              className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-bold px-6 py-5 rounded-xl shadow-md shadow-violet-500/15 flex items-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
             >
               <Sparkles className="h-4 w-4 text-violet-100" />
               Generar 3 Estrategias con IA
@@ -145,16 +200,28 @@ export function AiStrategiesPanel({ businessId, existingStrategiesCount }: AiStr
               <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Propuestas Estratégicas Listas</h3>
               <p className="text-xs text-muted-foreground">Revisa las opciones detalladas y guarda la que mejor se adapte.</p>
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleGenerate(true)}
-              disabled={loading}
-              className="gap-1.5 text-xs border-violet-200/80 bg-violet-50 hover:bg-violet-100 text-violet-700"
-            >
-              <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-              Regenerar Propuestas
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleGenerate(true)}
+                disabled={loading}
+                className="gap-1.5 text-xs border-violet-200/80 bg-violet-50 hover:bg-violet-100 text-violet-700 cursor-pointer"
+              >
+                <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+                Regenerar Propuestas
+              </Button>
+              <Button 
+                variant="default"
+                size="sm"
+                onClick={handleImportAll}
+                disabled={loading || importedIndices.length === strategies.length}
+                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold text-xs gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Guardar todas
+              </Button>
+            </div>
           </div>
 
           {loading ? (

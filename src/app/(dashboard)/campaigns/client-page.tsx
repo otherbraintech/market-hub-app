@@ -15,6 +15,23 @@ import CreateCampaignModal from "@/components/campaigns/create-campaign-modal";
 import { DeleteCampaignButton } from "@/components/campaigns/delete-campaign-button";
 import { CampaignPlannerButton } from "@/components/campaigns/campaign-planner-button";
 import { ViewCampaignModal } from "@/components/campaigns/view-campaign-modal";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AiCampaignsPanel } from "@/components/campaigns/ai-campaigns-panel";
+import { Trash, AlertTriangle } from "lucide-react";
+import { deleteCampaignsAction } from "@/actions/campaign";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CampaignsClientPageProps {
   initialCampaigns: any[];
@@ -29,6 +46,10 @@ export function CampaignsClientPage({
 }: CampaignsClientPageProps) {
   const [campaigns, setCampaigns] = useState(initialCampaigns);
   const [isAutoGenerating, setIsAutoGenerating] = useState(false);
+  const [isAutoGenerateEnabled, setIsAutoGenerateEnabled] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<string[]>([]);
+  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
   const router = useRouter();
 
   // Mapeo de colores de estado de campañas
@@ -48,9 +69,29 @@ export function CampaignsClientPage({
     COMPLETED: "Completada",
   };
 
+  // Cargar preferencia del localStorage
+  useEffect(() => {
+    setIsMounted(true);
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ob_markethub_auto_generate_campaigns");
+      if (saved === "false") {
+        setIsAutoGenerateEnabled(false);
+      }
+    }
+  }, []);
+
+  const handleToggleAutoGenerate = (checked: boolean) => {
+    setIsAutoGenerateEnabled(checked);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ob_markethub_auto_generate_campaigns", String(checked));
+      toast.success(checked ? "Auto-generación de IA activada para onboarding" : "Auto-generación de IA desactivada");
+    }
+  };
+
   // Efecto para autogenerar las 6 campañas y planificaciones si no hay ninguna
   useEffect(() => {
-    if (initialCampaigns.length === 0 && !isAutoGenerating) {
+    if (!isMounted) return;
+    if (initialCampaigns.length === 0 && !isAutoGenerating && isAutoGenerateEnabled) {
       const runAutoGeneration = async () => {
         try {
           setIsAutoGenerating(true);
@@ -71,7 +112,7 @@ export function CampaignsClientPage({
       runAutoGeneration();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isMounted, isAutoGenerateEnabled]);
 
   const handleRegenerateAll = async () => {
     try {
@@ -93,6 +134,20 @@ export function CampaignsClientPage({
     }
   };
 
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedCampaignIds.length === 0) return;
+    const res = await deleteCampaignsAction(selectedCampaignIds, selectedBusinessId);
+    if (res.success) {
+      toast.success(res.message);
+      setSelectedCampaignIds([]);
+      setIsBulkDeleteAlertOpen(false);
+      window.location.reload();
+    } else {
+      toast.error(res.error || "Error al eliminar las campañas");
+      setIsBulkDeleteAlertOpen(false);
+    }
+  };
+
   return (
     <div className="p-8 space-y-8">
       {/* CABECERA PRINCIPAL */}
@@ -102,11 +157,51 @@ export function CampaignsClientPage({
           <p className="text-muted-foreground text-sm">Monitorea y previsualiza las campañas sincronizadas con tus estrategias.</p>
         </div>
         <div className="flex items-center gap-3">
+          {campaigns.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (selectedCampaignIds.length === campaigns.length) {
+                  setSelectedCampaignIds([]);
+                } else {
+                  setSelectedCampaignIds(campaigns.map(c => c.id));
+                }
+              }}
+              className="h-10 text-xs font-semibold border-slate-200 hover:bg-slate-50 text-slate-700 dark:text-slate-350 cursor-pointer"
+            >
+              {selectedCampaignIds.length === campaigns.length ? "Deseleccionar todo" : "Seleccionar todo"}
+            </Button>
+          )}
+          {selectedCampaignIds.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => setIsBulkDeleteAlertOpen(true)}
+              className="h-10 text-xs font-semibold shadow-md active:scale-95 transition-all cursor-pointer hover:bg-red-700 hover:text-white"
+            >
+              <Trash className="mr-2 h-4 w-4" /> Eliminar ({selectedCampaignIds.length})
+            </Button>
+          )}
+
+          <div className="flex items-center gap-2 border bg-muted/10 rounded-xl p-2 px-3 h-10">
+            {isMounted ? (
+              <Switch
+                id="auto-generate-campaigns"
+                checked={isAutoGenerateEnabled}
+                onCheckedChange={handleToggleAutoGenerate}
+              />
+            ) : (
+              <div className="w-9 h-5 bg-slate-200 dark:bg-slate-800 rounded-full shrink-0" />
+            )}
+            <Label htmlFor="auto-generate-campaigns" className="text-xs font-bold text-slate-700 dark:text-slate-350 cursor-pointer">
+              Auto-generar (Onboarding)
+            </Label>
+          </div>
+
           <Button 
             variant="outline" 
             onClick={handleRegenerateAll}
             disabled={isAutoGenerating}
-            className="text-xs font-semibold gap-1.5 border-violet-200 bg-violet-50/50 text-violet-700 hover:bg-violet-100"
+            className="text-xs font-semibold gap-1.5 border-violet-200 bg-violet-50/50 text-violet-700 hover:bg-violet-100 cursor-pointer"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isAutoGenerating ? 'animate-spin' : ''}`} />
             Regenerar Circuito IA (6 Campañas)
@@ -133,133 +228,184 @@ export function CampaignsClientPage({
           </div>
         </Card>
       ) : (
-        <>
-          {/* METRICAS RAPIDAS */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="bg-primary/5 border-primary/20 hover:scale-[1.01] transition-transform duration-300">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Campañas</span>
-                </div>
-                <div className="text-3xl font-black tracking-tight">{campaigns.length}</div>
-              </CardContent>
-            </Card>
-            <Card className="hover:scale-[1.01] transition-transform duration-300">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Activas Ahora</span>
-                </div>
-                <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'ACTIVE').length}</div>
-              </CardContent>
-            </Card>
-            <Card className="hover:scale-[1.01] transition-transform duration-300">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Programadas</span>
-                </div>
-                <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'SCHEDULED').length}</div>
-              </CardContent>
-            </Card>
-          </div>
+        <Tabs defaultValue="list" className="w-full space-y-6">
+          <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+            <TabsTrigger value="list" className="font-semibold">Mis Campañas</TabsTrigger>
+            <TabsTrigger value="ai-suggestions" className="font-semibold flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+              Propuestas de IA
+            </TabsTrigger>
+          </TabsList>
 
-          {/* LISTADO DE CAMPAÑAS */}
-          {campaigns.length === 0 ? (
-            <Card className="flex flex-col items-center justify-center p-12 text-center border-dashed border-2 border-muted/50 bg-muted/5 rounded-2xl">
-              <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Target className="h-6 w-6 text-primary" />
-              </div>
-              <h2 className="text-xl font-bold">No hay campañas de marketing aún</h2>
-              <p className="text-muted-foreground max-w-sm mt-2 text-xs leading-relaxed">
-                Espera un momento mientras el circuito automatizado inicializa tus campañas, o créalas tú mismo manualmente.
-              </p>
-            </Card>
-          ) : (
-            <div className="grid gap-6">
-              {campaigns.map((campaign) => (
-                <Card key={campaign.id} className="overflow-hidden hover:shadow-md border border-muted/40 transition-shadow duration-300">
-                  <div className="flex flex-col md:flex-row">
-                    <div className="flex-1 p-6 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={`${statusColors[campaign.status]} text-[10px] font-bold border`}>
-                          {statusTranslations[campaign.status] || campaign.status}
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{campaign.business.name}</span>
-                        {campaign.strategy?.name && (
-                          <Badge variant="secondary" className="text-[9px] bg-violet-100 text-violet-700 border-none font-semibold">
-                            {campaign.strategy.name}
-                          </Badge>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-xl font-black tracking-tight mb-1">{campaign.name}</h3>
-                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 max-w-2xl">
-                          {campaign.description}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-5 text-[11px] pt-1 font-medium">
-                        <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
-                          <CalendarIcon className="h-3.5 w-3.5" />
-                          {format(new Date(campaign.startDate), "d MMM", { locale: es })} - {campaign.endDate ? format(new Date(campaign.endDate), "d MMM yyyy", { locale: es }) : "Continuo"}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
-                          <Target className="h-3.5 w-3.5" />
-                          {campaign.objective}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
-                          <Users className="h-3.5 w-3.5" />
-                          {campaign._count.contents} Publicaciones planificadas
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-muted/10 p-6 md:w-64 border-t md:border-t-0 md:border-l border-muted/20 flex flex-col justify-between space-y-4">
-                      <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Presupuesto Asignado</p>
-                        <p className="text-xl font-black text-foreground">{campaign.budget ? `$${campaign.budget.toString()} USD` : "No definido"}</p>
-                      </div>
-                      <div className="space-y-2">
-                        {campaign._count.contents === 0 ? (
-                          <CampaignPlannerButton campaignId={campaign.id} businessId={campaign.businessId} hasContent={false} />
-                        ) : (
-                          <Link href={`/calendar?campaignId=${campaign.id}`} className="block w-full">
-                            <Button className="w-full text-xs font-semibold relative overflow-hidden transition-all duration-300 hover:scale-[1.02] shadow-sm border-0 group px-3 py-1.5 gradient-primary">
-                              <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-white shrink-0" />
-                              <span>Ver Calendario</span>
-                            </Button>
-                          </Link>
-                        )}
-                        <div className="flex flex-wrap gap-1.5 w-full">
-                          <div className="flex-1 min-w-[70px]">
-                            <ViewCampaignModal campaign={campaign} />
-                          </div>
-                          <div className="flex-1 min-w-[70px]">
-                            <CreateCampaignModal 
-                              businessId={selectedBusinessId} 
-                              editCampaignId={campaign.id} 
-                              initialCampaignData={campaign}
-                              trigger={
-                                <Button className="w-full text-xs font-semibold" variant="outline" size="sm">
-                                  Editar
-                                </Button>
-                              }
-                            />
-                          </div>
-                          <DeleteCampaignButton campaignId={campaign.id} businessId={campaign.businessId} />
-                        </div>
-                      </div>
-                    </div>
+          <TabsContent value="list" className="space-y-6">
+            {/* METRICAS RAPIDAS */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="bg-primary/5 border-primary/20 hover:scale-[1.01] transition-transform duration-300">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Campañas</span>
                   </div>
-                </Card>
-              ))}
+                  <div className="text-3xl font-black tracking-tight">{campaigns.length}</div>
+                </CardContent>
+              </Card>
+              <Card className="hover:scale-[1.01] transition-transform duration-300">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Activas Ahora</span>
+                  </div>
+                  <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'ACTIVE').length}</div>
+                </CardContent>
+              </Card>
+              <Card className="hover:scale-[1.01] transition-transform duration-300">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Programadas</span>
+                  </div>
+                  <div className="text-3xl font-black tracking-tight">{campaigns.filter(c => c.status === 'SCHEDULED').length}</div>
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </>
+
+            {/* LISTADO DE CAMPAÑAS */}
+            {campaigns.length === 0 ? (
+              <Card className="flex flex-col items-center justify-center p-12 text-center border-dashed border-2 border-muted/50 bg-muted/5 rounded-2xl">
+                <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <Target className="h-6 w-6 text-primary" />
+                </div>
+                <h2 className="text-xl font-bold">No hay campañas de marketing aún</h2>
+                <p className="text-muted-foreground max-w-sm mt-2 text-xs leading-relaxed">
+                  Espera un momento mientras el circuito automatizado inicializa tus campañas, o créalas tú mismo manualmente.
+                </p>
+              </Card>
+            ) : (
+              <div className="grid gap-6">
+                {campaigns.map((campaign) => (
+                  <Card key={campaign.id} className="overflow-hidden hover:shadow-md border border-muted/40 transition-shadow duration-300">
+                    <div className="flex flex-col md:flex-row">
+                      <div className="flex-1 p-6 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedCampaignIds.includes(campaign.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedCampaignIds((prev) =>
+                                checked
+                                  ? [...prev, campaign.id]
+                                  : prev.filter((id) => id !== campaign.id)
+                              );
+                            }}
+                            className="shadow-sm border-slate-300 dark:border-slate-700 mr-1"
+                          />
+                          <Badge variant="outline" className={`${statusColors[campaign.status]} text-[10px] font-bold border`}>
+                            {statusTranslations[campaign.status] || campaign.status}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">{campaign.business.name}</span>
+                          {campaign.strategy?.name && (
+                            <Badge variant="secondary" className="text-[9px] bg-violet-100 text-violet-700 border-none font-semibold">
+                              {campaign.strategy.name}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <h3 className="text-xl font-black tracking-tight mb-1">{campaign.name}</h3>
+                          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 max-w-2xl">
+                            {campaign.description}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-5 text-[11px] pt-1 font-medium">
+                          <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
+                            <CalendarIcon className="h-3.5 w-3.5" />
+                            {format(new Date(campaign.startDate), "d MMM", { locale: es })} - {campaign.endDate ? format(new Date(campaign.endDate), "d MMM yyyy", { locale: es }) : "Continuo"}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
+                            <Target className="h-3.5 w-3.5" />
+                            {campaign.objective}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-muted-foreground bg-muted/30 px-2.5 py-1 rounded-md">
+                            <Users className="h-3.5 w-3.5" />
+                            {campaign._count.contents} Publicaciones planificadas
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-muted/10 p-6 md:w-64 border-t md:border-t-0 md:border-l border-muted/20 flex flex-col justify-between space-y-4">
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Presupuesto Asignado</p>
+                          <p className="text-xl font-black text-foreground">{campaign.budget ? `$${campaign.budget.toString()} USD` : "No definido"}</p>
+                        </div>
+                        <div className="space-y-2">
+                          {campaign._count.contents === 0 ? (
+                            <CampaignPlannerButton campaignId={campaign.id} businessId={campaign.businessId} hasContent={false} />
+                          ) : (
+                            <Link href={`/calendar?campaignId=${campaign.id}`} className="block w-full">
+                              <Button className="w-full text-xs font-semibold relative overflow-hidden transition-all duration-300 hover:scale-[1.02] shadow-sm border-0 group px-3 py-1.5 gradient-primary">
+                                <CalendarIcon className="mr-1.5 h-3.5 w-3.5 text-white shrink-0" />
+                                <span>Ver Calendario</span>
+                              </Button>
+                            </Link>
+                          )}
+                          <div className="flex flex-wrap gap-1.5 w-full">
+                            <div className="flex-1 min-w-[70px]">
+                              <ViewCampaignModal campaign={campaign} />
+                            </div>
+                            <div className="flex-1 min-w-[70px]">
+                              <CreateCampaignModal 
+                                businessId={selectedBusinessId} 
+                                editCampaignId={campaign.id} 
+                                initialCampaignData={campaign}
+                                trigger={
+                                  <Button className="w-full text-xs font-semibold" variant="outline" size="sm">
+                                    Editar
+                                  </Button>
+                                }
+                              />
+                            </div>
+                            <DeleteCampaignButton campaignId={campaign.id} businessId={campaign.businessId} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="ai-suggestions" className="space-y-6">
+            <AiCampaignsPanel businessId={selectedBusinessId} existingCampaignsCount={campaigns.length} />
+          </TabsContent>
+        </Tabs>
       )}
+
+      {/* Dialogo de Confirmacion para Eliminar Varias Campañas */}
+      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
+        <AlertDialogContent className="border border-muted/20 rounded-2xl shadow-2xl bg-background">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+              ¿Estás seguro de eliminar estas campañas?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground">
+              Esta acción no se puede deshacer. Se eliminarán permanentemente las {selectedCampaignIds.length} campañas seleccionadas del negocio y todas sus publicaciones asociadas del calendario.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="text-xs font-semibold rounded-lg h-9">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg h-9 shadow-sm"
+            >
+              Eliminar seleccionadas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

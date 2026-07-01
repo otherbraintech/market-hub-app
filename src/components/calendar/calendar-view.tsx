@@ -63,6 +63,7 @@ import {
   Edit,
   Save,
   X,
+  Send,
   AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
@@ -73,7 +74,10 @@ import {
   createContentAction,
   generateSingleContentIdeaAction,
   previewCampaignCalendarAction,
-  savePlannedCampaignCalendarAction
+  savePlannedCampaignCalendarAction,
+  updateContentStatusAction,
+  generateMediaAction,
+  publishContentAction
 } from "@/actions/content";
 import { format, addDays } from "date-fns";
 import { es } from "date-fns/locale";
@@ -91,6 +95,8 @@ interface ContentItem {
   scheduledAt: string | null; // ISO string
   channel: string | null; // FACEBOOK, INSTAGRAM, TIKTOK, LINKEDIN, YOUTUBE
   promptUsed: string | null;
+  mediaUrl?: string | null;
+  status?: string | null;
 }
 
 interface CalendarViewProps {
@@ -210,9 +216,13 @@ export function CalendarView({
     body: "",
     promptUsed: "",
     campaignId: "",
+    mediaUrl: "",
   });
 
   const [isGeneratingIdea, setIsGeneratingIdea] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isPublishingPost, setIsPublishingPost] = useState(false);
 
   // Estados para planificar con IA
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
@@ -313,6 +323,7 @@ export function CalendarView({
         body: viewingContent.body || "",
         promptUsed: viewingContent.promptUsed || "",
         campaignId: viewingContent.campaignId || (selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || "")),
+        mediaUrl: viewingContent.mediaUrl || "",
       });
       if (viewingContent.id === "new-draft") {
         setIsEditing(true);
@@ -352,59 +363,168 @@ export function CalendarView({
     try {
       const scheduledD = editForm.scheduledAt ? new Date(editForm.scheduledAt) : null;
       
-      const res = await updateCalendarContentAction(
-        viewingContent.id,
-        {
+      let res;
+      if (viewingContent.id === "new-draft") {
+        res = await createContentAction({
           title: editForm.title,
+          channel: editForm.channels[0] || "INSTAGRAM",
           channels: editForm.channels,
-          type: editForm.type,
-          format: editForm.format,
+          type: editForm.type as any,
+          format: editForm.format as any,
           scheduledAt: scheduledD,
           caption: editForm.caption,
           body: editForm.body,
           promptUsed: editForm.promptUsed,
-          campaignId: editForm.campaignId || null,
-        },
-        businessId
-      );
+          campaignId: editForm.campaignId || "",
+          businessId,
+          mediaUrl: editForm.mediaUrl || ""
+        } as any);
+      } else {
+        res = await updateCalendarContentAction(
+          viewingContent.id,
+          {
+            title: editForm.title,
+            channels: editForm.channels,
+            type: editForm.type,
+            format: editForm.format,
+            scheduledAt: scheduledD,
+            caption: editForm.caption,
+            body: editForm.body,
+            promptUsed: editForm.promptUsed,
+            campaignId: editForm.campaignId || null,
+            mediaUrl: editForm.mediaUrl || null,
+          },
+          businessId
+        );
+      }
 
       if (res.success && res.content) {
-        toast.success("¡Publicaciones actualizadas correctamente!");
+        toast.success(viewingContent.id === "new-draft" ? "¡Publicación creada correctamente!" : "¡Publicaciones actualizadas correctamente!");
         
         // Buscar el nombre de la campaña seleccionada localmente para actualizarlo en la lista
         const matchingCampaign = campaigns.find(c => c.id === editForm.campaignId);
         
         // Actualizar estado local al instante para evitar parpadeos
-        setContents(prev => 
-          prev.map(item => 
-            item.id === viewingContent.id 
-              ? { 
-                  ...item, 
-                  title: editForm.title,
-                  channel: editForm.channels[0] || "INSTAGRAM",
-                  type: editForm.type,
-                  format: editForm.format,
-                  scheduledAt: scheduledD ? scheduledD.toISOString() : null,
-                  caption: editForm.caption,
-                  body: editForm.body,
-                  promptUsed: editForm.promptUsed,
-                  campaignId: editForm.campaignId || null,
-                  campaign: matchingCampaign ? { name: matchingCampaign.name } : null
-                } 
-              : item
-          )
-        );
+        setContents(prev => {
+          if (viewingContent.id === "new-draft") {
+            const newItem: ContentItem = {
+              id: res.content.id,
+              campaignId: editForm.campaignId || null,
+              campaign: matchingCampaign ? { name: matchingCampaign.name } : null,
+              type: editForm.type,
+              format: editForm.format,
+              title: editForm.title,
+              body: editForm.body,
+              caption: editForm.caption,
+              hashtags: [],
+              scheduledAt: scheduledD ? scheduledD.toISOString() : null,
+              channel: editForm.channels[0] || "INSTAGRAM",
+              promptUsed: editForm.promptUsed
+            };
+            return [...prev, newItem];
+          } else {
+            return prev.map(item => 
+              item.id === viewingContent.id 
+                ? { 
+                    ...item, 
+                    title: editForm.title,
+                    channel: editForm.channels[0] || "INSTAGRAM",
+                    type: editForm.type,
+                    format: editForm.format,
+                    scheduledAt: scheduledD ? scheduledD.toISOString() : null,
+                    caption: editForm.caption,
+                    body: editForm.body,
+                    promptUsed: editForm.promptUsed,
+                    campaignId: editForm.campaignId || null,
+                    campaign: matchingCampaign ? { name: matchingCampaign.name } : null
+                  } 
+                : item
+            );
+          }
+        });
 
         setViewingContent(null);
         setIsEditing(false);
         router.refresh();
       } else {
-        toast.error(res.error || "No se pudo actualizar el contenido.");
+        toast.error(res.error || "No se pudo guardar el contenido.");
       }
     } catch (e) {
       toast.error("Error al procesar la edición.");
     } finally {
       setIsSavingEdit(false);
+    }
+  };
+
+  // Aprobar publicación
+  const handleApproveContent = async () => {
+    if (!viewingContent) return;
+    setIsApproving(true);
+    try {
+      const res = await updateContentStatusAction(viewingContent.id, "APPROVED", businessId);
+      if (res.success) {
+        toast.success("¡Publicación aprobada con éxito!");
+        setContents(prev => prev.map(item => item.id === viewingContent.id ? { ...item, status: "APPROVED" } : item));
+        setViewingContent(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo aprobar la publicación.");
+      }
+    } catch (e) {
+      toast.error("Ocurrió un error inesperado al aprobar.");
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  // Regenerar publicación con IA
+  const handleRegenerateContent = async () => {
+    if (!viewingContent || !viewingContent.campaignId) {
+      toast.error("La publicación debe estar vinculada a una campaña para regenerar.");
+      return;
+    }
+    setIsRegenerating(true);
+    try {
+      const res = await generateSingleContentIdeaAction(
+        viewingContent.campaignId,
+        businessId,
+        viewingContent.channel || "INSTAGRAM",
+        viewingContent.type,
+        viewingContent.format || "IMAGE"
+      );
+      if (res.success && res.idea) {
+        const saveRes = await updateCalendarContentAction(
+          viewingContent.id,
+          {
+            title: res.idea.title,
+            body: res.idea.body,
+            caption: res.idea.caption,
+            promptUsed: res.idea.promptUsed,
+            mediaUrl: "",
+          },
+          businessId
+        );
+        if (saveRes.success) {
+          toast.success("¡Idea regenerada con éxito!");
+          setEditForm(p => ({
+            ...p,
+            title: res.idea.title,
+            body: res.idea.body,
+            caption: res.idea.caption,
+            promptUsed: res.idea.promptUsed,
+            mediaUrl: "",
+          }));
+          router.refresh();
+        } else {
+          toast.error(saveRes.error || "Error al actualizar la publicación con la nueva idea.");
+        }
+      } else {
+        toast.error(res.error || "No se pudo regenerar la idea.");
+      }
+    } catch (e) {
+      toast.error("Error al procesar la regeneración.");
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -1139,6 +1259,7 @@ export function CalendarView({
                 body: "",
                 promptUsed: "",
                 campaignId: selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || ""),
+                mediaUrl: "",
               });
               setIsEditing(true);
             };
@@ -1335,6 +1456,25 @@ export function CalendarView({
               {!isEditing ? (
                 // MODO LECTURA ESTÁTICA
                 <div className="space-y-6">
+                  {/* MULTIMEDIA */}
+                  {editForm.mediaUrl && (
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block border-b border-muted/25 pb-1">
+                        Material Multimedia Adjunto
+                      </span>
+                      <div className="max-w-md mx-auto aspect-video rounded-xl overflow-hidden border border-muted bg-muted/20 relative flex items-center justify-center">
+                        <img 
+                          src={editForm.mediaUrl} 
+                          alt="Diseño o video adjunto" 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=60";
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* COPY */}
                   {editForm.caption && (
                     <div className="space-y-2">
@@ -1451,15 +1591,37 @@ export function CalendarView({
                                     <Sparkles className="h-3 w-3 text-amber-500 animate-pulse" />
                                     {p.label}
                                   </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleCopyToClipboard(p.prompt, "prompt")}
-                                    className="h-6 text-[9.5px] font-semibold gap-1 text-blue-655 hover:bg-blue-100/50 px-1.5"
-                                  >
-                                    {copiedType === "prompt" ? <Check className="h-2.5 w-2.5 text-green-650" /> : <Copy className="h-2.5 w-2.5" />}
-                                    Copiar Prompt
-                                  </Button>
+                                  <div className="flex items-center gap-1.5">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={async () => {
+                                        toast.info("Iniciando generación de imagen mediante API de Ramón...");
+                                        const res = await generateMediaAction(viewingContent.id, businessId, {
+                                          type: "image",
+                                          prompt: p.prompt
+                                        });
+                                        if (res.success) {
+                                          toast.success("¡Solicitud de generación enviada al microservicio con éxito!");
+                                        } else {
+                                          toast.error(res.error || "Error al solicitar la generación.");
+                                        }
+                                      }}
+                                      className="h-6 text-[9.5px] font-bold gap-1 text-violet-700 hover:bg-violet-100 px-1.5 border border-violet-200 bg-violet-50/30"
+                                    >
+                                      <Sparkles className="h-2.5 w-2.5 text-amber-500 animate-pulse" />
+                                      Generar con API
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleCopyToClipboard(p.prompt, "prompt")}
+                                      className="h-6 text-[9.5px] font-semibold gap-1 text-blue-655 hover:bg-blue-100/50 px-1.5"
+                                    >
+                                      {copiedType === "prompt" ? <Check className="h-2.5 w-2.5 text-green-650" /> : <Copy className="h-2.5 w-2.5" />}
+                                      Copiar Prompt
+                                    </Button>
+                                  </div>
                                 </div>
                                 <div className="bg-background border p-2.5 rounded-lg text-xs leading-relaxed text-foreground/80 italic font-mono select-all">
                                   {p.prompt}
@@ -1641,6 +1803,54 @@ export function CalendarView({
                       className="text-xs min-h-[70px] leading-relaxed focus-visible:ring-blue-600 font-mono"
                     />
                   </div>
+
+                  <div className="space-y-2 p-3 bg-muted/10 border border-muted/20 rounded-xl">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                      Material Multimedia Adjunto
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Ej. https://tuservidor.com/imagen.jpg o sube un archivo"
+                        value={editForm.mediaUrl}
+                        onChange={(e) => setEditForm(p => ({ ...p, mediaUrl: e.target.value }))}
+                        className="text-xs h-9 focus-visible:ring-blue-600 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const mockUrls = [
+                            "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&auto=format&fit=crop&q=60",
+                            "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=600&auto=format&fit=crop&q=60",
+                            "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=600&auto=format&fit=crop&q=60"
+                          ];
+                          const randomUrl = mockUrls[Math.floor(Math.random() * mockUrls.length)];
+                          setEditForm(p => ({ ...p, mediaUrl: randomUrl }));
+                          toast.success("¡Archivo multimedia simulado cargado con éxito!");
+                        }}
+                        className="text-xs h-9 shrink-0 gap-1 border-dashed border-blue-300 text-blue-600 bg-blue-50/50 hover:bg-blue-100"
+                      >
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        Subir Archivo
+                      </Button>
+                    </div>
+                    {editForm.mediaUrl && (
+                      <div className="mt-2 space-y-1">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Vista Previa del Contenido Adjunto</span>
+                        <div className="h-28 w-44 rounded-lg overflow-hidden border border-muted shadow-sm relative flex items-center justify-center bg-black/5">
+                          <img
+                            src={editForm.mediaUrl}
+                            alt="Vista previa de publicación"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=60";
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1663,6 +1873,65 @@ export function CalendarView({
                   </div>
 
                   <div className="flex gap-2">
+                    {viewingContent.status !== "APPROVED" && viewingContent.status !== "PUBLISHED" && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleApproveContent}
+                        disabled={isApproving}
+                        className="text-xs font-semibold gap-1.5 bg-green-600 hover:bg-green-700 text-white shadow-sm border-none"
+                      >
+                        {isApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                        Aprobar Idea
+                      </Button>
+                    )}
+                    {viewingContent.status === "APPROVED" && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={async () => {
+                          setIsPublishingPost(true);
+                          try {
+                            const res = await publishContentAction(viewingContent.id, businessId);
+                            if (res.success) {
+                              toast.success("¡Publicado en redes exitosamente via Autoposteador!");
+                              // Actualizar vista local
+                              setViewingContent(p => p ? { ...p, status: "PUBLISHED" } : null);
+                              // Recargar página después de delay
+                              setTimeout(() => window.location.reload(), 1500);
+                            } else {
+                              toast.error(res.error || "Error al publicar.");
+                            }
+                          } catch (e) {
+                            toast.error("Error al publicar.");
+                          } finally {
+                            setIsPublishingPost(false);
+                          }
+                        }}
+                        disabled={isPublishingPost}
+                        className="text-xs font-bold gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm border-none"
+                      >
+                        {isPublishingPost ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Autopostar Ahora
+                      </Button>
+                    )}
+                    {viewingContent.status === "PUBLISHED" && (
+                      <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 gap-1 text-xs px-3 py-1 font-bold">
+                        <Check className="h-3.5 w-3.5" /> Publicado
+                      </Badge>
+                    )}
+                    {viewingContent.campaignId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRegenerateContent}
+                        disabled={isRegenerating}
+                        className="text-xs font-semibold gap-1.5 border-violet-200 text-violet-700 hover:bg-violet-50"
+                      >
+                        {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />}
+                        Regenerar con IA
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

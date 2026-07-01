@@ -55,18 +55,6 @@ export async function upsertStrategyAction(businessId: string, data: z.infer<typ
       };
       
       await createStrategy(input);
-      // Comprobar y disparar la generación en cascada en background tras guardar/actualizar
-      const [campaignsCount, strategiesCount] = await Promise.all([
-        prisma.campaign.count({ where: { businessId } }),
-        prisma.marketingStrategy.count({ where: { businessId } })
-      ]);
-      if (campaignsCount < 8 || strategiesCount < 8) {
-        import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-          triggerCascadeGeneration(businessId).catch((err: any) => {
-            console.error('[CASCADE] Error en triggerCascadeGeneration desde upsert de estrategia:', err);
-          });
-        });
-      }
 
       revalidatePath(`/business/${businessId}`);
       revalidatePath(`/strategies`);
@@ -104,18 +92,7 @@ export async function createStrategyAction(businessId: string, data: any) {
     revalidatePath(`/business/${businessId}`);
     revalidatePath(`/strategies`);
 
-    // Comprobar y disparar la generación en cascada en background
-    const [campaignsCount, strategiesCount] = await Promise.all([
-      prisma.campaign.count({ where: { businessId } }),
-      prisma.marketingStrategy.count({ where: { businessId } })
-    ]);
-    if (campaignsCount < 8 || strategiesCount < 8) {
-      import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-        triggerCascadeGeneration(businessId).catch(err => {
-          console.error('[CASCADE] Error en triggerCascadeGeneration desde creación de estrategia:', err);
-        });
-      });
-    }
+
 
     return { success: true, strategy, message: "Estrategia creada exitosamente" };
   } catch (error) {
@@ -169,3 +146,34 @@ export async function listStrategiesAction(businessId: string) {
     return { success: false, error: "Error al listar las estrategias del negocio" };
   }
 }
+
+export async function deleteStrategyAction(id: string, businessId: string) {
+  try {
+    await prisma.marketingStrategy.delete({
+      where: { id }
+    });
+    revalidatePath(`/business/${businessId}`);
+    revalidatePath(`/strategies`);
+    return { success: true, message: "Estrategia eliminada con éxito" };
+  } catch (error: any) {
+    console.error("Error al eliminar estrategia:", error);
+    return { success: false, error: error.message || "Error al eliminar la estrategia" };
+  }
+}
+
+export async function deleteStrategiesAction(ids: string[], businessId: string) {
+  try {
+    await prisma.marketingStrategy.deleteMany({
+      where: {
+        id: { in: ids }
+      }
+    });
+    revalidatePath(`/business/${businessId}`);
+    revalidatePath(`/strategies`);
+    return { success: true, message: `${ids.length} estrategias eliminadas con éxito` };
+  } catch (error: any) {
+    console.error("Error al eliminar estrategias:", error);
+    return { success: false, error: error.message || "Error al eliminar las estrategias" };
+  }
+}
+

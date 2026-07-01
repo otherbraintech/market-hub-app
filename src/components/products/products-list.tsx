@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ProductWithTypes } from "@/modules/products";
-import { deleteProductAction } from "@/actions/product";
+import { deleteProductAction, createProductAction, parseMultimodalCatalogAction } from "@/actions/product";
 import { ProductForm } from "./product-form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,9 +30,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Package, MoreHorizontal, Trash, Edit, Plus, Check } from "lucide-react";
+import { Package, MoreHorizontal, Trash, Edit, Plus, Check, Sparkles, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { ProductWithTypes } from "@/modules/products";
 
 // Adaptamos el tipo para el formulario, ya convertiremos de vuelta al enviar
 import { ProductFormValues } from "@/lib/schemas/product";
@@ -45,6 +47,28 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
   const [editingProduct, setEditingProduct] = useState<ProductWithTypes | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  const [isMultimodalOpen, setIsMultimodalOpen] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [catalogText, setCatalogText] = useState("");
+  const [parsedProducts, setParsedProducts] = useState<any[]>([]);
+  const [isSavingParsed, setIsSavingParsed] = useState(false);
+
+  const mockCatalogs = [
+    {
+      name: "Menú de Cafetería Cafetalera",
+      content: `Café Expreso - $2.50 USD: Café concentrado de grano seleccionado.
+Cappuccino Clásico - $3.80 USD: Café expreso, leche espumada y un toque de cocoa.
+Torta de Chocolate Fudge - $4.50 USD: Deliciosa rebanada de pastel húmedo de chocolate con fudge artesanal.
+Muffin de Arándanos - $3.00 USD: Muffin horneado diariamente con arándanos silvestres orgánicos.`
+    },
+    {
+      name: "Catálogo de Servicios de Spa & Relajación",
+      content: `Masaje Relajante de 60 Minutos - $50.00 USD: Masaje corporal completo con aceites esenciales de lavanda para liberar el estrés acumulado.
+Limpieza Facial Profunda - $45.00 USD: Tratamiento purificante de poros con mascarilla hidratante de algas marinas.
+Piedras Calientes Terapéuticas - $70.00 USD: Terapia de calor con piedras volcánicas para descontracturar y relajar los músculos del cuerpo.`
+    }
+  ];
+
   async function handleDelete(id: string) {
     if (confirm("¿Estás seguro de eliminar este producto?")) {
       const result = await deleteProductAction(id, businessId);
@@ -53,6 +77,64 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
       } else {
         toast.error(result.error);
       }
+    }
+  }
+
+  async function handleScanCatalog() {
+    if (!catalogText.trim()) {
+      toast.error("Por favor ingresa texto o contenido del catálogo.");
+      return;
+    }
+    setIsParsing(true);
+    try {
+      const res = await parseMultimodalCatalogAction(catalogText, businessId);
+      if (res.success && res.products) {
+        setParsedProducts(res.products);
+        toast.success(`¡Se han extraído ${res.products.length} productos con éxito! Revisa los detalles antes de digitalizarlos.`);
+      } else {
+        toast.error(res.error || "No se pudo extraer productos del catálogo.");
+      }
+    } catch (e) {
+      toast.error("Error al procesar la solicitud con IA.");
+    } finally {
+      setIsParsing(false);
+    }
+  }
+
+  async function handleSaveParsedProducts() {
+    if (parsedProducts.length === 0) return;
+    setIsSavingParsed(true);
+    try {
+      let savedCount = 0;
+      for (const prod of parsedProducts) {
+        const res = await createProductAction(businessId, {
+          name: prod.name,
+          description: prod.description,
+          shortDesc: prod.description.substring(0, 100),
+          imageUrl: "",
+          features: prod.features.map((f: string) => ({ name: f, description: "" })),
+          benefits: [],
+          pricing: {
+            basePrice: prod.basePrice,
+            currency: prod.currency,
+            period: "one-time"
+          },
+          keywords: prod.features.join(", "),
+          isActive: true
+        });
+        if (res.success) {
+          savedCount++;
+        }
+      }
+      toast.success(`¡Se han digitalizado ${savedCount} de ${parsedProducts.length} productos con éxito!`);
+      setIsMultimodalOpen(false);
+      setCatalogText("");
+      setParsedProducts([]);
+      window.location.reload();
+    } catch (e) {
+      toast.error("Ocurrió un error inesperado al guardar los productos.");
+    } finally {
+      setIsSavingParsed(false);
     }
   }
 
@@ -91,12 +173,22 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">Inventario de Productos</h3>
-        <Button onClick={() => {
-          setEditingProduct(null);
-          setIsDialogOpen(true);
-        }}>
-          <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsMultimodalOpen(true)}
+            className="border-dashed border-violet-250 bg-violet-50/50 text-violet-750 hover:bg-violet-100/80 gap-1.5 font-bold text-xs"
+          >
+            <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
+            Digitalizar Catálogo (IA)
+          </Button>
+          <Button onClick={() => {
+            setEditingProduct(null);
+            setIsDialogOpen(true);
+          }}>
+            <Plus className="mr-2 h-4 w-4" /> Nuevo Producto
+          </Button>
+        </div>
       </div>
 
       {products.length === 0 ? (
@@ -223,6 +315,183 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
                 defaultValues={editingProduct ? mapProductToForm(editingProduct) : undefined} 
                 onSuccess={() => setIsDialogOpen(false)} 
             />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DIGITALIZAR CATALOGO (IA MULTIMODAL) */}
+      <Dialog open={isMultimodalOpen} onOpenChange={setIsMultimodalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500 animate-pulse" />
+              Digitalización Multimodal de Catálogo con IA
+            </DialogTitle>
+            <DialogDescription>
+              Carga una imagen de tu menú, un folleto de servicios o pega el texto plano de tu catálogo para extraer los productos al instante.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-6 p-1">
+            {parsedProducts.length === 0 ? (
+              <div className="space-y-4">
+                {/* Drag-and-drop Area */}
+                <div className="border-2 border-dashed border-muted rounded-xl p-8 text-center bg-muted/5 flex flex-col items-center justify-center space-y-3">
+                  <div className="h-12 w-12 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shadow-sm">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">Arrastra tu Catálogo o Imagen aquí</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Compatible con formatos PDF, PNG, JPG de hasta 10 MB.</p>
+                  </div>
+                </div>
+
+                {/* Predefined mock catalog selection */}
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block">O usa un ejemplo rápido para probar:</span>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {mockCatalogs.map((cat, idx) => (
+                      <Card 
+                        key={idx} 
+                        className="p-4 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer border border-muted/50 transition-colors"
+                        onClick={() => {
+                          setCatalogText(cat.content);
+                          toast.success(`Cargado ejemplo: ${cat.name}`);
+                        }}
+                      >
+                        <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5 mb-1.5">
+                          <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                          {cat.name}
+                        </CardTitle>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed line-clamp-2 italic">
+                          "{cat.content.substring(0, 100)}..."
+                        </p>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                    Texto o Contenido del Catálogo
+                  </label>
+                  <Textarea
+                    placeholder="Pega aquí los nombres, precios y descripciones de tus productos o el texto extraído del archivo..."
+                    value={catalogText}
+                    onChange={(e: any) => setCatalogText(e.target.value)}
+                    className="min-h-[140px] text-xs leading-relaxed"
+                  />
+                </div>
+
+                <Button
+                  onClick={handleScanCatalog}
+                  disabled={isParsing || !catalogText.trim()}
+                  className="w-full text-xs font-semibold h-10 bg-violet-650 hover:bg-violet-700 text-white gap-1.5"
+                >
+                  {isParsing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Procesando e Identificando productos con IA...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+                      Digitalizar Contenido con IA
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : (
+              // TABLA DE PREVISUALIZACION DE PRODUCTOS EXTRAIDOS
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b pb-2">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-violet-700">Productos identificados ({parsedProducts.length})</span>
+                  <Button variant="ghost" size="sm" onClick={() => setParsedProducts([])} className="text-xs text-muted-foreground hover:text-foreground h-8 font-semibold">
+                    ← Volver a Escanear
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {parsedProducts.map((prod, idx) => (
+                    <Card key={idx} className="p-4 border border-muted/50">
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div className="flex-1 space-y-1">
+                          <Input
+                            value={prod.name}
+                            onChange={(e: any) => {
+                              const updated = [...parsedProducts];
+                              updated[idx].name = e.target.value;
+                              setParsedProducts(updated);
+                            }}
+                            className="font-bold text-xs h-8"
+                          />
+                          <Textarea
+                            value={prod.description}
+                            onChange={(e: any) => {
+                              const updated = [...parsedProducts];
+                              updated[idx].description = e.target.value;
+                              setParsedProducts(updated);
+                            }}
+                            className="text-xs min-h-[60px] leading-relaxed resize-none mt-1"
+                          />
+                        </div>
+                        <div className="flex sm:flex-col gap-2 shrink-0 w-36">
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Precio</span>
+                            <Input
+                              type="number"
+                              value={prod.basePrice}
+                              onChange={(e: any) => {
+                                const updated = [...parsedProducts];
+                                updated[idx].basePrice = parseFloat(e.target.value) || 0;
+                                setParsedProducts(updated);
+                              }}
+                              className="text-xs h-8 font-semibold"
+                            />
+                          </div>
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Moneda</span>
+                            <Input
+                              value={prod.currency}
+                              onChange={(e: any) => {
+                                const updated = [...parsedProducts];
+                                updated[idx].currency = e.target.value;
+                                setParsedProducts(updated);
+                              }}
+                              className="text-xs h-8"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-3">
+                        {prod.features?.map((feat: string, fIdx: number) => (
+                          <Badge key={fIdx} variant="secondary" className="text-[9px] font-bold bg-muted/60 text-foreground">
+                            {feat}
+                          </Badge>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={handleSaveParsedProducts}
+                  disabled={isSavingParsed}
+                  className="w-full text-xs font-semibold h-10 bg-green-600 hover:bg-green-700 text-white gap-1.5"
+                >
+                  {isSavingParsed ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Registrando productos en inventario...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Confirmar e Insertar {parsedProducts.length} Productos
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

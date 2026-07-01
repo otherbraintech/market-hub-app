@@ -93,7 +93,7 @@ export async function triggerCascadeGeneration(businessId: string) {
       where: { businessId }
     });
     const existingCount = existingStrategies.length;
-    let savedStrategies = [...existingStrategies];
+    const savedStrategies = [...existingStrategies];
 
     if (existingCount < 8) {
       const needed = 8 - existingCount;
@@ -110,7 +110,7 @@ export async function triggerCascadeGeneration(businessId: string) {
       const businessReports = await prisma.analysisReport.findMany({
         where: { type: 'MY_BUSINESS', entityId: businessId, status: 'COMPLETED', NOT: { channel: 'CONSOLIDATED' } }
       });
-      const businessReportsMap = new Map<string, any>();
+      const businessReportsMap = new Map<string, typeof businessReports[number]>();
       businessReports.forEach((report: typeof businessReports[number]) => {
         const existing = businessReportsMap.get(report.channel);
         if (!existing || (report.completedAt && existing.completedAt && existing.completedAt < report.completedAt)) {
@@ -120,10 +120,11 @@ export async function triggerCascadeGeneration(businessId: string) {
 
       const competitors = await prisma.competitor.findMany({
         where: { businessId },
-        select: { id: true, name: true }
+        select: { id: true, name: true },
+        take: 3
       });
 
-      const competitorReportsList: any[] = [];
+      const competitorReportsList: { competitorName: string; channel: string; data: unknown }[] = [];
       for (const comp of competitors) {
         const compReports = await prisma.analysisReport.findMany({
           where: { type: 'COMPETITOR', entityId: comp.id, status: 'COMPLETED' }
@@ -133,7 +134,7 @@ export async function triggerCascadeGeneration(businessId: string) {
           if (typeof rep.data === 'string') {
             try { parsedData = JSON.parse(rep.data); } catch(e) {}
           }
-          competitorReportsList.push({ competitorName: comp.name, channel: rep.channel, data: parsedData });
+          competitorReportsList.push({ competitorName: comp.name || '', channel: rep.channel, data: parsedData });
         });
       }
 
@@ -160,7 +161,7 @@ export async function triggerCascadeGeneration(businessId: string) {
           };
         }),
         competitorAnalysis: business.competitorGeneralReport,
-        competitorScrapedDetails: competitorReportsList.slice(0, 8),
+        competitorScrapedDetails: competitorReportsList.slice(0, 3),
         isRefresh: true
       };
 
@@ -314,10 +315,29 @@ export async function triggerCascadeGeneration(businessId: string) {
   }
 }
 
+interface CascadeContext {
+  business: {
+    name: string;
+    description: string | null;
+    industry: string | null;
+    website: string | null;
+  };
+  products: unknown[];
+  competitorScrapedDetails: unknown[];
+}
+
+interface Strategy {
+  id: string;
+  name: string;
+  description: string | null;
+}
+
 // Generar estrategias adicionales usando IA o placeholders
-async function generateStrategiesCascade(context: any, count: number) {
+async function generateStrategiesCascade(context: CascadeContext, count: number) {
   const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
   if (!openRouterKey) return getFallbackStrategies(context, count);
+
+  const hasWebsite = context.business.website && context.business.website.trim() !== "";
 
   try {
     const { object } = await generateObject({
@@ -327,35 +347,63 @@ async function generateStrategiesCascade(context: any, count: number) {
           name: z.string(),
           description: z.string(),
           objectives: z.array(z.object({
-            title: z.string(),
-            metric: z.string(),
-            target: z.string(),
-            timeframe: z.string()
+            name: z.string(),
+            specific: z.string(),
+            measurable: z.string(),
+            achievable: z.string(),
+            relevant: z.string(),
+            timeBound: z.string(),
+            targetValue: z.number(),
+            currentValue: z.number().default(0),
+            unit: z.string(),
+            deadline: z.string(),
+            status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).default('PENDING')
           })),
           personas: z.array(z.object({
             name: z.string(),
-            role: z.string(),
             demographics: z.string(),
-            painPoints: z.array(z.string()),
-            goals: z.array(z.string()),
-            channels: z.array(z.string())
+            painPoints: z.string(),
+            goals: z.string(),
+            communication: z.object({
+              tone: z.string(),
+              topics: z.string(),
+              triggers: z.string()
+            })
           })),
           funnelStages: z.array(z.object({
-            stage: z.enum(['awareness', 'consideration', 'decision', 'retention']),
-            strategy: z.string(),
-            contentIdeas: z.array(z.string())
+            name: z.string(),
+            description: z.string(),
+            contentTypes: z.array(z.string()),
+            channels: z.array(z.string()),
+            goals: z.array(z.string()),
+            kpis: z.array(z.string()),
+            ctas: z.array(z.string())
           })),
           channels: z.array(z.object({
             name: z.string(),
+            type: z.enum(["SOCIAL", "EMAIL", "BLOG", "ADS", "OTHER"]),
+            isActive: z.boolean().default(true),
             frequency: z.string(),
-            priority: z.enum(['high', 'medium', 'low']),
-            bestTime: z.string()
+            audienceSize: z.number().default(0)
           })),
           contentPillars: z.array(z.string())
         }))
       }),
-      system: `Eres un estratega digital de élite. Genera exactamente ${count} estrategias de marketing innovadoras, personalizadas y diferenciadas para el negocio en base al contexto dado.`,
-      prompt: `Genera ${count} estrategias para ${context.business.name}. Descripción: ${context.business.description}. Responde estrictamente con JSON.`,
+      system: `Eres un estratega digital de élite. Genera exactamente ${count} estrategias de marketing innovadoras, personalizadas y diferenciadas para el negocio en base al contexto dado.
+Reglas clave:
+1. El negocio tiene como objetivo primordial una de estas metas: Conversión (ventas / WhatsApp), Posicionamiento de marca (reconocimiento local) o Crecimiento en redes sociales.
+2. ${hasWebsite ? 'El negocio tiene sitio web.' : 'El negocio NO tiene sitio web. Queda estrictamente PROHIBIDO sugerir canales de sitio web, blogs o landing pages. Prioriza WhatsApp y canales de redes sociales (Facebook, Instagram, TikTok, LinkedIn, YouTube).'}
+3. Limita el análisis comparativo a máximo 3 competidores locales si los hay en el contexto.
+4. Cumple exactamente con el esquema de base de datos para evitar campos vacíos o 'PENDIENTE':
+   - Cada objetivo SMART debe estar completamente redactado. Todos los campos (specific, measurable, achievable, relevant, timeBound) son obligatorios y deben ser descripciones detalladas de al menos 5 caracteres.
+   - En personas, demographics, painPoints y goals son cadenas de texto simples (para painPoints y goals, ponlas separadas por comas en una única cadena).
+   - En funnelStages, crea etapas de embudo estándar (ej. awareness, consideration, decision, retention).`,
+      prompt: `Genera ${count} estrategias para el negocio: ${context.business.name}.
+Descripción: ${context.business.description}.
+Industria: ${context.business.industry}.
+Productos: ${JSON.stringify(context.products)}.
+Detalles de Competidores analizados (máximo 3): ${JSON.stringify(context.competitorScrapedDetails)}.
+Responde estrictamente con JSON en el formato especificado.`,
     });
     return object.strategies.slice(0, count);
   } catch (e) {
@@ -365,7 +413,7 @@ async function generateStrategiesCascade(context: any, count: number) {
 }
 
 // Generar campañas adicionales basadas en las estrategias
-async function generateCampaignsCascade(business: any, strategies: any[], count: number) {
+export async function generateCampaignsCascade(business: { name: string }, strategies: Strategy[], count: number) {
   const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
   if (!openRouterKey) return getFallbackCampaigns(business, strategies, count);
 
@@ -404,86 +452,173 @@ async function generateCampaignsCascade(business: any, strategies: any[], count:
   }
 }
 
-function getFallbackStrategies(context: any, count: number) {
+function getFallbackStrategies(context: CascadeContext, count: number) {
   const name = context.business.name;
   const list = [
     {
       name: "Estrategia de Diferenciación por Autoridad y Calidad",
       description: `Destacar los procesos de alta calidad y marca de ${name} para capturar el mercado local premium.`,
-      objectives: [{ title: "Conversión de clientes", metric: "WhatsApp Leads", target: "+20%", timeframe: "60 días" }],
-      personas: [{ name: "Carlos El Exigente", role: "Profesional", demographics: "30-45 años", painPoints: ["Baja calidad en postres genéricos"], goals: ["Encontrar productos frescos y gourmet"], channels: ["INSTAGRAM", "FACEBOOK"] }],
-      funnelStages: [{ stage: "awareness", strategy: "Reels detrás de escena", contentIdeas: ["El origen de nuestros ingredientes"] }],
-      channels: [{ name: "INSTAGRAM", frequency: "3 posts por semana", priority: "high", bestTime: "18:00 - 20:00" }],
+      objectives: [
+        {
+          name: "Conversión de leads por WhatsApp",
+          specific: "Generar mayor cantidad de prospectos interesados a través de un enlace directo de WhatsApp en Instagram",
+          measurable: "Aumentar en un 20% el flujo de consultas diarias",
+          achievable: "Publicando 3 historias interactivas semanales con llamadas a la acción claras",
+          relevant: "Incrementa el volumen de ventas al tener contacto directo con el comprador",
+          timeBound: "Lograr la meta en un periodo de 60 días",
+          targetValue: 20,
+          currentValue: 0,
+          unit: "%",
+          deadline: "60 días",
+          status: "PENDING"
+        }
+      ],
+      personas: [
+        {
+          name: "Carlos El Exigente",
+          demographics: "Hombre, 30-45 años, profesional independiente, ingresos altos, local",
+          painPoints: "Baja calidad en postres genéricos, falta de opciones gourmet personalizadas",
+          goals: "Encontrar productos frescos, saludables y gourmet para ocasiones especiales",
+          communication: {
+            tone: "Formal y refinado",
+            topics: "Pastelería artesanal, ingredientes de calidad, origen gourmet",
+            triggers: "Imágenes de alta calidad visual y testimonios de otros profesionales"
+          }
+        }
+      ],
+      funnelStages: [
+        {
+          name: "Atracción",
+          description: "Dar a conocer los ingredientes premium y procesos artesanales del negocio",
+          contentTypes: ["Reels", "Stories"],
+          channels: ["Instagram", "Facebook"],
+          goals: ["Generar curiosidad y credibilidad inicial"],
+          kpis: ["Impresiones", "Alcance"],
+          ctas: ["Ver menú", "Saber más"]
+        }
+      ],
+      channels: [
+        {
+          name: "Instagram",
+          type: "SOCIAL" as const,
+          isActive: true,
+          frequency: "3 posts por semana",
+          audienceSize: 0
+        }
+      ],
       contentPillars: ["Calidad de Ingredientes", "Proceso Artesanal"]
     },
     {
       name: "Campaña Viral de Growth & Contenido Corto",
       description: `Enfocada en capturar la atención de audiencias dinámicas mediante tendencias visuales en Reels y TikTok.`,
-      objectives: [{ title: "Alcance visual", metric: "Vistas Reels", target: "+30k", timeframe: "30 días" }],
-      personas: [{ name: "Daniela la Trendy", role: "Estudiante", demographics: "18-25 años", painPoints: ["Aburrimiento de marcas tradicionales"], goals: ["Contenido instagrameable"], channels: ["TIKTOK", "INSTAGRAM"] }],
-      funnelStages: [{ stage: "awareness", strategy: "Tendencias virales de audio", contentIdeas: ["Probando combinaciones locas"] }],
-      channels: [{ name: "TIKTOK", frequency: "4 videos por semana", priority: "high", bestTime: "16:00 - 19:00" }],
+      objectives: [
+        {
+          name: "Aumento de visibilidad en Reels",
+          specific: "Lograr mayor alcance de público local en video corto mediante tendencias del sector gastronómico",
+          measurable: "Obtener un incremento acumulado de 30 mil reproducciones",
+          achievable: "Publicando al menos 3 Reels a la semana usando audios y dinámicas virales",
+          relevant: "Mejora el reconocimiento de marca local y atrae nuevos seguidores",
+          timeBound: "Alcanzar el objetivo en 30 días",
+          targetValue: 30000,
+          currentValue: 0,
+          unit: "reproducciones",
+          deadline: "30 días",
+          status: "PENDING"
+        }
+      ],
+      personas: [
+        {
+          name: "Daniela la Trendy",
+          demographics: "Mujer, 18-25 años, estudiante universitaria, activa en redes",
+          painPoints: "Aburrimiento de marcas tradicionales, busca experiencias visuales llamativas",
+          goals: "Descubrir lugares instagrameables y productos con excelente estética visual",
+          communication: {
+            tone: "Fresco, divertido y juvenil",
+            topics: "Tendencias, antojos, humor gastronómico",
+            triggers: "Videos altamente estéticos con música de moda"
+          }
+        }
+      ],
+      funnelStages: [
+        {
+          name: "Interés",
+          description: "Generar engagement masivo compartiendo dinámicas de antojo y recetas secretas",
+          contentTypes: ["Reels", "TikToks"],
+          channels: ["TikTok", "Instagram"],
+          goals: ["Crear interacción y conseguir compartidos"],
+          kpis: ["Compartidos", "Guardados"],
+          ctas: ["¡Comenta tu favorito!", "Guarda este video"]
+        }
+      ],
+      channels: [
+        {
+          name: "TikTok",
+          type: "SOCIAL" as const,
+          isActive: true,
+          frequency: "4 videos por semana",
+          audienceSize: 0
+        }
+      ],
       contentPillars: ["Antojo Visual", "Humor en cocina"]
     },
     {
-      name: "Fidelización de Clientes y Suscripción Dulce",
-      description: `Orientado a clientes recurrentes para generar compras programadas y dinámicas VIP.`,
-      objectives: [{ title: "Retención de clientes", metric: "Tasa de recompra", target: "+15%", timeframe: "90 días" }],
-      personas: [{ name: "Lorena la Organizadora", role: "Office Manager", demographics: "28-40 años", painPoints: ["Estrés cotizando a última hora"], goals: ["Suscripción automática mensual"], channels: ["FACEBOOK", "LINKEDIN"] }],
-      funnelStages: [{ stage: "retention", strategy: "Suscripción para cumpleaños de oficina", contentIdeas: ["Catering mensual simplificado"] }],
-      channels: [{ name: "FACEBOOK", frequency: "2 publicaciones semanales", priority: "medium", bestTime: "09:00 - 11:00" }],
+      name: "Fidelización de Clientes y Suscripción VIP",
+      description: `Orientado a clientes recurrentes para generar compras programadas y dinámicas exclusivas.`,
+      objectives: [
+        {
+          name: "Fidelización de clientes recurrentes",
+          specific: "Establecer un programa de suscripción o club dulce para compras mensuales corporativas",
+          measurable: "Incrementar la tasa de recompra mensual en un 15%",
+          achievable: "Enviando ofertas exclusivas directas y opciones de pedidos recurrentes en WhatsApp",
+          relevant: "Estabiliza el flujo de caja mediante ingresos predecibles",
+          timeBound: "Lograr el objetivo en 90 días",
+          targetValue: 15,
+          currentValue: 0,
+          unit: "%",
+          deadline: "90 días",
+          status: "PENDING"
+        }
+      ],
+      personas: [
+        {
+          name: "Lorena la Organizadora",
+          demographics: "Mujer, 28-40 años, Office Manager en mediana empresa",
+          painPoints: "Estrés cotizando catering a última hora, falta de proveedores confiables",
+          goals: "Tener un sistema de suscripción automatizado o menú simplificado para cumpleaños y eventos",
+          communication: {
+            tone: "Atento, corporativo y servicial",
+            topics: "Catering corporativo, planificación de eventos, promociones grupales",
+            triggers: "Facilidad de cotización por WhatsApp y facturación rápida"
+          }
+        }
+      ],
+      funnelStages: [
+        {
+          name: "Retención",
+          description: "Mantener una relación constante con clientes recurrentes ofreciendo beneficios exclusivos",
+          contentTypes: ["WhatsApp newsletters", "Mensajería directa"],
+          channels: ["WhatsApp"],
+          goals: ["Fidelizar a la base de datos de compradores activos"],
+          kpis: ["Tasa de recompra"],
+          ctas: ["Agendar pedido del mes", "Hablar con asesor"]
+        }
+      ],
+      channels: [
+        {
+          name: "WhatsApp",
+          type: "OTHER" as const,
+          isActive: true,
+          frequency: "Mensajería bajo demanda",
+          audienceSize: 0
+        }
+      ],
       contentPillars: ["Fidelidad VIP", "Eventos y catering"]
-    },
-    {
-      name: "Estrategia de Alianzas Locales y Co-Branding",
-      description: `Colaboraciones estratégicas con cafeterías, salones de té e influencers gastronómicos locales para cruzar audiencias.`,
-      objectives: [{ title: "Nuevas alianzas", metric: "Puntos de venta de café asociados", target: "+5", timeframe: "45 días" }],
-      personas: [{ name: "Sofía la Cafetera", role: "Dueña de Cafetería", demographics: "35-50 años", painPoints: ["Poco inventario de repostería fina"], goals: ["Ofrecer postres de calidad a sus clientes sin producirlos"], channels: ["LINKEDIN", "INSTAGRAM"] }],
-      funnelStages: [{ stage: "consideration", strategy: "Muestras gratuitas para cata de café", contentIdeas: ["Maridaje de pastelería y cafés de especialidad"] }],
-      channels: [{ name: "INSTAGRAM", frequency: "2 publicaciones semanales", priority: "medium", bestTime: "10:00 - 12:00" }],
-      contentPillars: ["Maridaje Gastronómico", "Comunidad de Negocios"]
-    },
-    {
-      name: "Embudo de Conversión por Email Marketing Automatizado",
-      description: `Implementar secuencia de nutrición y ofertas por correo para retener y recuperar carritos de compras abandonados.`,
-      objectives: [{ title: "Recuperación de ventas", metric: "Conversión Email", target: "+8%", timeframe: "30 días" }],
-      personas: [{ name: "Andrés el Planificador", role: "Comprador de Eventos", demographics: "25-40 años", painPoints: ["Suele abandonar carritos por distracción"], goals: ["Obtener recordatorios y ofertas directas en correo"], channels: ["EMAIL", "WEBSITE"] }],
-      funnelStages: [{ stage: "decision", strategy: "Descuento de bienvenida e historias de éxito", contentIdeas: ["Guía definitiva para tu mesa de postres"] }],
-      channels: [{ name: "EMAIL", frequency: "1 boletín semanal y flujos automáticos", priority: "high", bestTime: "08:00 - 10:00" }],
-      contentPillars: ["Ofertas Exclusivas", "Guías y Consejos"]
-    },
-    {
-      name: "Estrategia de Contenido Educativo y Liderazgo de Opinión",
-      description: `Creación de recetas cortas, técnicas de decoración y tutoriales interactivos para posicionar al negocio como experto repostero.`,
-      objectives: [{ title: "Engagement educativo", metric: "Guardados y compartidos", target: "+25%", timeframe: "60 días" }],
-      personas: [{ name: "Laura la Aficionada", role: "Estudiante de Repostería", demographics: "20-35 años", painPoints: ["Dificultad aprendiendo técnicas avanzadas"], goals: ["Aprender de un repostero profesional calificado"], channels: ["INSTAGRAM", "TIKTOK"] }],
-      funnelStages: [{ stage: "consideration", strategy: "Mini tutoriales paso a paso", contentIdeas: ["Cómo lograr el merengue perfecto en casa"] }],
-      channels: [{ name: "TIKTOK", frequency: "2 videos educativos semanales", priority: "medium", bestTime: "17:00 - 19:00" }],
-      contentPillars: ["Tutoriales y Tips", "Secretos de Pastelería"]
-    },
-    {
-      name: "Estrategia de Optimización SEO y Tráfico Orgánico",
-      description: `Generación de guías completas sobre repostería y eventos en un blog oficial para posicionar palabras clave de alta intención de compra.`,
-      objectives: [{ title: "Tráfico Web", metric: "Visitas orgánicas blog", target: "+30%", timeframe: "90 días" }],
-      personas: [{ name: "Roberto el Buscador", role: "Padre de familia", demographics: "30-50 años", painPoints: ["No sabe dónde comprar tortas temáticas personalizadas"], goals: ["Encontrar ideas y pasteleros con reseñas transparentes en Google"], channels: ["WEBSITE", "GOOGLE"] }],
-      funnelStages: [{ stage: "consideration", strategy: "Artículos optimizados sobre cómo elegir tortas temáticas", contentIdeas: ["Tendencias de tortas infantiles para este año"] }],
-      channels: [{ name: "WEBSITE", frequency: "1 artículo semanal", priority: "high", bestTime: "11:00 - 13:00" }],
-      contentPillars: ["SEO & Guías", "Tendencias de Eventos"]
-    },
-    {
-      name: "Estrategia de Retargeting y Ofertas Relámpago en Redes",
-      description: `Impactar nuevamente a usuarios que interactuaron con el Instagram del negocio en los últimos 30 días con promociones flash.`,
-      objectives: [{ title: "Tasa de conversión en ads", metric: "Ventas por Instagram Ads", target: "+15%", timeframe: "45 días" }],
-      personas: [{ name: "Marta la Indecisa", role: "Secretaria corporativa", demographics: "25-38 años", painPoints: ["Le gusta el producto pero no se decide a ordenar"], goals: ["Recibir un incentivo o cupón exclusivo de tiempo limitado"], channels: ["INSTAGRAM", "FACEBOOK"] }],
-      funnelStages: [{ stage: "decision", strategy: "Anuncios dinámicos de retargeting con descuento del 10%", contentIdeas: ["¡Tu antojo del día te espera con delivery gratis hoy!"] }],
-      channels: [{ name: "INSTAGRAM", frequency: "Anuncios continuos", priority: "high", bestTime: "12:00 - 14:00" }],
-      contentPillars: ["Conversión Rápida", "Ofertas Flash"]
     }
   ];
   return list.slice(0, count);
 }
 
-function getFallbackCampaigns(business: any, strategies: any[], count: number) {
+function getFallbackCampaigns(business: { name: string }, strategies: { name: string }[], count: number) {
   const baseDate = new Date();
   const getOffsetDate = (days: number) => {
     const d = new Date(baseDate);

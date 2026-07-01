@@ -26,14 +26,7 @@ export default async function StrategiesPage() {
     orderBy: { createdAt: "desc" }
   });
 
-  // Si hay menos de 8 estrategias, disparar la generación en cascada en segundo plano
-  if (strategies.length < 8) {
-    import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-      triggerCascadeGeneration(selectedBusinessId).catch(err => {
-        console.error('[CASCADE] Error al disparar generación automática por pocas estrategias:', err);
-      });
-    });
-  }
+
 
   const business = await prisma.business.findUnique({
     where: { id: selectedBusinessId },

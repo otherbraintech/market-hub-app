@@ -81,6 +81,7 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
       items: [
         { title: "Mi Negocio IA", url: "/business/analysis" },
         { title: "Mi Competencia IA", url: "/competitors/analysis" },
+        { title: "Tendencias IA", url: "/trends" },
         { title: "Jobs IA", url: "/jobs" },
       ],
     },
@@ -104,6 +105,7 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
       icon: Settings,
       items: [
         { title: "Usuarios", url: "/settings/users" },
+        { title: "Ayuda & Soporte", url: "/support" },
       ],
     },
   ]

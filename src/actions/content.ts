@@ -199,6 +199,7 @@ export async function updateCalendarContentAction(
     promptUsed?: string;
     scheduledAt?: Date | null;
     campaignId?: string | null;
+    mediaUrl?: string | null;
   },
   businessId: string
 ) {
@@ -218,6 +219,8 @@ export async function updateCalendarContentAction(
         caption: data.caption,
         promptUsed: data.promptUsed,
         scheduledAt: data.scheduledAt === null ? null : (data.scheduledAt || undefined),
+        campaignId: data.campaignId === null ? null : (data.campaignId || undefined),
+        mediaUrl: data.mediaUrl === null ? null : (data.mediaUrl || undefined),
       }
     });
 
@@ -716,5 +719,53 @@ export async function savePlannedCampaignCalendarAction(
   } catch (error: any) {
     console.error("Error al guardar planificación:", error);
     return { success: false, error: error.message || "Error al guardar el plan de publicaciones" };
+  }
+}
+
+export async function publishContentAction(contentId: string, businessId: string) {
+  try {
+    const content = await prisma.content.findUnique({
+      where: { id: contentId }
+    });
+    if (!content) {
+      return { success: false, error: "Publicación no encontrada" };
+    }
+
+    const { listSocialAccounts, createSocialAccount, publishContent } = await import("@/modules/publishing");
+
+    // Buscar cuenta social activa
+    const accounts = await listSocialAccounts(businessId, { channel: content.channel || undefined });
+    let account = accounts[0];
+
+    if (!account) {
+      account = await createSocialAccount({
+        businessId,
+        channel: content.channel || "INSTAGRAM",
+        accountId: "mock_" + Date.now(),
+        accountName: "Mi Cuenta de " + (content.channel || "Instagram"),
+        isActive: true
+      } as any);
+    }
+
+    const res = await publishContent(contentId, account.id);
+
+    // Simulación del callback del autoposteador
+    setTimeout(async () => {
+      try {
+        await prisma.content.update({
+          where: { id: contentId },
+          data: { status: "PUBLISHED" }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }, 2000);
+
+    revalidatePath(`/business/${businessId}`);
+    revalidatePath("/calendar");
+    return { success: true, message: "¡Publicación enviada al autoposteador de Maycol!", jobId: res.jobId };
+  } catch (error: any) {
+    console.error("Error al autopostear:", error);
+    return { success: false, error: error.message || "Error al autopostear" };
   }
 }

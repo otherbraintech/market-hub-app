@@ -142,3 +142,43 @@ export async function deleteProductAction(id: string, businessId: string) {
     return { success: false, error: "Error al eliminar el producto" };
   }
 }
+
+export async function parseMultimodalCatalogAction(catalogData: string, businessId: string) {
+  try {
+    if (!catalogData) {
+      return { success: false, error: "El contenido del catálogo no puede estar vacío." };
+    }
+
+    const systemPrompt = `Eres un agente de IA experto en extracción de catálogos y digitalización de inventarios.
+Analiza el texto o contenido de catálogo proporcionado y extrae un listado estructurado de productos o servicios para digitalizarlos.
+Genera exactamente entre 3 y 6 productos. Para cada producto, debes extraer de forma precisa:
+- name: Nombre del producto
+- description: Descripción detallada orientada a marketing
+- basePrice: Precio base (número decimal o entero)
+- currency: Moneda (ej. "USD", "MXN", "CLP", "EUR")
+- features: Lista de 2-3 características técnicas clave (ej. "Vegano", "Sin azúcar", "100% Algodón")`;
+
+    const userPrompt = `Analiza el siguiente catálogo/menú y extrae sus productos:\n\n${catalogData}`;
+
+    const { object } = await generateObject({
+      model: openrouter("google/gemini-2.5-flash"),
+      schema: z.object({
+        products: z.array(z.object({
+          name: z.string(),
+          description: z.string(),
+          basePrice: z.number().default(0),
+          currency: z.string().default("USD"),
+          features: z.array(z.string()).default([])
+        }))
+      }),
+      system: systemPrompt,
+      prompt: userPrompt,
+      temperature: 0.2
+    });
+
+    return { success: true, products: object.products };
+  } catch (error: any) {
+    console.error("Error al procesar catálogo multimodal:", error);
+    return { success: false, error: error.message || "Error al procesar el catálogo con IA" };
+  }
+}

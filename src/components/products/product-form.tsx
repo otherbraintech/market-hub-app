@@ -147,6 +147,35 @@ export function ProductForm({ businessId, defaultValues, onSuccess }: ProductFor
                   </FormItem>
                 )}
               />
+
+              <div className="grid grid-cols-2 gap-4">
+                 <FormField
+                  control={form.control}
+                  name="pricing.basePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Precio Base</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="pricing.currency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Moneda</FormLabel>
+                      <FormControl>
+                        <Input placeholder="USD, EUR..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               
               <FormField
                 control={form.control}

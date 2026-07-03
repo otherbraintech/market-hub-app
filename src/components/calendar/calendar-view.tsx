@@ -266,15 +266,30 @@ export function CalendarView({
         setPlanningCampaignId(targetCampId);
         const camp = campaigns.find(c => c.id === targetCampId);
         if (camp) {
+          let finalStartDate = new Date();
           if (camp.startDate) {
-            setPlanningStartDate(format(new Date(camp.startDate), "yyyy-MM-dd"));
+            const startDateObj = new Date(camp.startDate);
+            const today = new Date();
+            // Si la fecha de inicio es anterior a hoy, sugerimos iniciar hoy para evitar publicar en el pasado
+            finalStartDate = startDateObj < today ? today : startDateObj;
+            setPlanningStartDate(format(finalStartDate, "yyyy-MM-dd"));
           } else {
-            setPlanningStartDate("");
+            setPlanningStartDate(format(finalStartDate, "yyyy-MM-dd"));
           }
+          
           if (camp.endDate) {
-            setPlanningEndDate(format(new Date(camp.endDate), "yyyy-MM-dd"));
+            const endDateObj = new Date(camp.endDate);
+            let finalEndDate = endDateObj;
+            if (endDateObj < finalStartDate) {
+              // Si la fecha de fin está en el pasado, le damos una duración estándar de 30 días a partir de la nueva fecha de inicio
+              finalEndDate = new Date(finalStartDate);
+              finalEndDate.setDate(finalEndDate.getDate() + 30);
+            }
+            setPlanningEndDate(format(finalEndDate, "yyyy-MM-dd"));
           } else {
-            setPlanningEndDate("");
+            const defaultEndDate = new Date(finalStartDate);
+            defaultEndDate.setDate(defaultEndDate.getDate() + 30);
+            setPlanningEndDate(format(defaultEndDate, "yyyy-MM-dd"));
           }
           
           if (camp.channels) {

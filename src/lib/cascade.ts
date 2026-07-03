@@ -500,10 +500,10 @@ export async function generateCampaignsCascade(business: { name: string }, strat
           }))
         }))
       }),
-      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes. Regla clave: Cada campaña generada debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas).`,
+      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes. Regla clave: Cada campaña generada debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas). Las fechas generadas deben estar situadas en el año ${new Date().getFullYear()}.`,
       prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
-        `\nGenera fechas coherentes de planificación en formato ISO que inicien desde hoy en adelante.`,
+        `\nGenera fechas coherentes de planificación en formato ISO que inicien desde hoy (${new Date().toISOString().split('T')[0]}) en adelante, todas pertenecientes al año ${new Date().getFullYear()}.`,
     });
     return object.campaigns.slice(0, count);
   } catch (e) {

@@ -447,7 +447,8 @@ export async function generateSingleContentIdeaAction(
 
     const systemPrompt = `Eres un estratega de marketing y creador de contenidos experto.
 Tu tarea es generar una única idea detallada de publicación en formato JSON para una campaña de marketing específica.
-La publicación debe ser accionable, relevante para los objetivos de la campaña, y contar con un formato y canal definidos.`;
+La publicación debe ser accionable, relevante para los objetivos de la campaña, y contar con un formato y canal definidos.
+REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, deducir, agregar o sugerir productos, platos, servicios o variantes que no estén descritos o detallados explícitamente en la descripción del negocio o la campaña (por ejemplo, si el negocio ofrece 'panqueques de camote' o 'panqueques de banana', bajo ningún concepto inventes 'panqueque de chuño'). Promociona única y exclusivamente lo indicado.`;
 
     const typeClause = targetType 
       ? `El tipo de contenido (type) DEBE ser estrictamente: ${targetType}.` 
@@ -600,7 +601,8 @@ export async function previewCampaignCalendarAction(
 
     const systemPrompt = `Eres un estratega de marketing y creador de contenidos experto.
 Tu tarea es generar un calendario editorial estructurado de exactamente ${options.quantity} publicaciones en formato JSON para una campaña de marketing específica.
-Cada publicación debe ser accionable, relevante para los objetivos de la campaña, y contar con canales y formatos definidos.`;
+Cada publicación debe ser accionable, relevante para los objetivos de la campaña, y contar con canales y formatos definidos.
+REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Bajo ningún concepto inventes, agregues, combines, asumas o sugieras productos, platos, servicios o variaciones de los mismos que no estén expresamente citados en la descripción del negocio o la campaña. Promociona única y exclusivamente los productos descritos (por ejemplo, si el negocio menciona 'panqueques de camote' o 'panqueques de banana', bajo ninguna circunstancia inventes 'panqueque de chuño').`;
 
     const userPrompt = `
 Genera un calendario editorial de exactamente ${options.quantity} publicaciones para la siguiente campaña de marketing:

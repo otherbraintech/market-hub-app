@@ -452,7 +452,8 @@ Reglas clave:
 4. Cumple exactamente con el esquema de base de datos para evitar campos vacíos o 'PENDIENTE':
    - Cada objetivo SMART debe estar completamente redactado. Todos los campos (specific, measurable, achievable, relevant, timeBound) son obligatorios y deben ser descripciones detalladas de al menos 5 caracteres.
    - En personas, demographics, painPoints y goals son cadenas de texto simples (para painPoints y goals, ponlas separadas por comas en una única cadena).
-   - En funnelStages, crea etapas de embudo estándar (ej. awareness, consideration, decision, retention).`,
+   - En funnelStages, crea etapas de embudo estándar (ej. awareness, consideration, decision, retention).
+5. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Bajo ninguna circunstancia inventes, agregues, combines, asumas o sugieras productos, servicios o variaciones de los mismos que no estén expresamente mencionados en la descripción del negocio o en su lista de productos. Por ejemplo, si el negocio menciona 'panqueques de camote' o 'panqueques de banana', NO inventes 'panqueque de chuño' u otros sabores. Limítate única y exclusivamente a los productos reales proporcionados.`,
       prompt: `Genera ${count} estrategias para el negocio: ${context.business.name}.
 Descripción: ${context.business.description}.
 Industria: ${context.business.industry}.
@@ -500,7 +501,10 @@ export async function generateCampaignsCascade(business: { name: string }, strat
           }))
         }))
       }),
-      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes. Regla clave: Cada campaña generada debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas). Las fechas generadas deben estar situadas en el año ${new Date().getFullYear()}.`,
+      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes.
+Reglas clave:
+1. Cada campaña generada debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas). Las fechas generadas deben estar situadas en el año ${new Date().getFullYear()}.
+2. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, agregar, deducir o sugerir productos, servicios o variantes de productos que no estén explícitamente declarados en la información del negocio. No combines ingredientes ni inventes recetas nuevas (ej. no inventes 'panqueque de chuño'). Promociona única y exclusivamente los productos descritos.`,
       prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
         `\nGenera fechas coherentes de planificación en formato ISO que inicien desde hoy (${new Date().toISOString().split('T')[0]}) en adelante, todas pertenecientes al año ${new Date().getFullYear()}.`,

@@ -110,6 +110,7 @@ Tu objetivo es diseñar un calendario editorial de marketing altamente efectivo 
 Debes distribuir estas 8 publicaciones de forma uniforme y estratégica en el tiempo entre la fecha de inicio y la fecha de fin de la campaña.
 Asigna las publicaciones únicamente a los canales activos configurados.
 Define horas de publicación optimizadas para el rendimiento (ej. horas de almuerzo 12:30-13:30, tarde 18:30-20:00, mañana 09:00).
+REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Bajo ningún concepto inventes, deduzcas, combines, asumas o sugieras productos, platos, servicios o variaciones de los mismos que no estén expresamente citados en la descripción del negocio o en la lista de productos disponibles. Promociona única y estrictamente los productos listados (por ejemplo, si el negocio vende 'panqueques de camote' o 'panqueques de banana', bajo ninguna circunstancia inventes 'panqueque de chuño').
 Tu respuesta debe ser estrictamente un objeto JSON que coincida con el esquema indicado.`;
 
     const userPrompt = `

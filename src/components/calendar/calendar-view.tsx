@@ -196,6 +196,21 @@ export function CalendarView({
         return new Date(campContents[0].scheduledAt);
       }
     }
+    
+    // Si no hay campaignId pero hay contenidos generales, ir al mes del contenido más relevante
+    if (initialContents.length > 0) {
+      const now = new Date();
+      // Encontrar el primer contenido futuro o presente
+      const futureContent = initialContents.find(c => c.scheduledAt && new Date(c.scheduledAt) >= now);
+      if (futureContent && futureContent.scheduledAt) {
+        return new Date(futureContent.scheduledAt);
+      }
+      // Si todo es del pasado, ir al último contenido planificado (el más cercano al presente)
+      const lastContent = initialContents[initialContents.length - 1];
+      if (lastContent && lastContent.scheduledAt) {
+        return new Date(lastContent.scheduledAt);
+      }
+    }
     return new Date();
   });
   

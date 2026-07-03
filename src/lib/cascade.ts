@@ -707,6 +707,11 @@ function getFallbackCampaigns(business: { name: string }, strategies: { name: st
       endDate: getOffsetDate((i * 5) + 15),
       channels: ['INSTAGRAM', 'FACEBOOK'],
       budget: 150,
+      targeting: {
+        locations: ['Local'],
+        ageRange: [18, 65],
+        interests: ['Interés general']
+      },
       contents: [
         {
           type: 'POST',

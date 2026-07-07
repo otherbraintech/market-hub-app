@@ -139,7 +139,7 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         if (!section.items) return section;
         const filteredItems = section.items.filter(item => {
           if (role === "USER") {
-            if (item.url.includes("/monitor") || item.url === "/products") return false;
+            if (item.url === "/products") return false;
             if (section.title === "Marketing & Social" && item.url !== "/calendar") return false;
             if (item.url === "/settings/users") return false;
           } else if (role === "SPECIALIST") {

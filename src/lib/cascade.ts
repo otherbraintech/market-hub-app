@@ -25,8 +25,8 @@ async function addAgentNotification(businessId: string, title: string, message: 
 }
 
 // Función principal para disparar la generación en cascada en segundo plano
-export async function triggerCascadeGeneration(businessId: string) {
-  console.log(`[CASCADE] Iniciando generación en cascada para el negocio: ${businessId}`);
+export async function triggerCascadeGeneration(businessId: string, force = false) {
+  console.log(`[CASCADE] Iniciando generación en cascada para el negocio: ${businessId} (force: ${force})`);
   try {
     // Registrar el inicio del proceso de consolidación de agentes
     await addAgentNotification(
@@ -77,7 +77,7 @@ export async function triggerCascadeGeneration(businessId: string) {
     }
 
     // Cooldown de 24 horas (1 generación al día)
-    if (settings.lastCascadeGeneratedAt) {
+    if (!force && settings.lastCascadeGeneratedAt) {
       const lastRun = new Date(settings.lastCascadeGeneratedAt);
       const oneDayMs = 24 * 60 * 60 * 1000;
       if (Date.now() - lastRun.getTime() < oneDayMs) {
@@ -96,7 +96,7 @@ export async function triggerCascadeGeneration(businessId: string) {
       orderBy: { completedAt: 'desc' }
     });
 
-    if (reports.length === 0) {
+    if (!force && reports.length === 0) {
       console.log('[CASCADE] No hay informes consolidados aún. Esperando...');
       await addAgentNotification(
         businessId, 
@@ -124,13 +124,14 @@ export async function triggerCascadeGeneration(businessId: string) {
     const existingCount = existingStrategies.length;
     const savedStrategies = [...existingStrategies];
 
-    if (existingCount < 3) {
-      const needed = 3 - existingCount;
-      console.log(`[CASCADE] Detectadas ${existingCount} estrategias. Generando ${needed} estrategias adicionales...`);
+    const needed = force ? 3 : (existingCount < 3 ? 3 - existingCount : 0);
+
+    if (needed > 0) {
+      console.log(`[CASCADE] Generando ${needed} estrategias...`);
       await addAgentNotification(
         businessId, 
         "Agente de Diagnóstico y Estrategia", 
-        `Detectadas ${existingCount} estrategias. Iniciando generación de ${needed} estrategias adicionales para alcanzar el mínimo de 3.`, 
+        `Iniciando generación de ${needed} estrategias con IA.`, 
         "DIAGNOSTIC", 
         "PROCESSING"
       );
@@ -250,14 +251,15 @@ export async function triggerCascadeGeneration(businessId: string) {
     });
     const campaignsCount = existingCampaigns.length;
 
-    if (campaignsCount < 3) {
-      const neededCampaigns = 3 - campaignsCount;
-      console.log(`[CASCADE] Detectadas ${campaignsCount} campañas. Generando ${neededCampaigns} campañas adicionales...`);
+    const neededCampaigns = force ? 3 : (campaignsCount < 3 ? 3 - campaignsCount : 0);
+
+    if (neededCampaigns > 0) {
+      console.log(`[CASCADE] Generando ${neededCampaigns} campañas...`);
       
       await addAgentNotification(
         businessId, 
         "Agente de Campañas de Marketing", 
-        `Detectadas ${campaignsCount} campañas. Generando ${neededCampaigns} campañas automatizadas adicionales con IA...`, 
+        `Iniciando generación de ${neededCampaigns} campañas automatizadas con IA...`, 
         "CAMPAIGN", 
         "PROCESSING"
       );

@@ -8,8 +8,8 @@ export async function POST(
   try {
     const { id } = await params;
     
-    // Forzar la ejecución del circuito automatizado en background
-    await triggerCascadeGeneration(id);
+    // Forzar la ejecución del circuito automatizado en background (forzando generación de 3 elementos)
+    await triggerCascadeGeneration(id, true);
 
     return NextResponse.json({ success: true, message: 'Cascada de automatización ejecutada con éxito' });
   } catch (error) {

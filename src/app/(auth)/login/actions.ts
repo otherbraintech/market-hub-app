@@ -37,7 +37,7 @@ export async function login(prevState: any, formData: FormData) {
 
   // Create session
   const expires = new Date(Date.now() + 120 * 60 * 1000); // 2 hours
-  const session = await encrypt({ user: { id: user.id, username: user.username, name: user.name }, expires });
+  const session = await encrypt({ user: { id: user.id, username: user.username, name: user.name, role: user.role }, expires });
 
   // Save in cookie
   (await cookies()).set("session", session, { 
@@ -80,7 +80,7 @@ export async function signup(prevState: any, formData: FormData) {
 
   // Create session
   const expires = new Date(Date.now() + 120 * 60 * 1000); // 2 hours
-  const session = await encrypt({ user: { id: user.id, username: user.username, name: user.name }, expires });
+  const session = await encrypt({ user: { id: user.id, username: user.username, name: user.name, role: user.role }, expires });
 
   (await cookies()).set("session", session, { 
     expires, 

@@ -11,6 +11,7 @@ import { getSession } from "@/lib/auth";
 import { BusinessRedirector } from "@/components/business/business-redirector";
 import { SessionWatcher } from "@/components/auth/session-watcher";
 import { triggerMissingCompetitorAnalyses } from "@/app/(dashboard)/business/[id]/competitor-actions";
+import { RoleAccessGuard } from "@/components/auth/role-access-guard";
 
 export default async function DashboardLayout({
   children,
@@ -52,7 +53,11 @@ export default async function DashboardLayout({
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-          {session ? children : null}
+          {session ? (
+            <RoleAccessGuard role={session.user?.role}>
+              {children}
+            </RoleAccessGuard>
+          ) : null}
         </div>
       </SidebarInset>
     </SidebarProvider>

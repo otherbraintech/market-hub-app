@@ -49,66 +49,90 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
     id: b.id
   }))
 
-  const navMain = [
-    {
-      title: "Inicio",
-      url: "#",
-      icon: LayoutDashboard,
-      isActive: true,
-      items: [
-        { title: "Dashboard", url: "/dashboard" },
-        { title: "Administrar Negocios", url: "/business" },
-      ],
-    },
-    {
-      title: "Mi Negocio",
-      url: "#",
-      icon: Building2,
-      isActive: true,
-      items: [
-        ...(selectedId ? [
-          { title: "Configurar", url: `/business/${selectedId}` },
-          { title: "Monitoreo de Agentes", url: `/business/${selectedId}/monitor` }
-        ] : []),
-        { title: "Productos", url: "/products" },
-      ],
-    },
-    {
-      title: "Inteligencia IA",
-      url: "#",
-      icon: Lightbulb,
-      isActive: true,
-      items: [
-        { title: "Mi Negocio IA", url: "/business/analysis" },
-        { title: "Mi Competencia IA", url: "/competitors/analysis" },
-        { title: "Tendencias IA", url: "/trends" },
-        { title: "Jobs IA", url: "/jobs" },
-      ],
-    },
-    {
-      title: "Marketing & Social",
-      url: "#",
-      icon: Share2,
-      isActive: true,
-      items: [
-        { title: "Estrategias", url: "/strategies" },
-        { title: "Campañas", url: "/campaigns" },
-        { title: "Calendario", url: "/calendar" },
-        { title: "Media", url: "/media" },
-        { title: "Publicación", url: "/publishing" },
-        { title: "Métricas", url: "/metrics" },
-      ],
-    },
-    {
-      title: "Administración",
-      url: "#",
-      icon: Settings,
-      items: [
-        { title: "Usuarios", url: "/settings/users" },
-        { title: "Ayuda & Soporte", url: "/support" },
-      ],
-    },
-  ]
+  const role = session?.user?.role || "USER"
+
+  const navMain = React.useMemo(() => {
+    const rawNav = [
+      {
+        title: "Inicio",
+        url: "#",
+        icon: LayoutDashboard,
+        isActive: true,
+        items: [
+          { title: "Dashboard", url: "/dashboard" },
+          { title: "Administrar Negocios", url: "/business" },
+        ],
+      },
+      {
+        title: "Mi Negocio",
+        url: "#",
+        icon: Building2,
+        isActive: true,
+        items: [
+          ...(selectedId ? [
+            { title: "Configurar", url: `/business/${selectedId}` },
+            { title: "Monitoreo de Agentes", url: `/business/${selectedId}/monitor` }
+          ] : []),
+          { title: "Productos", url: "/products" },
+        ],
+      },
+      {
+        title: "Inteligencia IA",
+        url: "#",
+        icon: Lightbulb,
+        isActive: true,
+        items: [
+          { title: "Mi Negocio IA", url: "/business/analysis" },
+          { title: "Mi Competencia IA", url: "/competitors/analysis" },
+          { title: "Tendencias IA", url: "/trends" },
+          { title: "Jobs IA", url: "/jobs" },
+        ],
+      },
+      {
+        title: "Marketing & Social",
+        url: "#",
+        icon: Share2,
+        isActive: true,
+        items: [
+          { title: "Estrategias", url: "/strategies" },
+          { title: "Campañas", url: "/campaigns" },
+          { title: "Calendario", url: "/calendar" },
+          { title: "Media", url: "/media" },
+          { title: "Publicación", url: "/publishing" },
+          { title: "Métricas", url: "/metrics" },
+        ],
+      },
+      {
+        title: "Administración",
+        url: "#",
+        icon: Settings,
+        items: [
+          { title: "Usuarios", url: "/settings/users" },
+          { title: "Ayuda & Soporte", url: "/support" },
+        ],
+      },
+    ]
+
+    return rawNav
+      .map(section => {
+        const filteredItems = section.items.filter(item => {
+          if (role === "USER") {
+            if (item.url.includes("/monitor") || item.url === "/products") return false;
+            if (section.title === "Marketing & Social" && item.url !== "/calendar") return false;
+            if (item.url === "/settings/users") return false;
+          } else if (role === "SPECIALIST") {
+            if (item.url === "/settings/users" || item.url === "/jobs") return false;
+          }
+          return true;
+        });
+
+        return { ...section, items: filteredItems };
+      })
+      .filter(section => {
+        if (role === "USER" && section.title === "Inteligencia IA") return false;
+        return section.items.length > 0;
+      });
+  }, [role, selectedId]);
 
   const user = {
     name: session?.user?.name || session?.user?.username || "Usuario",

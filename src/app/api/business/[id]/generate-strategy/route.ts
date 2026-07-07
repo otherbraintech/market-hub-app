@@ -1,5 +1,63 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
+
+const openrouter = createOpenAI({
+  apiKey: process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim(),
+  baseURL: 'https://openrouter.ai/api/v1',
+});
+
+const strategyGenerationSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  isActive: z.boolean().default(true),
+  objectives: z.array(z.object({
+    name: z.string(),
+    specific: z.string(),
+    measurable: z.string(),
+    achievable: z.string(),
+    relevant: z.string(),
+    timeBound: z.string(),
+    targetValue: z.number(),
+    currentValue: z.number().default(0),
+    unit: z.string(),
+    deadline: z.string(),
+    status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).default('PENDING')
+  })),
+  personas: z.array(z.object({
+    name: z.string(),
+    demographics: z.string(),
+    painPoints: z.string(),
+    goals: z.string(),
+    communication: z.object({
+      tone: z.string(),
+      topics: z.string(),
+      triggers: z.string()
+    }).default({
+      tone: "",
+      topics: "",
+      triggers: "",
+    })
+  })),
+  funnelStages: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    contentTypes: z.array(z.string()),
+    channels: z.array(z.string()),
+    goals: z.array(z.string()),
+    kpis: z.array(z.string()),
+    ctas: z.array(z.string())
+  })),
+  channels: z.array(z.object({
+    name: z.string(),
+    type: z.enum(["SOCIAL", "EMAIL", "BLOG", "ADS", "OTHER"]),
+    isActive: z.boolean().default(true),
+    frequency: z.string(),
+    audienceSize: z.number().default(0)
+  }))
+});
 
 export async function POST(
   request: Request,
@@ -108,51 +166,14 @@ async function generateMarketingStrategyWithAI(context: any) {
   try {
     const prompt = buildStrategyPrompt(context);
     
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-        'X-Title': 'MarketOps',
-      },
-      body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4.5',
-        messages: [
-          {
-            role: 'system',
-            content: 'Eres un estratega jefe de marketing digital y growth hacker experto. Generas planes de marketing hiper-personalizados y accionables. Tu objetivo es proponer objetivos SMART realistas, buyer personas detalladas, embudos de conversión y canales basados en los datos del negocio y sus competidores. Responde únicamente con un JSON estructurado y válido.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000,
-      })
+    const { object } = await generateObject({
+      model: openrouter('google/gemini-2.5-flash'),
+      schema: strategyGenerationSchema,
+      system: 'Eres un estratega jefe de marketing digital y growth hacker experto. Generas planes de marketing hiper-personalizados y accionables. Tu objetivo es proponer objetivos SMART realistas, buyer personas detalladas, embudos de conversión y canales basados en los datos del negocio y sus competidores. Responde únicamente con un JSON estructurado y válido.',
+      prompt: prompt,
     });
 
-    if (!response.ok) {
-      console.error('OpenRouter API error status:', response.status);
-      return generatePlaceholderStrategy(context);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    
-    if (!content) {
-      console.warn('No content returned from OpenRouter choices, using placeholder strategy.');
-      return generatePlaceholderStrategy(context);
-    }
-
-    try {
-      const parsed = JSON.parse(content.trim());
-      return parsed;
-    } catch (parseError) {
-      console.error('Error parsing strategy JSON response:', parseError);
-      return generatePlaceholderStrategy(context);
-    }
+    return object;
   } catch (error) {
     console.error('Error in AI strategy execution:', error);
     return generatePlaceholderStrategy(context);

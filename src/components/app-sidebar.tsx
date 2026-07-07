@@ -15,7 +15,9 @@ import {
   LogOut,
   Zap,
   Moon,
-  Sun
+  Sun,
+  BookOpen,
+  LifeBuoy
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -59,8 +61,8 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         icon: LayoutDashboard,
         isActive: true,
         items: [
-          { title: "Dashboard", url: "/dashboard" },
-          { title: "Administrar Negocios", url: "/business" },
+          { title: "Panel General", url: "/dashboard" },
+          { title: "Mis Negocios", url: "/business" },
         ],
       },
       {
@@ -70,7 +72,7 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         isActive: true,
         items: [
           ...(selectedId ? [
-            { title: "Configurar", url: `/business/${selectedId}` },
+            { title: "Perfil del Negocio", url: `/business/${selectedId}` },
             { title: "Monitoreo de Agentes", url: `/business/${selectedId}/monitor` }
           ] : []),
           { title: "Productos", url: "/products" },
@@ -96,7 +98,7 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         items: [
           { title: "Estrategias", url: "/strategies" },
           { title: "Campañas", url: "/campaigns" },
-          { title: "Calendario", url: "/calendar" },
+          { title: "Mi Calendario", url: "/calendar" },
           { title: "Media", url: "/media" },
           { title: "Publicación", url: "/publishing" },
           { title: "Métricas", url: "/metrics" },
@@ -108,13 +110,33 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         icon: Settings,
         items: [
           { title: "Usuarios", url: "/settings/users" },
-          { title: "Ayuda & Soporte", url: "/support" },
         ],
+      },
+      {
+        title: "Mi Calendario",
+        url: "/calendar",
+        icon: Calendar,
+      },
+      {
+        title: "Estrategias y Campañas",
+        url: "/marketing",
+        icon: Share2,
+      },
+      {
+        title: "Guía de Inicio",
+        url: "/guide",
+        icon: BookOpen,
+      },
+      {
+        title: "Soporte y Ayuda",
+        url: "/support",
+        icon: LifeBuoy,
       },
     ]
 
     return rawNav
       .map(section => {
+        if (!section.items) return section;
         const filteredItems = section.items.filter(item => {
           if (role === "USER") {
             if (item.url.includes("/monitor") || item.url === "/products") return false;
@@ -130,6 +152,11 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
       })
       .filter(section => {
         if (role === "USER" && section.title === "Inteligencia IA") return false;
+        if (role === "USER" && section.title === "Marketing & Social") return false;
+        if (role !== "USER" && (section.title === "Estrategias y Campañas" || section.title === "Mi Calendario")) return false;
+        if (!section.items || section.items.length === 0) {
+          return !!section.url && section.url !== "#";
+        }
         return section.items.length > 0;
       });
   }, [role, selectedId]);

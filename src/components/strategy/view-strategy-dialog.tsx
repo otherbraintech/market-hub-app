@@ -30,14 +30,28 @@ interface ViewStrategyDialogProps {
   };
 }
 
+function safeParseJsonArray(val: any): any[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  return [];
+}
+
 export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Parse JSON data safely
-  const objectives = Array.isArray(strategy.objectives) ? strategy.objectives : [];
-  const personas = Array.isArray(strategy.personas) ? strategy.personas : [];
-  const funnelStages = Array.isArray(strategy.funnelStages) ? strategy.funnelStages : [];
-  const channels = Array.isArray(strategy.channels) ? strategy.channels : [];
+  const objectives = safeParseJsonArray(strategy.objectives);
+  const personas = safeParseJsonArray(strategy.personas);
+  const funnelStages = safeParseJsonArray(strategy.funnelStages);
+  const channels = safeParseJsonArray(strategy.channels);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

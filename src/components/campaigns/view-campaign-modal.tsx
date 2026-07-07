@@ -104,6 +104,18 @@ const statusTranslations: Record<string, string> = {
   COMPLETED: "Completada",
 };
 
+function safeParseJson(val: any): any {
+  if (!val) return null;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      return null;
+    }
+  }
+  return val;
+}
+
 export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
   const objectiveInfo = objectiveTranslations[campaign.objective] || {
     label: campaign.objective,
@@ -113,19 +125,20 @@ export function ViewCampaignModal({ campaign }: ViewCampaignModalProps) {
   };
 
   // Parse targeting details safely
-  const targeting = campaign.targeting as any;
+  const targeting = safeParseJson(campaign.targeting);
   const locations = targeting?.locations || [];
   const interests = targeting?.interests || [];
   const ageRange = targeting?.ageRange || [];
 
   // Parse channels details safely
-  const channels = (campaign.channels as any[]) || [];
+  const channelsRaw = safeParseJson(campaign.channels);
+  const channels = Array.isArray(channelsRaw) ? channelsRaw : [];
 
   // Parse metrics
-  const metrics = campaign.metrics as any;
+  const metrics = safeParseJson(campaign.metrics);
 
   // Parse objectiveDetails
-  const objectiveDetails = campaign.objectiveDetails as any;
+  const objectiveDetails = safeParseJson(campaign.objectiveDetails);
 
   // Parse contents list
   const contents = campaign.contents || [];

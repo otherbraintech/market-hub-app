@@ -49,8 +49,9 @@ export async function upsertCompetitorAction(
 
       const count = await prisma.competitor.count({ where: { businessId } })
       
-      if (user && count >= user.maxCompetitors) {
-        return { success: false, error: `Límite alcanzado (${user.maxCompetitors})` }
+      const maxCompetitors = user?.maxCompetitors ?? 1
+      if (user && count >= maxCompetitors) {
+        return { success: false, error: `Límite alcanzado (${maxCompetitors})` }
       }
 
       dbCompetitor = await prisma.competitor.create({

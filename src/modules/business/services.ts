@@ -55,8 +55,9 @@ export async function createBusiness(
       where: { userId: input.userId }
     })
     
-    if (businessCount >= user.maxBusinesses) {
-      throw new Error(`Límite excedido: Solo puedes crear ${user.maxBusinesses} negocio(s) con tu plan actual.`)
+    const maxBusinesses = user.maxBusinesses ?? 1
+    if (businessCount >= maxBusinesses) {
+      throw new Error(`Límite excedido: Solo puedes crear ${maxBusinesses} negocio(s) con tu plan actual.`)
     }
   }
 

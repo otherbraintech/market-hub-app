@@ -22,29 +22,72 @@ export const businessAnalysisSchema = z.object({
 
 export type BusinessAnalysis = z.infer<typeof businessAnalysisSchema>;
 
+import https from "https";
+import http from "http";
+
+function fetchHtmlInsecure(url: string, redirectsRemaining = 3): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (redirectsRemaining < 0) {
+      return reject(new Error("Too many redirects"));
+    }
+    try {
+      const parsed = new URL(url);
+      const client = parsed.protocol === "https:" ? https : http;
+      const req = client.get(
+        url,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          },
+          rejectUnauthorized: false,
+          timeout: 10000,
+        },
+        (res) => {
+          if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            const redirectUrl = new URL(res.headers.location, url).toString();
+            resolve(fetchHtmlInsecure(redirectUrl, redirectsRemaining - 1));
+            return;
+          }
+          let data = "";
+          res.on("data", (chunk) => {
+            data += chunk;
+          });
+          res.on("end", () => {
+            if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+              resolve(data);
+            } else {
+              reject(new Error(`Status code: ${res.statusCode}`));
+            }
+          });
+        }
+      );
+      req.on("error", (err) => reject(err));
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("Timeout"));
+      });
+      req.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 export async function analyzeBusiness(name: string, description: string, website?: string): Promise<BusinessAnalysis> {
   let websiteContent = '';
   if (website && (website.startsWith('http://') || website.startsWith('https://'))) {
     try {
-      const response = await fetch(website, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        next: { revalidate: 3600 } // Cache for 1 hour
-      });
-      if (response.ok) {
-        const html = await response.text();
-        // Basic extraction: get text between body tags if possible, or just strip all tags
-        const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-        const contentToProcess = bodyMatch ? bodyMatch[1] : html;
-        websiteContent = contentToProcess
-          .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gmi, "")
-          .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gmi, "")
-          .replace(/<[^>]*>?/gm, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 6000); 
-      }
+      const html = await fetchHtmlInsecure(website);
+      // Basic extraction: get text between body tags if possible, or just strip all tags
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+      const contentToProcess = bodyMatch ? bodyMatch[1] : html;
+      websiteContent = contentToProcess
+        .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gmi, "")
+        .replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gmi, "")
+        .replace(/<[^>]*>?/gm, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 6000); 
     } catch (error) {
       console.error('Error fetching website:', error);
     }

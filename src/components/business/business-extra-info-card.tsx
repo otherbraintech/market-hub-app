@@ -39,6 +39,7 @@ interface BusinessExtraInfoCardProps {
   initialSocialLinks?: SocialLinks | null
   initialCompetitors: Competitor[]
   maxCompetitors: number
+  role?: string
 }
 
 export function BusinessExtraInfoCard({
@@ -47,7 +48,8 @@ export function BusinessExtraInfoCard({
   initialLocation,
   initialSocialLinks,
   initialCompetitors,
-  maxCompetitors
+  maxCompetitors,
+  role
 }: BusinessExtraInfoCardProps) {
   const [loading, setLoading] = useState(false)
 
@@ -80,13 +82,14 @@ export function BusinessExtraInfoCard({
 
   // Auto-abrir diálogo de competidor si el negocio tiene 0 competidores
   useEffect(() => {
+    if (role === "USER") return;
     if (initialCompetitors.length === 0) {
       const timer = setTimeout(() => {
         setIsNewCompOpen(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [initialCompetitors]);
+  }, [initialCompetitors, role]);
 
   // Mapa de estados de scraping en tiempo real
   const [scrapingStatusMap, setScrapingStatusMap] = useState<Record<string, Record<string, { status: string; error?: string | null }>>>({})
@@ -393,13 +396,11 @@ export function BusinessExtraInfoCard({
             </div>
           </div>
 
-          <div className="h-px bg-border/50" />
-
-          {/* SECCIÓN COMPETENCIA */}
+          {/* SECCIÓN COMPETENCIA / CANALES DE COMPETIDORES */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black flex items-center gap-2 text-orange-600 uppercase tracking-wider">
-                <Users className="h-4 w-4" /> Competencia ({competitors.length}/{maxCompetitors})
+              <h3 className="text-sm font-black flex items-center gap-2 text-orange-650 uppercase tracking-wider">
+                <Users className="h-4 w-4" /> Canales de Competidores ({competitors.length}/{maxCompetitors})
               </h3>
               <Button
                 size="sm"
@@ -450,7 +451,7 @@ export function BusinessExtraInfoCard({
                               size="sm"
                               onClick={() => handleSaveCompetitor(idx)}
                               disabled={loading}
-                              className="h-7 px-3 text-[10px] bg-orange-600 hover:bg-orange-700 font-bold ml-1"
+                              className="h-7 px-3 text-[10px] bg-orange-650 hover:bg-orange-700 font-bold ml-1"
                             >
                               <Save className="h-3 w-3 mr-1" /> Guardar
                             </Button>
@@ -461,52 +462,27 @@ export function BusinessExtraInfoCard({
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-1.5">
-                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nombre</Label>
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Nombre del Competidor</Label>
                         <Input
                           placeholder="Nombre..."
                           value={comp.name || ''}
                           onChange={(e) => updateCompField(idx, 'name', e.target.value)}
                           disabled={!isEditing}
-                          className={`h-8 text-xs ${!isEditing ? 'bg-transparent border-transparent px-0' : 'bg-background'}`}
+                          className={`h-8 text-xs ${!isEditing ? 'bg-transparent border-transparent px-0 font-bold' : 'bg-background'}`}
                         />
                       </div>
                     </div>
 
                     {isEditing && (
-                      <>
-                        <div className="mt-4">
-                          <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-2 block">Seleccionar plataformas a escrapear</Label>
-                          <div className="flex flex-wrap gap-2">
-                            {platforms.map((platform) => {
-                              const PlatformIcon = platform.icon
-                              const isSelected = (selectedPlatforms[idx] || ['website']).includes(platform.key)
-                              return (
-                                <button
-                                  key={platform.key}
-                                  type="button"
-                                  onClick={() => togglePlatform(idx, platform.key)}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${isSelected
-                                      ? 'bg-orange-50 border-orange-300 text-orange-700'
-                                      : 'bg-muted/30 border-border text-muted-foreground hover:bg-muted/50'
-                                    }`}
-                                >
-                                  <PlatformIcon className="h-3 w-3" />
-                                  {platform.label}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {(selectedPlatforms[idx] || ['website']).map((platformKey) => {
-                            const platform = platforms.find(p => p.key === platformKey)
-                            if (!platform) return null
+                      <div className="mt-4 space-y-3">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Enlaces del Competidor</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {platforms.map((platform) => {
                             const PlatformIcon = platform.icon
                             return (
-                              <div key={platform.key} className="grid gap-1.5">
-                                <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-1">
-                                  <PlatformIcon className="h-2.5 w-2.5" />
+                              <div key={platform.key} className="grid gap-1">
+                                <Label className="text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-1">
+                                  <PlatformIcon className="h-3 w-3 text-muted-foreground/80" />
                                   {platform.label}
                                 </Label>
                                 <Input
@@ -519,7 +495,7 @@ export function BusinessExtraInfoCard({
                             )
                           })}
                         </div>
-                      </>
+                      </div>
                     )}
 
                     {!isEditing && (

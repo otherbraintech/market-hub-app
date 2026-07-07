@@ -10,7 +10,7 @@ import { listSocialAccounts } from "@/modules/publishing";
 import { BusinessInfoCard } from "@/components/business/business-info-card";
 import { BusinessExtraInfoCard } from "@/components/business/business-extra-info-card";
 import { ScrapingReportDialog } from "@/components/business/scraping-report-dialog";
-import { CompetitorGeneralReportDialog } from "@/components/business/competitor-general-report-dialog";
+import { CompetitorGeneralReportDialog } from "../../../../components/business/competitor-general-report-dialog";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Users, Target } from "lucide-react";

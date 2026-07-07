@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ businessId: string }> }
-) {
+import { runGenerateGeneralReport } from '../generate-general-report/route';
+
+export async function runCompetitorConsolidatedAnalysis(businessId: string) {
   try {
-    const { businessId } = await params;
 
     // Get business info
     const business = await prisma.business.findUnique({
@@ -148,21 +146,31 @@ export async function POST(
       });
     });
 
-    // Disparar regeneración del informe de competidores general
-    const host = request.headers.get("host") || "localhost:3000";
-    const protocol = host.includes("localhost") ? "http" : "https";
-    const generateReportUrl = `${protocol}://${host}/api/competitors/${businessId}/generate-general-report`;
-    fetch(generateReportUrl, { method: "POST" }).catch((err) => {
+    // Disparar regeneración del informe de competidores general directamente en código
+    runGenerateGeneralReport(businessId).catch((err) => {
       console.error("Error en regeneración de informe de competidores desde análisis consolidado competidores:", err);
     });
 
-    return NextResponse.json({
+    return {
       analysisId: storedAnalysis.id,
       analysis,
       generatedAt: new Date().toISOString()
-    });
+    };
   } catch (error) {
     console.error('Error generating consolidated analysis:', error);
+    throw error;
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ businessId: string }> }
+) {
+  try {
+    const { businessId } = await params;
+    const result = await runCompetitorConsolidatedAnalysis(businessId);
+    return NextResponse.json(result);
+  } catch (error) {
     return NextResponse.json({ error: 'Failed to generate consolidated analysis' }, { status: 500 });
   }
 }

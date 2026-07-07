@@ -102,28 +102,22 @@ export async function POST(request: Request) {
 
     // Si el reporte es exitoso, actualizar automáticamente el informe consolidado / análisis general del negocio
     try {
-      const host = request.headers.get("host") || "localhost:3000";
-      const protocol = host.includes("localhost") ? "http" : "https";
-
       if (report.type === "COMPETITOR" && resolvedBusinessId) {
-        // 1. Regenerar el informe general consolidado de competidores de la IA
-        const generateReportUrl = `${protocol}://${host}/api/competitors/${resolvedBusinessId}/generate-general-report`;
-        console.log(`🤖 Disparando regeneración automática de Informe General de Competidores para negocio: ${resolvedBusinessId}`);
-        fetch(generateReportUrl, { method: "POST" }).catch((err) => {
-          console.error("Error en regeneración automática de informe general de competidores:", err);
-        });
+        const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
+        const { runCompetitorConsolidatedAnalysis } = await import("@/app/api/competitors/[businessId]/consolidated-analysis/route");
 
-        // 2. Regenerar el análisis consolidado de competidores (la matriz consolidada)
-        const competitorConsolidatedUrl = `${protocol}://${host}/api/competitors/${resolvedBusinessId}/consolidated-analysis`;
-        console.log(`🤖 Disparando regeneración automática de Análisis Consolidado de Competidores para negocio: ${resolvedBusinessId}`);
-        fetch(competitorConsolidatedUrl, { method: "POST" }).catch((err) => {
-          console.error("Error en consolidación automática de competidores:", err);
+        console.log(`🤖 Disparando regeneración automática de Informe General y Análisis Consolidado de Competidores para negocio: ${resolvedBusinessId}`);
+        runGenerateGeneralReport(resolvedBusinessId).catch((err) => {
+          console.error("Error en regeneración de informe de competidores:", err);
+        });
+        runCompetitorConsolidatedAnalysis(resolvedBusinessId).catch((err) => {
+          console.error("Error en consolidación de análisis de competidores:", err);
         });
       } else if (report.type === "MY_BUSINESS" && resolvedBusinessId) {
-        // Regenerar el análisis consolidado del propio negocio (FODA, etc.)
-        const myConsolidatedUrl = `${protocol}://${host}/api/business/${resolvedBusinessId}/consolidated-analysis`;
+        const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
+
         console.log(`🤖 Disparando regeneración automática de Análisis Consolidado Propio para negocio: ${resolvedBusinessId}`);
-        fetch(myConsolidatedUrl, { method: "POST" }).catch((err) => {
+        runBusinessConsolidatedAnalysis(resolvedBusinessId).catch((err) => {
           console.error("Error en consolidación automática propia de negocio:", err);
         });
       }

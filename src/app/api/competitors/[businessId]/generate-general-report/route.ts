@@ -61,12 +61,8 @@ function cleanJsonString(badJson: string): string {
   return clean;
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ businessId: string }> }
-) {
+export async function runGenerateGeneralReport(businessId: string) {
   try {
-    const { businessId } = await params;
 
     // Notificar al monitor del inicio de la etapa de diagnóstico
     await prisma.agentNotification.create({
@@ -673,15 +669,10 @@ REGLAS CRÍTICAS:
       }
     }).catch((err: any) => console.error("Error al crear la notificación del Agente de Diagnóstico (Éxito):", err));
 
-    return NextResponse.json({
-      success: true,
-      report: generalReport,
-      generatedAt: new Date().toISOString()
-    });
+    return generalReport;
   } catch (error) {
     console.error('Error generating competitor general report:', error);
     try {
-      const { businessId } = await params;
       await prisma.agentNotification.create({
         data: {
           businessId,
@@ -694,6 +685,23 @@ REGLAS CRÍTICAS:
     } catch (e) {
       console.error("Error al crear notificación de error del Agente de Diagnóstico:", e);
     }
+    throw error;
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ businessId: string }> }
+) {
+  try {
+    const { businessId } = await params;
+    const report = await runGenerateGeneralReport(businessId);
+    return NextResponse.json({
+      success: true,
+      report,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
     return NextResponse.json({ error: 'Failed to generate general report' }, { status: 500 });
   }
 }

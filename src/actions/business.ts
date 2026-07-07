@@ -43,24 +43,34 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
     }
 
     // Disparar scraping automático para todos los canales que tengan URL en el nuevo negocio
-    const socialLinks = (business.socialLinks as Record<string, string | undefined>) || {};
+    let socialLinksObj: Record<string, any> = {};
+    if (business.socialLinks) {
+      if (typeof business.socialLinks === "string") {
+        try {
+          socialLinksObj = JSON.parse(business.socialLinks);
+        } catch (e) {}
+      } else if (typeof business.socialLinks === "object") {
+        socialLinksObj = business.socialLinks as Record<string, any>;
+      }
+    }
+
     const channelUrls = [
       { name: "WEBSITE", url: business.website },
-      { name: "FACEBOOK", url: socialLinks.facebook },
-      { name: "INSTAGRAM", url: socialLinks.instagram },
-      { name: "TIKTOK", url: socialLinks.tiktok },
-      { name: "LINKEDIN", url: socialLinks.linkedin },
-      { name: "YOUTUBE", url: socialLinks.youtube },
+      { name: "FACEBOOK", url: socialLinksObj.facebook },
+      { name: "INSTAGRAM", url: socialLinksObj.instagram },
+      { name: "TIKTOK", url: socialLinksObj.tiktok },
+      { name: "LINKEDIN", url: socialLinksObj.linkedin },
+      { name: "YOUTUBE", url: socialLinksObj.youtube },
     ];
 
     const promises = channelUrls
-      .filter((ch) => ch.url && ch.url.trim() !== "")
+      .filter((ch) => ch.url && typeof ch.url === "string" && ch.url.trim() !== "")
       .map((ch) =>
         triggerAnalysis({
           type: "MY_BUSINESS",
           entityId: business.id,
           channel: ch.name,
-          url: ch.url!,
+          url: ch.url,
         }).catch((err) => {
           console.error(`Error al disparar scraping automático de negocio para canal ${ch.name}:`, err);
         })

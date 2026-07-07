@@ -57,7 +57,17 @@ export function BusinessExtraInfoCard({
   const [isEditingContact, setIsEditingContact] = useState(false)
   const [phoneNumbers, setPhoneNumbers] = useState(initialPhoneNumbers || '')
   const [location, setLocation] = useState(initialLocation || '')
-  const [socialLinks, setSocialLinks] = useState<SocialLinks>(initialSocialLinks || {})
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>(() => {
+    if (!initialSocialLinks) return {};
+    if (typeof initialSocialLinks === "string") {
+      try {
+        return JSON.parse(initialSocialLinks);
+      } catch (e) {
+        return {};
+      }
+    }
+    return initialSocialLinks;
+  })
 
   // States for Competitors
   const [showNameAlert, setShowNameAlert] = useState(false)

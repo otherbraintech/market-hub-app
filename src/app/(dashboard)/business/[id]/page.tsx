@@ -163,8 +163,13 @@ export default async function BusinessDetailPage({
                   let manualSocialCount = 0;
                   if (business.socialLinks) {
                     try {
-                      const links = business.socialLinks as Record<string, string>;
-                      manualSocialCount = Object.values(links).filter(url => !!url && url.trim() !== "").length;
+                      let links = business.socialLinks;
+                      if (typeof links === "string") {
+                        links = JSON.parse(links);
+                      }
+                      if (links && typeof links === "object") {
+                        manualSocialCount = Object.values(links).filter(url => typeof url === "string" && url.trim() !== "").length;
+                      }
                     } catch (e) {}
                   }
                   return business._count.socialAccounts + manualSocialCount;

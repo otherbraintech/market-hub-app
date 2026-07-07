@@ -10,6 +10,7 @@ import { listSocialAccounts } from "@/modules/publishing";
 import { BusinessInfoCard } from "@/components/business/business-info-card";
 import { BusinessExtraInfoCard } from "@/components/business/business-extra-info-card";
 import { ScrapingReportDialog } from "@/components/business/scraping-report-dialog";
+import { CompetitorGeneralReportDialog } from "@/components/business/competitor-general-report-dialog";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Users, Target } from "lucide-react";
@@ -191,6 +192,89 @@ export default async function BusinessDetailPage({
               role={role}
             />
            <BusinessInfoCard business={business} />
+        </div>
+
+        {/* Sección de Informes de Auditoría de IA */}
+        <div className="space-y-4 pt-4 border-t">
+          <div>
+            <h3 className="text-lg font-bold tracking-tight">Informes de Auditoría y Diagnóstico de IA</h3>
+            <p className="text-xs text-muted-foreground">Información consolidada de tu negocio y competencia generada por nuestros agentes digitales.</p>
+          </div>
+          
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Mi Negocio Report */}
+            <Card className="card-shadow border border-muted/20">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Target className="h-4 w-4 text-purple-500" />
+                    Auditoría Digital de Mi Negocio
+                  </CardTitle>
+                </div>
+                {myAnalysis && (
+                  <ScrapingReportDialog data={myAnalysis.data as any} channel={myAnalysis.channel} />
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {myAnalysis ? (
+                  <div className="text-xs text-muted-foreground leading-relaxed space-y-2">
+                    <p>Auditoría digital completada con éxito del canal <strong>{myAnalysis.channel}</strong>.</p>
+                    {(() => {
+                      try {
+                        const parsed = typeof myAnalysis.data === "string" ? JSON.parse(myAnalysis.data) : myAnalysis.data;
+                        const dataObj = Array.isArray(parsed) && parsed.length > 0 ? (parsed[0].output || parsed[0]) : parsed;
+                        const positioning = dataObj?.market_positioning || dataObj?.brand_positioning?.brand_positioning_indicators?.[0] || "Diagnóstico completado.";
+                        return <p className="italic bg-muted/30 p-2 rounded border border-muted/50">"{positioning}"</p>;
+                      } catch (e) {
+                        return null;
+                      }
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    Aún no se ha realizado la extracción digital de tu sitio web o canal. Se ejecutará automáticamente tras registrar tus canales.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Competencia Report */}
+            <Card className="card-shadow border border-muted/20">
+              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-500" />
+                    Diagnóstico Consolidado de Competidores
+                  </CardTitle>
+                </div>
+                {business.competitorGeneralReport && (
+                  <CompetitorGeneralReportDialog reportData={business.competitorGeneralReport} />
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {business.competitorGeneralReport ? (
+                  <div className="text-xs text-muted-foreground leading-relaxed space-y-2">
+                    <p>Diagnóstico de competencia estructurado por el Agente de Diagnóstico con IA.</p>
+                    {(() => {
+                      try {
+                        const parsed = typeof business.competitorGeneralReport === "string" 
+                          ? JSON.parse(business.competitorGeneralReport) 
+                          : business.competitorGeneralReport;
+                        const execSummary = parsed?.executiveSummary || "Diagnóstico competitivo listo.";
+                        return <p className="line-clamp-3 italic bg-muted/30 p-2 rounded border border-muted/50">"{execSummary}"</p>;
+                      } catch (e) {
+                        return null;
+                      }
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">
+                    Aún no se ha consolidado el informe de tus competidores. Registra competidores y espera a que los agentes de extracción terminen para generar el diagnóstico.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

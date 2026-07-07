@@ -91,7 +91,7 @@ export async function POST(
     // Disparar generación en cascada asíncrona en background
     // (no se espera con await para no retrasar el request)
     import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-      triggerCascadeGeneration(business.id).catch(err => {
+      triggerCascadeGeneration(business.id, true).catch(err => {
         console.error('Error in triggerCascadeGeneration background process:', err);
       });
     });

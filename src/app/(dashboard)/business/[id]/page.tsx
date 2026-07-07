@@ -260,10 +260,29 @@ export default async function BusinessDetailPage({
                         const parsed = typeof business.competitorGeneralReport === "string" 
                           ? JSON.parse(business.competitorGeneralReport) 
                           : business.competitorGeneralReport;
-                        const execSummary = parsed?.executiveSummary || "Diagnóstico competitivo listo.";
+                        
+                        let execSummary = "Diagnóstico competitivo listo.";
+                        if (parsed) {
+                          if (typeof parsed.executiveSummary === "string") {
+                            execSummary = parsed.executiveSummary;
+                          } else if (typeof parsed.panoramaGlobal === "string") {
+                            execSummary = parsed.panoramaGlobal;
+                          } else if (parsed.executiveSummary && typeof parsed.executiveSummary === "object") {
+                            const values = Object.values(parsed.executiveSummary).filter(v => typeof v === "string");
+                            if (values.length > 0) execSummary = values[0] as string;
+                          } else if (parsed.panoramaGlobal && typeof parsed.panoramaGlobal === "object") {
+                            const pg = parsed.panoramaGlobal as any;
+                            if (typeof pg.resumen === "string") {
+                              execSummary = pg.resumen;
+                            } else {
+                              const values = Object.values(pg).filter(v => typeof v === "string");
+                              if (values.length > 0) execSummary = values[0] as string;
+                            }
+                          }
+                        }
                         return <p className="line-clamp-3 italic bg-muted/30 p-2 rounded border border-muted/50">"{execSummary}"</p>;
                       } catch (e) {
-                        return null;
+                        return <p className="text-xs text-muted-foreground italic">Diagnóstico competitivo listo.</p>;
                       }
                     })()}
                   </div>

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { 
   Eye, Compass, ShieldAlert, Sparkles, Brain, 
-  ArrowRight, Award, Lightbulb, Users, Target
+  ArrowRight, Award, Lightbulb, Users, Target, BookOpen
 } from 'lucide-react';
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface CompetitorGeneralReportDialogProps {
   reportData: any;
@@ -42,9 +43,64 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
     );
   }
 
-  const executiveSummary = data.executiveSummary || "No se ha generado un resumen ejecutivo.";
+  // Safe rendering of any nested object or string to prevent React child crash
+  const renderSectionContent = (val: any): React.ReactNode => {
+    if (val === undefined || val === null) return null;
+    if (typeof val === "string") {
+      return <p className="text-xs leading-relaxed text-muted-foreground whitespace-pre-line">{val}</p>;
+    }
+    if (Array.isArray(val)) {
+      return (
+        <ul className="space-y-1.5">
+          {val.map((item, i) => (
+            <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 leading-relaxed">
+              <ArrowRight className="h-3 w-3 text-purple-500 shrink-0 mt-0.5" />
+              <span>{typeof item === "string" ? item : JSON.stringify(item)}</span>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    if (typeof val === "object") {
+      return (
+        <div className="space-y-3">
+          {Object.entries(val).map(([key, value]) => (
+            <div key={key} className="space-y-1 bg-muted/20 p-3 rounded-lg border">
+              <span className="text-xs font-bold text-foreground capitalize block border-b pb-1 mb-2">
+                {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
+              </span>
+              {renderSectionContent(value)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return String(val);
+  };
+
+  // Detect structures
+  const isSpanishKeysStructure = !!(
+    data.panoramaGlobal || 
+    data.analisisCanales || 
+    data.oportunidadesGaps || 
+    data.estrategiaContenidos || 
+    data.estrategiaPosicionamiento || 
+    data.tacticasConversionPrecios
+  );
+
   const competitors = Array.isArray(data.competitors) ? data.competitors : [];
   const metadata = data.metadata || {};
+
+  // Extract executiveSummary safely
+  let executiveSummary = "No se ha generado un resumen ejecutivo.";
+  if (typeof data.executiveSummary === "string") {
+    executiveSummary = data.executiveSummary;
+  } else if (typeof data.panoramaGlobal === "string") {
+    executiveSummary = data.panoramaGlobal;
+  } else if (data.executiveSummary && typeof data.executiveSummary === "object") {
+    const values = Object.values(data.executiveSummary).filter(v => typeof v === "string");
+    if (values.length > 0) executiveSummary = values[0] as string;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -79,19 +135,75 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Executive Summary */}
+          {/* Executive Summary / Panorama Global */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
               <Sparkles className="h-4 w-4 text-purple-500" />
-              Resumen Ejecutivo de Competencia
+              Resumen Ejecutivo / Panorama Global
             </h3>
             <div className="p-4 bg-purple-50/50 dark:bg-purple-950/10 border border-purple-100 dark:border-purple-900/30 rounded-xl text-xs leading-relaxed text-muted-foreground whitespace-pre-line">
-              {executiveSummary}
+              {renderSectionContent(executiveSummary)}
             </div>
           </div>
 
-          {/* Competitors List & Tabs */}
-          {competitors.length > 0 ? (
+          {/* Spanish Keys Tabbed Structure */}
+          {isSpanishKeysStructure && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                <BookOpen className="h-4 w-4 text-purple-500" />
+                Capítulos del Diagnóstico
+              </h3>
+
+              <Tabs defaultValue="analisisCanales" className="w-full">
+                <TabsList className="w-full flex justify-start overflow-x-auto bg-muted/30 p-1 mb-4 h-auto flex-wrap">
+                  {data.analisisCanales && (
+                    <TabsTrigger value="analisisCanales" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
+                      Análisis de Canales
+                    </TabsTrigger>
+                  )}
+                  {data.oportunidadesGaps && (
+                    <TabsTrigger value="oportunidadesGaps" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
+                      Oportunidades & Gaps
+                    </TabsTrigger>
+                  )}
+                  {data.estrategiaContenidos && (
+                    <TabsTrigger value="estrategiaContenidos" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
+                      Contenidos
+                    </TabsTrigger>
+                  )}
+                  {data.estrategiaPosicionamiento && (
+                    <TabsTrigger value="estrategiaPosicionamiento" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
+                      Posicionamiento
+                    </TabsTrigger>
+                  )}
+                  {data.tacticasConversionPrecios && (
+                    <TabsTrigger value="tacticasConversionPrecios" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
+                      Conversión & Precios
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+
+                <TabsContent value="analisisCanales" className="mt-0 focus-visible:outline-none">
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.analisisCanales)}</CardContent></Card>
+                </TabsContent>
+                <TabsContent value="oportunidadesGaps" className="mt-0 focus-visible:outline-none">
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.oportunidadesGaps)}</CardContent></Card>
+                </TabsContent>
+                <TabsContent value="estrategiaContenidos" className="mt-0 focus-visible:outline-none">
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.estrategiaContenidos)}</CardContent></Card>
+                </TabsContent>
+                <TabsContent value="estrategiaPosicionamiento" className="mt-0 focus-visible:outline-none">
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.estrategiaPosicionamiento)}</CardContent></Card>
+                </TabsContent>
+                <TabsContent value="tacticasConversionPrecios" className="mt-0 focus-visible:outline-none">
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.tacticasConversionPrecios)}</CardContent></Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {/* Original Competitors Tabbed Structure */}
+          {!isSpanishKeysStructure && competitors.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-sm font-semibold flex items-center gap-2 text-foreground">
                 <Users className="h-4 w-4 text-blue-500" />
@@ -119,7 +231,7 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
                       {insights.strategicAnalysis && (
                         <div className="p-3.5 bg-muted/40 border rounded-xl text-xs text-muted-foreground leading-relaxed">
                           <strong className="text-foreground block mb-1">Análisis Estratégico:</strong>
-                          {insights.strategicAnalysis}
+                          {renderSectionContent(insights.strategicAnalysis)}
                         </div>
                       )}
 
@@ -130,18 +242,7 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
                             <Award className="h-3.5 w-3.5" />
                             Fortalezas Principales
                           </h4>
-                          {Array.isArray(insights.strengths) && insights.strengths.length > 0 ? (
-                            <ul className="space-y-1">
-                              {insights.strengths.map((item: string, i: number) => (
-                                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 leading-relaxed">
-                                  <ArrowRight className="h-3 w-3 text-emerald-500 shrink-0 mt-0.5" />
-                                  <span>{item}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic">No identificadas</p>
-                          )}
+                          {renderSectionContent(insights.strengths)}
                         </div>
 
                         {/* Weaknesses */}
@@ -150,18 +251,7 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
                             <ShieldAlert className="h-3.5 w-3.5" />
                             Debilidades y Brechas
                           </h4>
-                          {Array.isArray(insights.weaknesses) && insights.weaknesses.length > 0 ? (
-                            <ul className="space-y-1">
-                              {insights.weaknesses.map((item: string, i: number) => (
-                                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 leading-relaxed">
-                                  <ArrowRight className="h-3 w-3 text-rose-500 shrink-0 mt-0.5" />
-                                  <span>{item}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic">No identificadas</p>
-                          )}
+                          {renderSectionContent(insights.weaknesses)}
                         </div>
                       </div>
 
@@ -172,17 +262,7 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
                             <Target className="h-3.5 w-3.5" />
                             Tácticas de Venta y Canales
                           </h4>
-                          {Array.isArray(insights.marketingTactics) && insights.marketingTactics.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {insights.marketingTactics.map((tag: string, i: number) => (
-                                <Badge key={i} variant="outline" className="text-[10px]">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic">No identificadas</p>
-                          )}
+                          {renderSectionContent(insights.marketingTactics)}
                         </div>
 
                         {/* Recommendations */}
@@ -191,18 +271,7 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
                             <Lightbulb className="h-3.5 w-3.5" />
                             Recomendaciones de Ataque
                           </h4>
-                          {Array.isArray(insights.recommendations) && insights.recommendations.length > 0 ? (
-                            <ul className="space-y-1">
-                              {insights.recommendations.map((item: string, i: number) => (
-                                <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5 leading-relaxed">
-                                  <ArrowRight className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
-                                  <span>{item}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-xs text-muted-foreground italic">No recomendadas</p>
-                          )}
+                          {renderSectionContent(insights.recommendations)}
                         </div>
                       </div>
                     </TabsContent>
@@ -210,9 +279,11 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
                 })}
               </Tabs>
             </div>
-          ) : (
-            <div className="text-center py-6 text-xs text-muted-foreground italic">
-              Aún no se ha consolidado el informe detallado por competidores. Dispara el reanálisis automático para generarlo.
+          )}
+
+          {!isSpanishKeysStructure && competitors.length === 0 && (
+            <div className="text-center py-6 text-xs text-muted-foreground italic bg-muted/10 rounded-xl border">
+              Aún no se ha consolidado el informe detallado por competidores. Registra y analiza a tus competidores para activarlo.
             </div>
           )}
         </div>

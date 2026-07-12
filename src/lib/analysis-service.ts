@@ -68,7 +68,9 @@ export async function triggerAnalysis({
   }
 
   // Disparar el webhook externo (n8n)
-  const n8nWebhookUrl = "https://otherbrain-n8n.c1hohn.easypanel.host/webhook/scrap-negocio";
+  const n8nWebhookUrl = type === "COMPETITOR" 
+    ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap"
+    : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
   const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
   try {

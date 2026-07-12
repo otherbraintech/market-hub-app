@@ -25,22 +25,16 @@ export async function upsertStrategyAction(businessId: string, data: z.infer<typ
         channels: validated.channels as any,
       });
 
-      // Comprobar y disparar la generación en cascada en background tras actualizar
-      const [campaignsCount, strategiesCount] = await Promise.all([
-        prisma.campaign.count({ where: { businessId } }),
-        prisma.marketingStrategy.count({ where: { businessId } })
-      ]);
-      if (campaignsCount < 8 || strategiesCount < 8) {
-        import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-          triggerCascadeGeneration(businessId).catch((err: any) => {
-            console.error('[CASCADE] Error en triggerCascadeGeneration desde actualización de estrategia:', err);
-          });
+      // Disparar la generación en cascada en background tras actualizar de forma forzada
+      import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
+        triggerCascadeGeneration(businessId, true).catch((err: any) => {
+          console.error('[CASCADE] Error en triggerCascadeGeneration desde actualización de estrategia:', err);
         });
-      }
+      });
 
       revalidatePath(`/business/${businessId}`);
       revalidatePath(`/strategies`);
-      return { success: true, message: "Estrategia actualizada" };
+      return { success: true, message: "Estrategia actualizada e inicio de autogeneración en segundo plano" };
     } else {
       // Crear nueva
       const input: CreateStrategyInput = {
@@ -56,9 +50,16 @@ export async function upsertStrategyAction(businessId: string, data: z.infer<typ
       
       await createStrategy(input);
 
+      // Disparar la generación en cascada en background tras crear nueva estrategia de forma forzada
+      import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
+        triggerCascadeGeneration(businessId, true).catch((err: any) => {
+          console.error('[CASCADE] Error en triggerCascadeGeneration desde creación de estrategia:', err);
+        });
+      });
+
       revalidatePath(`/business/${businessId}`);
       revalidatePath(`/strategies`);
-      return { success: true, message: "Estrategia guardada con éxito" };
+      return { success: true, message: "Estrategia guardada con éxito e inicio de autogeneración en segundo plano" };
     }
   } catch (error) {
     console.error(error);
@@ -89,12 +90,17 @@ export async function createStrategyAction(businessId: string, data: any) {
       }
     });
 
+    // Disparar la generación en cascada en background de forma forzada
+    import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
+      triggerCascadeGeneration(businessId, true).catch((err: any) => {
+        console.error('[CASCADE] Error en triggerCascadeGeneration desde creación de estrategia:', err);
+      });
+    });
+
     revalidatePath(`/business/${businessId}`);
     revalidatePath(`/strategies`);
 
-
-
-    return { success: true, strategy, message: "Estrategia creada exitosamente" };
+    return { success: true, strategy, message: "Estrategia creada exitosamente e inicio de autogeneración en segundo plano" };
   } catch (error) {
     console.error("Error creating strategy:", error);
     return { success: false, error: "Error al crear la estrategia" };

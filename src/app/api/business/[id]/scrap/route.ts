@@ -66,7 +66,7 @@ export async function POST(
     }).catch((err: unknown) => console.error("Error al crear notificación de extracción manual de negocio:", err));
 
     // Trigger external webhook (n8n) for business scraping
-    const n8nWebhookUrl = "https://otherbrain-n8n.c1hohn.easypanel.host/webhook/scrap-negocio";
+    const n8nWebhookUrl = "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
     
     try {
       await fetch(n8nWebhookUrl, {

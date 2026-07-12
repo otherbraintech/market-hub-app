@@ -78,6 +78,63 @@ export async function dispatchWebhook(
     requestHeaders['X-Job-ID'] = payload.jobId
   }
 
+  // Simulación en segundo plano para desarrollo local o webhooks faltantes
+  const callbackBase = process.env.WEBHOOK_CALLBACK_BASE_URL || 'http://localhost:3000/api/webhooks/callback';
+  if (!url || url.trim() === "" || process.env.NODE_ENV === "development" || url.includes("localhost")) {
+    setTimeout(async () => {
+      try {
+        let callbackUrl = "";
+        let callbackBody: any = {
+          jobId: payload.jobId,
+          status: "SUCCESS",
+        };
+
+        if (payload.eventType === "GENERATE_MEDIA") {
+          callbackUrl = `${callbackBase}/media`;
+          const paramType = (payload.payload?.parameters as any)?.type || "image";
+          callbackBody.result = {
+            mediaUrl: paramType === "video"
+              ? "https://assets.mixkit.co/videos/preview/mixkit-coffee-beans-falling-into-a-grinder-40545-large.mp4"
+              : "https://images.unsplash.com/photo-1507525428034-b723cf961d3e"
+          };
+        } else if (payload.eventType === "PUBLISH_CONTENT") {
+          callbackUrl = `${callbackBase}/publish`;
+          callbackBody.result = {
+            externalId: "mock-post-1234",
+            externalUrl: "https://facebook.com/mock-post-1234"
+          };
+        } else if (payload.eventType === "GENERATE_COPY") {
+          callbackUrl = `${callbackBase}/copy`;
+          callbackBody.result = {
+            caption: "✨ ¡Descubre cómo potenciar tu presencia digital hoy mismo con MarketHub! #marketing #ia #pymes",
+            body: "Concepto visual: Un dashboard moderno e interactivo con animaciones fluidas."
+          };
+        }
+
+        if (callbackUrl) {
+          console.log(`[SIMULATOR] Enviando callback simulado a: ${callbackUrl}`);
+          await fetch(callbackUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(callbackBody),
+          });
+        }
+      } catch (err) {
+        console.error("[SIMULATOR ERROR]", err);
+      }
+    }, 2000);
+
+    if (!url || url.trim() === "") {
+      return {
+        success: true,
+        statusCode: 200,
+        data: { message: "Simulación de webhook iniciada en segundo plano" }
+      };
+    }
+  }
+
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), timeout)

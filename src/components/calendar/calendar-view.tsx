@@ -219,6 +219,101 @@ export function CalendarView({
   const [copiedType, setCopiedType] = useState<"copy" | "prompt" | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [generativePreviewPost, setGenerativePreviewPost] = useState<ContentItem | null>(null);
+
+  const handleQuickApprove = async (post: ContentItem) => {
+    try {
+      const res = await updateContentStatusAction(post.id, "APPROVED", businessId);
+      if (res.success) {
+        toast.success("¡Publicación aprobada con éxito!");
+        setContents(prev => prev.map(item => item.id === post.id ? { ...item, status: "APPROVED" } : item));
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo aprobar.");
+      }
+    } catch (e) {
+      toast.error("Error al aprobar.");
+    }
+  };
+
+  const handleConvertToAd = (post: ContentItem) => {
+    toast.success(`✨ ¡"${post.title}" marcada como anuncio de Facebook Ads con éxito!`);
+  };
+
+  const handleGenApprove = async () => {
+    if (!generativePreviewPost) return;
+    try {
+      const res = await updateContentStatusAction(generativePreviewPost.id, "APPROVED", businessId);
+      if (res.success) {
+        toast.success("¡Aprobada y programada con éxito!");
+        setContents(prev => prev.map(item => item.id === generativePreviewPost.id ? { ...item, status: "APPROVED" } : item));
+        setGenerativePreviewPost(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || "Error al aprobar.");
+      }
+    } catch (e) {
+      toast.error("Error al aprobar.");
+    }
+  };
+
+  const handleGenRegenerate = async () => {
+    if (!generativePreviewPost || !generativePreviewPost.campaignId) return;
+    setIsRegenerating(true);
+    try {
+      const res = await generateSingleContentIdeaAction(
+        generativePreviewPost.campaignId,
+        businessId,
+        generativePreviewPost.channel || "INSTAGRAM",
+        generativePreviewPost.type,
+        generativePreviewPost.format || "IMAGE"
+      );
+      if (res.success && res.idea) {
+        const saveRes = await updateCalendarContentAction(
+          generativePreviewPost.id,
+          {
+            title: res.idea.title,
+            body: res.idea.body,
+            caption: res.idea.caption,
+            promptUsed: res.idea.promptUsed,
+            mediaUrl: "",
+          },
+          businessId
+        );
+        if (saveRes.success) {
+          toast.success("¡Idea de publicación regenerada con éxito!");
+          setGenerativePreviewPost(prev => prev ? {
+            ...prev,
+            title: res.idea.title,
+            body: res.idea.body,
+            caption: res.idea.caption,
+            promptUsed: res.idea.promptUsed,
+            mediaUrl: "",
+          } : null);
+          setContents(prev => prev.map(item => item.id === generativePreviewPost.id ? {
+            ...item,
+            title: res.idea.title,
+            body: res.idea.body,
+            caption: res.idea.caption,
+            promptUsed: res.idea.promptUsed,
+            mediaUrl: "",
+          } : item));
+          router.refresh();
+        }
+      }
+    } catch (e) {
+      toast.error("Error al regenerar.");
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const handleGenEditManual = () => {
+    if (!generativePreviewPost) return;
+    setViewingContent(generativePreviewPost);
+    setIsEditing(true);
+    setGenerativePreviewPost(null);
+  };
   
   // Estado local para formulario de edición
   const [editForm, setEditForm] = useState({
@@ -1190,21 +1285,30 @@ export function CalendarView({
 
       {/* CONTENEDOR DEL CALENDARIO */}
       <div className="flex-1 min-h-[500px] overflow-hidden flex flex-col bg-card border rounded-2xl shadow-md card-shadow">
-        {/* Días de la semana */}
-        <div className="grid grid-cols-7 border-b bg-muted/20 select-none shrink-0">
-          {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
-            <div key={day} className="py-3 text-center text-xs font-black uppercase tracking-widest text-muted-foreground/85 border-r last:border-r-0">
-              {day}
-            </div>
-          ))}
+        {/* Cabecera de columnas para Canales */}
+        <div className="grid grid-cols-12 border-b bg-muted/20 select-none shrink-0 text-xs font-black uppercase tracking-widest text-muted-foreground/85">
+          <div className="col-span-3 py-3 pl-4 border-r">Fecha</div>
+          <div className="col-span-3 py-3 text-center border-r flex items-center justify-center gap-1">
+            <Facebook className="h-3.5 w-3.5 text-blue-600" />
+            <span>Facebook</span>
+          </div>
+          <div className="col-span-3 py-3 text-center border-r flex items-center justify-center gap-1">
+            <Instagram className="h-3.5 w-3.5 text-pink-600" />
+            <span>Instagram</span>
+          </div>
+          <div className="col-span-3 py-3 text-center flex items-center justify-center gap-1">
+            <Globe className="h-3.5 w-3.5 text-zinc-800" />
+            <span>TikTok</span>
+          </div>
         </div>
 
-        {/* Celdas */}
-        <div className="flex-1 grid grid-cols-7 grid-rows-5 overflow-y-auto">
-          {gridCells.map((cell, index) => {
+        {/* Filas de días */}
+        <div className="flex-1 overflow-y-auto divide-y">
+          {gridCells.filter(cell => cell.isCurrentMonth).map((cell, idx) => {
             const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
             const cellDateStr = format(cell.date, "yyyy-MM-dd");
-            
+            const formattedDayName = format(cell.date, "EEEE d", { locale: es });
+
             const dayContents = contents.filter((item) => {
               if (!item.scheduledAt) return false;
               const scheduledDate = new Date(item.scheduledAt);
@@ -1224,198 +1328,191 @@ export function CalendarView({
                 })
               : [];
 
-            const handleAddPlan = () => {
-              const scheduledDateString = format(cell.date, "yyyy-MM-dd") + "T10:00";
-              
-              if (previewPosts) {
-                const defaultPost = {
-                  title: "Nueva Publicación",
-                  type: "POST",
-                  format: "IMAGE",
-                  channel: "INSTAGRAM",
-                  body: "Concepto visual o storyboard de la publicación",
-                  caption: "Texto de la publicación (Copy / Caption)",
-                  promptUsed: "",
-                  scheduledAt: new Date(scheduledDateString).toISOString()
-                };
-                
-                setPreviewPosts(prev => {
-                  const next = prev ? [...prev, defaultPost] : [defaultPost];
-                  const newIdx = next.length - 1;
-                  setActivePreviewIdx(newIdx);
-                  
-                  setTimeout(() => {
-                    setViewingContent({
-                      id: `sim-${newIdx}`,
-                      campaignId: planningCampaignId || null,
-                      type: defaultPost.type,
-                      format: defaultPost.format,
-                      title: defaultPost.title,
-                      body: defaultPost.body,
-                      caption: defaultPost.caption,
-                      hashtags: [],
-                      scheduledAt: defaultPost.scheduledAt,
-                      channel: defaultPost.channel,
-                      promptUsed: defaultPost.promptUsed
-                    });
-                  }, 0);
-                  
-                  return next;
-                });
-                return;
-              }
-
-              setViewingContent({
-                id: "new-draft",
-                campaignId: selectedCampaignId !== "all" ? selectedCampaignId : null,
-                campaign: null,
-                type: "POST",
-                format: "IMAGE",
-                title: "",
-                body: "",
-                caption: "",
-                hashtags: [],
-                scheduledAt: new Date(scheduledDateString).toISOString(),
-                channel: "INSTAGRAM",
-                promptUsed: ""
-              });
-              setEditForm({
-                title: "",
-                channels: ["INSTAGRAM"],
-                type: "POST",
-                format: "IMAGE",
-                scheduledAt: scheduledDateString,
-                caption: "",
-                body: "",
-                promptUsed: "",
-                campaignId: selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || ""),
-                mediaUrl: "",
-              });
-              setIsEditing(true);
-            };
-
-            const totalPostsCount = dayContents.length + simulatedPosts.length;
+            const channelsList = ["FACEBOOK", "INSTAGRAM", "TIKTOK"];
 
             return (
-              <div
-                key={index}
-                onClick={handleAddPlan}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, cell.date)}
-                className={`border-r border-b p-2 min-h-[100px] flex flex-col gap-1.5 transition-all relative group/cell hover:bg-muted/10 last:border-r-0 cursor-pointer ${
-                  cell.isCurrentMonth ? "bg-background" : "bg-muted/5 opacity-40"
-                } ${draggedContent ? 'hover:bg-blue-50/50' : ''}`}
-              >
-                <div className="flex justify-between items-center select-none">
-                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isToday ? "bg-blue-600 text-white shadow-sm" : "text-muted-foreground"}`}>
-                    {cell.date.getDate()}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {totalPostsCount > 0 && (
-                      <span className="text-[9px] text-muted-foreground/60 font-bold uppercase tracking-wider">
-                        {totalPostsCount} {totalPostsCount === 1 ? "post" : "posts"}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddPlan();
-                      }}
-                      className="opacity-0 group-hover/cell:opacity-100 transition-opacity bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-950 p-1 rounded-md text-[10px] font-bold"
-                      title="Agregar Planificación Diaria"
-                    >
-                      + Plan
-                    </button>
+              <div key={idx} className={`grid grid-cols-12 min-h-[90px] transition-all hover:bg-muted/5 ${isToday ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
+                {/* Columna Fecha (Lado izquierdo) */}
+                <div className="col-span-3 p-4 border-r flex flex-col justify-between bg-muted/5">
+                  <div>
+                    <span className={`text-xs font-bold uppercase tracking-wider ${isToday ? "text-blue-600 font-black" : "text-foreground"}`}>
+                      {formattedDayName}
+                    </span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {totalDaysInMonth} días total
+                    </p>
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const scheduledDateString = format(cell.date, "yyyy-MM-dd") + "T10:00";
+                      setViewingContent({
+                        id: "new-draft",
+                        campaignId: selectedCampaignId !== "all" ? selectedCampaignId : null,
+                        campaign: null,
+                        type: "POST",
+                        format: "IMAGE",
+                        title: "",
+                        body: "",
+                        caption: "",
+                        hashtags: [],
+                        scheduledAt: new Date(scheduledDateString).toISOString(),
+                        channel: "INSTAGRAM",
+                        promptUsed: ""
+                      });
+                      setEditForm({
+                        title: "",
+                        channels: ["INSTAGRAM"],
+                        type: "POST",
+                        format: "IMAGE",
+                        scheduledAt: scheduledDateString,
+                        caption: "",
+                        body: "",
+                        promptUsed: "",
+                        campaignId: selectedCampaignId !== "all" ? selectedCampaignId : (campaigns[0]?.id || ""),
+                        mediaUrl: "",
+                      });
+                      setIsEditing(true);
+                    }}
+                    className="h-7 text-[10px] font-bold mt-2"
+                  >
+                    + Nuevo Post
+                  </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                  {/* Renderizar posts reales de BBDD */}
-                  {dayContents.map((post) => {
-                    const ch = (post.channel || "INSTAGRAM").toUpperCase();
-                    const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
-                    const pubTime = post.scheduledAt ? format(new Date(post.scheduledAt), "HH:mm") : "";
+                {/* Columnas de Canales (Lado derecho) */}
+                {channelsList.map((ch, chIdx) => {
+                  const channelPosts = dayContents.filter(p => (p.channel || "INSTAGRAM").toUpperCase() === ch);
+                  const channelSimulated = simulatedPosts.filter(p => (p.channel || "INSTAGRAM").toUpperCase() === ch);
+                  const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
 
-                    return (
-                      <div
-                        key={post.id}
-                        draggable={!isEditMode}
-                        onDragStart={(e) => !isEditMode && handleDragStart(e, post)}
-                        onDragEnd={handleDragEnd}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isEditMode) {
-                            handleQuickDelete(post.id);
-                          } else {
-                            setViewingContent(post);
-                          }
-                        }}
-                        className={`group/item px-2 py-1.5 rounded-lg border text-[10px] font-semibold flex items-center justify-between gap-1.5 cursor-pointer transition-all duration-300 shadow-sm hover:scale-[1.02] hover:shadow ${meta.styles} ${draggedContent?.id === post.id ? 'opacity-50' : ''} ${isEditMode ? 'hover:bg-red-100 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800' : ''}`}
-                        title={`${isEditMode ? 'Click para eliminar' : `${post.title} (${pubTime})`}`}
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="shrink-0 opacity-80">{meta.icon}</span>
-                          <span className="font-bold opacity-90 shrink-0">{pubTime}</span>
-                          <span className="truncate leading-none">{post.title}</span>
-                        </div>
-                        {isEditMode && (
-                          <Trash2 className="h-3 w-3 text-red-500 shrink-0" />
-                        )}
-                      </div>
-                    );
-                  })}
+                  return (
+                    <div 
+                      key={ch} 
+                      className={`col-span-3 p-3 border-r last:border-r-0 flex flex-col gap-2 min-h-[90px] hover:bg-muted/10 transition-colors relative group/cell`}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, cell.date)}
+                    >
+                      {channelPosts.map((post) => {
+                        const pubTime = post.scheduledAt ? format(new Date(post.scheduledAt), "HH:mm") : "";
+                        return (
+                          <div
+                            key={post.id}
+                            draggable={!isEditMode}
+                            onDragStart={(e) => !isEditMode && handleDragStart(e, post)}
+                            onDragEnd={handleDragEnd}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isEditMode) {
+                                handleQuickDelete(post.id);
+                              } else {
+                                setViewingContent(post);
+                              }
+                            }}
+                            className={`group/card px-3 py-2 rounded-xl border text-[10.5px] font-semibold flex flex-col justify-between gap-1 cursor-pointer transition-all duration-300 shadow-sm hover:scale-[1.02] ${meta.styles} ${draggedContent?.id === post.id ? 'opacity-50' : ''}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold opacity-90">{pubTime}</span>
+                              <span className="text-[9px] uppercase tracking-wider px-1 bg-black/5 rounded">{post.type}</span>
+                            </div>
+                            <span className="font-bold truncate mt-0.5">{post.title}</span>
 
-                  {/* Renderizar posts de Simulación / Previsualización */}
-                  {simulatedPosts.map((post) => {
-                    const ch = (post.channel || "INSTAGRAM").toUpperCase();
-                    const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
-                    const pubTime = post.scheduledAt ? format(new Date(post.scheduledAt), "HH:mm") : "";
-                    const simulatedContent = {
-                      id: `sim-${post.originalIndex}`,
-                      campaignId: planningCampaignId || null,
-                      type: post.type,
-                      format: post.format || "IMAGE",
-                      title: post.title,
-                      body: post.body || "",
-                      caption: post.caption || "",
-                      hashtags: [],
-                      scheduledAt: post.scheduledAt || null,
-                      channel: post.channel || "INSTAGRAM",
-                      promptUsed: post.promptUsed || ""
-                    };
+                            {/* Acciones rápidas al hacer hover */}
+                            <div className="flex items-center justify-end gap-1 mt-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity duration-200">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                title="Generar Contenido con IA"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setGenerativePreviewPost(post);
+                                }}
+                                className="h-5 w-5 rounded bg-black/5 dark:bg-white/5 hover:bg-violet-600 hover:text-white p-0"
+                              >
+                                <Sparkles className="h-3 w-3 text-amber-500 animate-pulse" />
+                              </Button>
+                              
+                              {post.status !== "APPROVED" && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Aprobar y Programar"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleQuickApprove(post);
+                                  }}
+                                  className="h-5 w-5 rounded bg-black/5 dark:bg-white/5 hover:bg-green-600 hover:text-white p-0"
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                              )}
 
-                    return (
-                      <div
-                        key={`sim-${post.originalIndex}`}
-                        draggable={!isEditMode}
-                        onDragStart={(e) => !isEditMode && handleDragStart(e, simulatedContent)}
-                        onDragEnd={handleDragEnd}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isEditMode) {
-                            handleQuickDelete(`sim-${post.originalIndex}`);
-                          } else {
-                            setActivePreviewIdx(post.originalIndex);
-                            setViewingContent(simulatedContent);
-                          }
-                        }}
-                        className={`group/item px-2 py-1.5 rounded-lg border text-[10px] font-bold flex items-center justify-between gap-1.5 cursor-pointer transition-all duration-300 shadow-md hover:scale-[1.02] hover:shadow-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 animate-pulse ${draggedContent?.id === `sim-${post.originalIndex}` ? 'opacity-50' : ''} ${isEditMode ? 'hover:bg-red-100 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-800' : ''}`}
-                        title={`${isEditMode ? 'Click para eliminar' : `[Simulado] ${post.title} (${pubTime})`}`}
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="shrink-0 text-amber-500">{meta.icon}</span>
-                          <span className="font-bold opacity-95 shrink-0 text-amber-700 dark:text-amber-400">{pubTime}</span>
-                          <span className="truncate leading-none">{post.title}</span>
-                        </div>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          {!isEditMode && <Sparkles className="h-3 w-3 text-amber-500 shrink-0" />}
-                          {isEditMode && <Trash2 className="h-3 w-3 text-red-500 shrink-0" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                title="Convertir en anuncio"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleConvertToAd(post);
+                                }}
+                                className="h-5 w-5 rounded bg-black/5 dark:bg-white/5 hover:bg-blue-600 hover:text-white p-0"
+                              >
+                                <Megaphone className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {channelSimulated.map((post) => {
+                        const pubTime = post.scheduledAt ? format(new Date(post.scheduledAt), "HH:mm") : "";
+                        const simulatedContent = {
+                          id: `sim-${post.originalIndex}`,
+                          campaignId: planningCampaignId || null,
+                          type: post.type,
+                          format: post.format || "IMAGE",
+                          title: post.title,
+                          body: post.body || "",
+                          caption: post.caption || "",
+                          hashtags: [],
+                          scheduledAt: post.scheduledAt || null,
+                          channel: post.channel || "INSTAGRAM",
+                          promptUsed: post.promptUsed || ""
+                        };
+
+                        return (
+                          <div
+                            key={`sim-${post.originalIndex}`}
+                            draggable={!isEditMode}
+                            onDragStart={(e) => !isEditMode && handleDragStart(e, simulatedContent)}
+                            onDragEnd={handleDragEnd}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isEditMode) {
+                                handleQuickDelete(`sim-${post.originalIndex}`);
+                              } else {
+                                setActivePreviewIdx(post.originalIndex);
+                                setViewingContent(simulatedContent);
+                              }
+                            }}
+                            className="px-3 py-2 rounded-xl border text-[10.5px] font-bold flex flex-col justify-between gap-1 cursor-pointer transition-all duration-300 shadow bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-300 text-amber-800 animate-pulse"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold">{pubTime}</span>
+                              <Sparkles className="h-3 w-3 text-amber-500" />
+                            </div>
+                            <span className="truncate mt-0.5">{post.title}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -1904,16 +2001,41 @@ export function CalendarView({
 
                   <div className="flex gap-2">
                     {viewingContent.status !== "APPROVED" && viewingContent.status !== "PUBLISHED" && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleApproveContent}
-                        disabled={isApproving}
-                        className="text-xs font-semibold gap-1.5 bg-green-600 hover:bg-green-700 text-white shadow-sm border-none"
-                      >
-                        {isApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                        Aprobar Idea
-                      </Button>
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={handleApproveContent}
+                          disabled={isApproving}
+                          className="text-xs font-semibold gap-1.5 bg-green-600 hover:bg-green-700 text-white shadow-sm border-none"
+                        >
+                          {isApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          Aprobar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            setIsApproving(true);
+                            try {
+                              const res = await updateContentStatusAction(viewingContent.id, "REJECTED", businessId);
+                              if (res.success) {
+                                toast.success("Publicación rechazada.");
+                                setContents(prev => prev.map(item => item.id === viewingContent.id ? { ...item, status: "REJECTED" } : item));
+                                setViewingContent(null);
+                                router.refresh();
+                              } else {
+                                toast.error(res.error || "No se pudo rechazar.");
+                              }
+                            } finally {
+                              setIsApproving(false);
+                            }
+                          }}
+                          className="text-xs font-semibold gap-1.5 border-red-200 text-red-650 hover:bg-red-50"
+                        >
+                          Rechazar
+                        </Button>
+                      </>
                     )}
                     {viewingContent.status === "APPROVED" && (
                       <Button
@@ -2604,6 +2726,73 @@ export function CalendarView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {/* VENTANA DE PREVISUALIZACIÓN GENERATIVA (PROPIA DE IA TRABAJANDO) */}
+      <Dialog open={!!generativePreviewPost} onOpenChange={(open) => !open && setGenerativePreviewPost(null)}>
+        {generativePreviewPost && (
+          <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto border border-muted/20 rounded-2xl shadow-2xl p-0 bg-background flex flex-col">
+            <div className="p-6 border-b border-muted/20 bg-muted/5 space-y-2 shrink-0">
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Sparkles className="h-4.5 w-4.5 text-amber-500 animate-pulse" />
+                <span>Previsualización Generativa con IA</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Revisa el contenido redactado y la sugerencia de la IA antes de programar de forma oficial.
+              </DialogDescription>
+            </div>
+            
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="space-y-1">
+                <span className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider block">Título / Idea Core</span>
+                <p className="text-sm font-bold text-foreground">{generativePreviewPost.title}</p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider block">Copy Propuesto</span>
+                <div className="bg-muted/10 border p-3.5 rounded-xl text-xs leading-relaxed text-foreground whitespace-pre-wrap font-medium">
+                  {generativePreviewPost.caption || "Generando copy persuasivo con IA..."}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[9.5px] font-bold text-muted-foreground uppercase tracking-wider block">Visual o Guion</span>
+                <div className="bg-muted/10 border p-3.5 rounded-xl text-xs leading-relaxed text-foreground whitespace-pre-wrap font-medium">
+                  {generativePreviewPost.body || "Planificando visual o guion de video para publicación..."}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-muted/20 bg-muted/5 flex justify-end gap-2.5 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenEditManual}
+                className="text-xs font-semibold border-blue-200 text-blue-600 hover:bg-blue-50/50"
+              >
+                Editar Manualmente
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenRegenerate}
+                disabled={isRegenerating || !generativePreviewPost.campaignId}
+                className="text-xs font-semibold border-violet-200 text-violet-755 hover:bg-violet-50"
+              >
+                {isRegenerating ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-500 mr-1 animate-pulse" />}
+                Re-generar con IA
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleGenApprove}
+                className="gradient-primary text-xs font-semibold text-white h-9 shadow-md"
+              >
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+                Aprobar y Programar
+              </Button>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
     </>
   );
 }

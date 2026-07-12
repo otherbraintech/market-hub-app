@@ -90,10 +90,12 @@ export function BusinessExtraInfoCard({
   })
   const [newCompPlatforms, setNewCompPlatforms] = useState<string[]>([])
 
-  // Auto-abrir diálogo de competidor si el negocio tiene 0 competidores
+  // Auto-abrir diálogo de competidor si el negocio tiene 0 competidores o se detecta ?new=true en la URL
   useEffect(() => {
     if (role === "USER") return;
-    if (initialCompetitors.length === 0) {
+    const queryParams = new URLSearchParams(window.location.search);
+    const isNew = queryParams.get("new") === "true";
+    if (initialCompetitors.length === 0 || isNew) {
       const timer = setTimeout(() => {
         setIsNewCompOpen(true);
       }, 1000);
@@ -548,7 +550,7 @@ export function BusinessExtraInfoCard({
               <span>Nuevo Competidor</span>
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Registra un nuevo competidor para rastrear y analizar su presencia digital.
+              Registra un nuevo competidor para rastrear y analizar su presencia digital. (Plan actual: {competitors.length} de {maxCompetitors} registrados)
             </DialogDescription>
           </DialogHeader>
 

@@ -323,6 +323,60 @@ export async function generateCampaignCalendarAction(
       ? activeChannels.join(", ") 
       : "FACEBOOK, INSTAGRAM, TIKTOK, LINKEDIN, YOUTUBE";
 
+    // Asignación proporcional exacta de formatos siguiendo la Regla 60-25-15
+    let numVideos = 0;
+    let numCarousels = 0;
+    let numImages = 0;
+
+    for (let i = 0; i < options.quantity; i++) {
+      const total = numVideos + numCarousels + numImages;
+      if (total === 0) {
+        numVideos++; // El primero es video
+      } else {
+        const videoRatio = numVideos / total;
+        const carouselRatio = numCarousels / total;
+        if (videoRatio < 0.60) {
+          numVideos++;
+        } else if (carouselRatio < 0.25) {
+          numCarousels++;
+        } else {
+          numImages++;
+        }
+      }
+    }
+
+    const industry = campaign.business.industry || "No especificada";
+    const objective = campaign.objective;
+    const hasWebsite = !!campaign.business.website && campaign.business.website.trim() !== "";
+
+    let customizationGuidelines = "";
+    // Reglas de Rubro (Industry)
+    if (industry.toLowerCase().includes("restaurante") || industry.toLowerCase().includes("comida") || industry.toLowerCase().includes("gastronomia")) {
+      customizationGuidelines += `- Como el rubro es de alimentación/restaurantes, enfócate en contenidos altamente visuales, apetitosos, que muestren platos reales, ingredientes frescos y promociones o ganchos de antojo inmediatos.\n`;
+    } else if (industry.toLowerCase().includes("clinica") || industry.toLowerCase().includes("salud") || industry.toLowerCase().includes("medicina") || industry.toLowerCase().includes("consultorio")) {
+      customizationGuidelines += `- Como el rubro es de salud/clínicas, enfócate en la generación de confianza y credibilidad. Ofrece tips de prevención, explicaciones médicas claras de forma empática y muestra autoridad y profesionalismo.\n`;
+    } else if (industry.toLowerCase().includes("retail") || industry.toLowerCase().includes("tienda") || industry.toLowerCase().includes("commerce") || industry.toLowerCase().includes("ropa")) {
+      customizationGuidelines += `- Como el rubro es de retail/comercio, enfócate en la presentación clara de productos, sus beneficios, ofertas directas y demostraciones de uso del producto.\n`;
+    } else {
+      customizationGuidelines += `- Adapta el contenido al rubro de "${industry}", usando ejemplos y analogías relevantes para su sector.\n`;
+    }
+
+    // Reglas de Objetivo (Objective)
+    if (objective === "SALES" || objective === "LEADS") {
+      customizationGuidelines += `- El objetivo principal es Ventas/Conversión. Genera ganchos de venta directa más claros y llamados a la acción (CTAs) directos al grano (enfoque en concretar compras o enviar mensajes).\n`;
+    } else if (objective === "ENGAGEMENT") {
+      customizationGuidelines += `- El objetivo principal es Crecimiento y Comunidad. Diseña ganchos participativos, preguntas abiertas, o temáticas humorísticas/tendencias del sector para fomentar comentarios y compartidos.\n`;
+    } else if (objective === "AWARENESS") {
+      customizationGuidelines += `- El objetivo principal es Posicionamiento de Marca (Awareness). Genera contenido educativo de alto valor, infografías y tips prácticos que posicionen al negocio como experto.\n`;
+    }
+
+    // Regla de Sitio Web (Has Website)
+    if (!hasWebsite) {
+      customizationGuidelines += `- IMPORTANTE: El negocio NO cuenta con un sitio web. Omite por completo cualquier táctica, KPI o sugerencia de tráfico web, y redirige todos los llamados a la acción (CTAs) de forma manual y directa hacia WhatsApp o mensajes directos (DMs).\n`;
+    } else {
+      customizationGuidelines += `- El negocio tiene sitio web (${campaign.business.website}). Puedes incluirlo de forma natural en algunos llamados a la acción si es relevante.\n`;
+    }
+
     // 3. Llamar a Gemini para planificar las publicaciones
     const startDateStr = format(new Date(campaign.startDate), "yyyy-MM-dd");
     const durationDays = campaign.endDate 
@@ -331,7 +385,7 @@ export async function generateCampaignCalendarAction(
 
     const systemPrompt = `Eres un estratega de marketing y creador de contenidos experto.
 Tu tarea es generar un calendario editorial estructurado de exactamente ${options.quantity} publicaciones en formato JSON para una campaña de marketing específica.
-Cada publicación debe ser accionable, relevante para los objetivos de la campaña, y contar con canales y formatos definidos.`;
+Cada publicación debe ser relevante para los objetivos de la campaña, y contar con canales y formatos definidos.`;
 
     const userPrompt = `
 Genera un calendario editorial de exactamente ${options.quantity} publicaciones para la siguiente campaña de marketing:
@@ -339,6 +393,7 @@ Genera un calendario editorial de exactamente ${options.quantity} publicaciones 
 DATOS DEL NEGOCIO:
 - Nombre: ${campaign.business.name}
 - Descripción: ${campaign.business.description || "No especificada"}
+- Rubro/Industria: ${industry}
 
 INFORMES DE RENDIMIENTO DE NUESTRO NEGOCIO:
 ${JSON.stringify(reportsSummary, null, 2)}
@@ -351,11 +406,20 @@ DATOS DE LA CAMPAÑA:
 - Duración estimada de la campaña: ${durationDays} días
 - Canales autorizados para esta campaña: ${allowedChannelsStr}
 
+REGLAS ADICIONALES DE PERSONALIZACIÓN Y NEGOCIO:
+${customizationGuidelines}
+
+REGLAS DE FORMATOS Y DISTRIBUCIÓN (Regla 60-25-15):
+Para mantener el estándar técnico de calidad en esta campaña de ${options.quantity} publicaciones, debes generar EXACTAMENTE:
+- ${numVideos} publicación(es) de tipo VIDEO/REEL (formato VIDEO) para alto alcance orgánico.
+- ${numCarousels} publicación(es) de tipo CAROUSEL (formato IMAGE) para retención y educación.
+- ${numImages} publicación(es) de tipo POST (formato IMAGE) para ofertas o avisos directos.
+
 INSTRUCCIONES DE PLANIFICACIÓN:
-1. Genera exactamente ${options.quantity} publicaciones.
-2. Distribuye las publicaciones a lo largo de la campaña usando "suggestedOffsetDays". Por ejemplo, si son 5 posts en una campaña de 30 días, repártelos en offsets como: 2, 8, 14, 20, 26. El offset debe ser un número entero entre 0 y ${durationDays}.
+1. Genera exactamente las ${options.quantity} publicaciones especificadas en la regla de formatos.
+2. Distribuye las publicaciones a lo largo de la campaña usando "suggestedOffsetDays". El offset debe ser un número entero entre 0 y ${durationDays}.
 3. Los canales sugeridos deben ser uno de los canales autorizados para esta campaña: ${allowedChannelsStr}.
-4. El tipo de contenido debe ser uno de: POST, STORY, REEL, VIDEO o CAROUSEL.
+4. El tipo de contenido debe corresponder exactamente al desglose de formatos (POST, REEL, VIDEO o CAROUSEL).
 5. El formato debe ser: IMAGE o VIDEO.
 6. El "body" debe contener el storyboard visual de lo que se mostrará o el guion de video detallado.
 7. El "caption" debe contener el texto del post final, incluyendo un llamado a la acción y un tono alinedo con la marca.

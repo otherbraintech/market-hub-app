@@ -13,6 +13,8 @@ import { SessionWatcher } from "@/components/auth/session-watcher";
 import { triggerMissingCompetitorAnalyses } from "@/app/(dashboard)/business/[id]/competitor-actions";
 import { RoleAccessGuard } from "@/components/auth/role-access-guard";
 
+import { AgentPipelineBaul } from "@/components/business/agent-pipeline-baul"
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -42,14 +44,19 @@ export default async function DashboardLayout({
       <BusinessRedirector hasBusinesses={businesses.length > 0} />
       <AppSidebar businesses={businesses} selectedId={selectedId} session={session} />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            />
-            <DynamicBreadcrumb />
+        <header className="flex h-16 shrink-0 items-center transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 border-b bg-card/20 pr-4">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator
+                orientation="vertical"
+                className="mr-2 data-[orientation=vertical]:h-4"
+              />
+              <DynamicBreadcrumb />
+            </div>
+            {selectedId && (
+              <AgentPipelineBaul businessId={selectedId} />
+            )}
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">

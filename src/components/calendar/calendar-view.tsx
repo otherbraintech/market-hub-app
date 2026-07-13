@@ -1286,20 +1286,17 @@ export function CalendarView({
       {/* CONTENEDOR DEL CALENDARIO */}
       <div className="flex-1 min-h-[500px] overflow-hidden flex flex-col bg-card border rounded-2xl shadow-md card-shadow">
         {/* Cabecera de columnas para Canales */}
-        <div className="grid grid-cols-12 border-b bg-muted/20 select-none shrink-0 text-xs font-black uppercase tracking-widest text-muted-foreground/85">
+        <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] border-b bg-muted/20 select-none shrink-0 text-[10px] font-black uppercase tracking-wider text-muted-foreground/85">
           <div className="col-span-3 py-3 pl-4 border-r">Fecha</div>
-          <div className="col-span-3 py-3 text-center border-r flex items-center justify-center gap-1">
-            <Facebook className="h-3.5 w-3.5 text-blue-600" />
-            <span>Facebook</span>
-          </div>
-          <div className="col-span-3 py-3 text-center border-r flex items-center justify-center gap-1">
-            <Instagram className="h-3.5 w-3.5 text-pink-600" />
-            <span>Instagram</span>
-          </div>
-          <div className="col-span-3 py-3 text-center flex items-center justify-center gap-1">
-            <Globe className="h-3.5 w-3.5 text-zinc-800" />
-            <span>TikTok</span>
-          </div>
+          {["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"].map((ch) => {
+            const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
+            return (
+              <div key={ch} className="col-span-2 py-3 text-center border-r last:border-r-0 flex items-center justify-center gap-1">
+                {meta.icon}
+                <span className="truncate">{meta.label}</span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Filas de días */}
@@ -1328,10 +1325,10 @@ export function CalendarView({
                 })
               : [];
 
-            const channelsList = ["FACEBOOK", "INSTAGRAM", "TIKTOK"];
+            const channelsList = ["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"];
 
             return (
-              <div key={idx} className={`grid grid-cols-12 min-h-[90px] transition-all hover:bg-muted/5 ${isToday ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
+              <div key={idx} className={`grid grid-cols-[repeat(13,minmax(0,1fr))] min-h-[90px] transition-all hover:bg-muted/5 ${isToday ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
                 {/* Columna Fecha (Lado izquierdo) */}
                 <div className="col-span-3 p-4 border-r flex flex-col justify-between bg-muted/5">
                   <div>
@@ -1391,7 +1388,7 @@ export function CalendarView({
                   return (
                     <div 
                       key={ch} 
-                      className={`col-span-3 p-3 border-r last:border-r-0 flex flex-col gap-2 min-h-[90px] hover:bg-muted/10 transition-colors relative group/cell`}
+                      className={`col-span-2 p-3 border-r last:border-r-0 flex flex-col gap-2 min-h-[90px] hover:bg-muted/10 transition-colors relative group/cell`}
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, cell.date)}
                     >

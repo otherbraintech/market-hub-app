@@ -301,7 +301,7 @@ model User {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
   maxBusinesses  Int        @default(1)
-  maxCompetitors Int        @default(1)
+  maxCompetitors Int        @default(3)
   businesses     Business[]
 }
 

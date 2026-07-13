@@ -119,6 +119,8 @@ function timeAgo(date: Date) {
 import { getSelectedBusinessId } from '@/actions/business';
 import { getSession } from '@/lib/auth';
 
+import { EmptyBusinessState } from "@/components/business/empty-business-state";
+
 export default async function DashboardPage() {
   const selectedBusinessId = await getSelectedBusinessId();
   const session = await getSession();
@@ -126,12 +128,8 @@ export default async function DashboardPage() {
 
   if (!selectedBusinessId) {
     return (
-      <div className="p-8 md:p-12 h-[calc(100vh-100px)] flex flex-col items-center justify-center text-center">
-        <LayoutDashboard className="h-16 w-16 text-muted-foreground/20 mb-6 animate-pulse" />
-        <h1 className="text-4xl font-black tracking-tight text-gradient mb-2">Bienvenido a MarketHub</h1>
-        <p className="text-muted-foreground text-lg max-w-md">
-          Para comenzar, selecciona un negocio en el panel izquierdo o crea uno nuevo en la sección de Negocios.
-        </p>
+      <div className="p-8">
+        <EmptyBusinessState />
       </div>
     );
   }
@@ -338,49 +336,111 @@ export default async function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Estrategias y Campañas */}
           {/* Estrategias y Campañas / Guía de Inicio */}
-          {role === "USER" ? (
-            <Card className="border border-blue-500/25 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 backdrop-blur-sm overflow-hidden relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-blue-600 animate-pulse" />
-                  <CardTitle className="text-lg font-black tracking-tight text-blue-900 dark:text-blue-400">
-                    ¡Bienvenido a tu panel de MarketHub!
-                  </CardTitle>
-                </div>
-                <CardDescription className="text-slate-650 dark:text-slate-400 font-medium">
-                  Hemos simplificado tu entorno de trabajo para que te enfoques en lo esencial. Sigue estos pasos clave para gestionar tu marca de forma efectiva:
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3">
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-background/50 border border-border/10 text-xs font-medium">
-                    <span className="h-6 w-6 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">1</span>
-                    <span>Configura tu información general de marca en <strong>Mi Negocio &rarr; Configurar</strong>.</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-background/50 border border-border/10 text-xs font-medium">
-                    <span className="h-6 w-6 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">2</span>
-                    <span>Dirígete al <strong>Calendario</strong> para planificar y programar tus posts de forma manual.</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-background/50 border border-border/10 text-xs font-medium">
-                    <span className="h-6 w-6 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">3</span>
-                    <span>Si tienes dudas del flujo o de los permisos, consulta la <strong>Guía de Flujo</strong> completa.</span>
-                  </div>
-                </div>
-                <div className="pt-2 flex flex-col sm:flex-row gap-2">
-                  <Button asChild className="text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
-                    <Link href="/guide">
-                      Ver Guía Completa
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline" className="text-xs font-semibold rounded-xl">
-                    <Link href="/calendar">
-                      Ir al Calendario
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
+          {/* Guía de Onboarding Paso a Paso para Cuentas Nuevas */}
+          {(() => {
+            const stepsState = [
+              {
+                title: "Configurar Negocio",
+                desc: "Establece el rubro, público objetivo y canales principales.",
+                isDone: !!business?.industry,
+                link: `/business`,
+                linkText: "Configurar"
+              },
+              {
+                title: "Registrar Competidores",
+                desc: "Agrega al menos un competidor para benchmarking de mercado.",
+                isDone: competitorCount > 0,
+                link: `/business`,
+                linkText: "Registrar"
+              },
+              {
+                title: "Generar Estrategia con IA",
+                desc: "Crea directrices y pilares de contenido adaptados con Gemini.",
+                isDone: strategyCount > 0,
+                link: `/strategies`,
+                linkText: "Generar"
+              },
+              {
+                title: "Programar en el Calendario",
+                desc: "Genera el plan de 30 días para automatizar tus redes.",
+                isDone: scheduledContentCount > 0,
+                link: `/calendar`,
+                linkText: "Planificar"
+              }
+            ];
+
+            const doneCount = stepsState.filter(s => s.isDone).length;
+            const progressPercent = Math.round((doneCount / stepsState.length) * 100);
+
+            if (progressPercent < 100) {
+              return (
+                <Card className="border border-violet-200/60 dark:border-violet-950/40 bg-gradient-to-br from-white via-violet-50/20 to-indigo-50/40 dark:from-slate-900 dark:via-slate-950 dark:to-indigo-950 text-slate-800 dark:text-slate-100 shadow-md card-shadow rounded-2xl overflow-hidden">
+                  <CardHeader className="pb-3 bg-violet-50/10 dark:bg-black/30 border-b border-violet-100/50 dark:border-white/5">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                      <div>
+                        <CardTitle className="text-base font-black tracking-tight flex items-center gap-2 text-violet-600 dark:text-violet-400">
+                          <Sparkles className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400 animate-pulse" />
+                          <span>Pasos para activar tu Calendario Editorial ({doneCount} de 4)</span>
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Sigue esta guía interactiva paso a paso para poblar de contenido tus canales de difusión.
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-violet-600 dark:text-violet-400">{progressPercent}% completado</span>
+                      </div>
+                    </div>
+                    {/* Barra de progreso */}
+                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-3 overflow-hidden border border-muted/20">
+                      <div 
+                        className="bg-gradient-to-r from-violet-500 to-indigo-500 h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="grid gap-3">
+                      {stepsState.map((step, idx) => (
+                        <div 
+                          key={idx} 
+                          className={cn(
+                            "flex items-center justify-between p-3.5 rounded-xl border transition-all duration-300",
+                            step.isDone 
+                              ? "bg-emerald-500/5 border-emerald-200/50 text-emerald-900 dark:text-emerald-300 dark:border-emerald-950/30" 
+                              : "bg-background/40 border-border/30 hover:border-violet-300 dark:hover:border-violet-850"
+                          )}
+                        >
+                          <div className="flex items-start gap-3 min-w-0 pr-4">
+                            <div className={cn(
+                              "h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-black border",
+                              step.isDone 
+                                ? "bg-emerald-500 text-white border-emerald-500" 
+                                : "bg-muted text-muted-foreground border-border"
+                            )}>
+                              {step.isDone ? "✓" : idx + 1}
+                            </div>
+                            <div className="min-w-0 leading-tight">
+                              <p className={cn("text-xs font-bold", step.isDone && "line-through opacity-70")}>{step.title}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{step.desc}</p>
+                            </div>
+                          </div>
+
+                          {!step.isDone && (
+                            <Button asChild size="sm" className="gradient-primary text-[10.5px] font-bold h-7 px-3.5 rounded-lg shrink-0 shadow-sm text-white">
+                              <Link href={step.link}>
+                                {step.linkText}
+                              </Link>
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+            return null;
+          })()}
             <Card className="border border-border/40 bg-card/30 backdrop-blur-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-3">
                 <div>
@@ -475,7 +535,6 @@ export default async function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-          )}
 
           {/* Próximas Publicaciones */}
           <Card className="border border-border/40 bg-card/30 backdrop-blur-sm">

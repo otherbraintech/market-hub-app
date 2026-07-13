@@ -52,6 +52,22 @@ export function ProductsList({ businessId, products }: ProductsListProps) {
   const [catalogText, setCatalogText] = useState("");
   const [parsedProducts, setParsedProducts] = useState<any[]>([]);
   const [isSavingParsed, setIsSavingParsed] = useState(false);
+  const [selectedFileBase64, setSelectedFileBase64] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setFileName(file.name);
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedFileBase64(reader.result as string);
+        toast.success(`Catálogo "${file.name}" cargado correctamente.`);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const mockCatalogs = [
     {
@@ -81,13 +97,13 @@ Piedras Calientes Terapéuticas - $70.00 USD: Terapia de calor con piedras volc�
   }
 
   async function handleScanCatalog() {
-    if (!catalogText.trim()) {
-      toast.error("Por favor ingresa texto o contenido del catálogo.");
+    if (!catalogText.trim() && !selectedFileBase64) {
+      toast.error("Por favor ingresa texto o selecciona una imagen de catálogo.");
       return;
     }
     setIsParsing(true);
     try {
-      const res = await parseMultimodalCatalogAction(catalogText, businessId);
+      const res = await parseMultimodalCatalogAction(catalogText, businessId, selectedFileBase64 || undefined);
       if (res.success && res.products) {
         setParsedProducts(res.products);
         toast.success(`¡Se han extraído ${res.products.length} productos con éxito! Revisa los detalles antes de digitalizarlos.`);
@@ -335,16 +351,24 @@ Piedras Calientes Terapéuticas - $70.00 USD: Terapia de calor con piedras volc�
           <div className="flex-1 overflow-y-auto space-y-6 p-1">
             {parsedProducts.length === 0 ? (
               <div className="space-y-4">
-                {/* Drag-and-drop Area */}
-                <div className="border-2 border-dashed border-muted rounded-xl p-8 text-center bg-muted/5 flex flex-col items-center justify-center space-y-3">
+                {/* Drag-and-drop Area / Real File Upload */}
+                <label className="border-2 border-dashed border-muted rounded-xl p-8 text-center bg-muted/5 flex flex-col items-center justify-center space-y-3 cursor-pointer hover:bg-muted/10 transition-colors">
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                  />
                   <div className="h-12 w-12 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shadow-sm">
                     <Upload className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-foreground">Arrastra tu Catálogo o Imagen aquí</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Compatible con formatos PDF, PNG, JPG de hasta 10 MB.</p>
+                    <p className="text-xs font-bold text-foreground">
+                      {fileName ? `Archivo seleccionado: ${fileName}` : "Arrastra tu Catálogo o Haz clic para subir"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Compatible con formatos PNG, JPG, JPEG.</p>
                   </div>
-                </div>
+                </label>
 
                 {/* Predefined mock catalog selection */}
                 <div className="space-y-2">
@@ -385,7 +409,7 @@ Piedras Calientes Terapéuticas - $70.00 USD: Terapia de calor con piedras volc�
 
                 <Button
                   onClick={handleScanCatalog}
-                  disabled={isParsing || !catalogText.trim()}
+                  disabled={isParsing || (!catalogText.trim() && !selectedFileBase64)}
                   className="w-full text-xs font-semibold h-10 bg-violet-650 hover:bg-violet-700 text-white gap-1.5"
                 >
                   {isParsing ? (

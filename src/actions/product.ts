@@ -143,14 +143,14 @@ export async function deleteProductAction(id: string, businessId: string) {
   }
 }
 
-export async function parseMultimodalCatalogAction(catalogData: string, businessId: string) {
+export async function parseMultimodalCatalogAction(catalogData: string, businessId: string, fileDataUrl?: string) {
   try {
-    if (!catalogData) {
-      return { success: false, error: "El contenido del catálogo no puede estar vacío." };
+    if (!catalogData && !fileDataUrl) {
+      return { success: false, error: "El contenido o archivo del catálogo no puede estar vacío." };
     }
 
     const systemPrompt = `Eres un agente de IA experto en extracción de catálogos y digitalización de inventarios.
-Analiza el texto o contenido de catálogo proporcionado y extrae un listado estructurado de productos o servicios para digitalizarlos.
+Analiza el texto o la imagen de catálogo proporcionada y extrae un listado estructurado de productos o servicios para digitalizarlos.
 Genera exactamente entre 3 y 6 productos. Para cada producto, debes extraer de forma precisa:
 - name: Nombre del producto
 - description: Descripción detallada orientada a marketing
@@ -158,9 +158,11 @@ Genera exactamente entre 3 y 6 productos. Para cada producto, debes extraer de f
 - currency: Moneda (ej. "USD", "MXN", "CLP", "EUR")
 - features: Lista de 2-3 características técnicas clave (ej. "Vegano", "Sin azúcar", "100% Algodón")`;
 
-    const userPrompt = `Analiza el siguiente catálogo/menú y extrae sus productos:\n\n${catalogData}`;
+    const userPrompt = catalogData 
+      ? `Analiza el siguiente catálogo/menú y extrae sus productos:\n\n${catalogData}`
+      : `Analiza la imagen adjunta del catálogo y extrae sus productos y precios de forma detallada.`;
 
-    const { object } = await generateObject({
+    let aiOptions: any = {
       model: openrouter("google/gemini-2.5-flash"),
       schema: z.object({
         products: z.array(z.object({
@@ -172,9 +174,35 @@ Genera exactamente entre 3 y 6 productos. Para cada producto, debes extraer de f
         }))
       }),
       system: systemPrompt,
-      prompt: userPrompt,
       temperature: 0.2
-    });
+    };
+
+    if (fileDataUrl && fileDataUrl.startsWith("data:")) {
+      const matches = fileDataUrl.match(/^data:(.+);base64,(.+)$/);
+      const mimeType = matches ? matches[1] : "image/jpeg";
+      const base64Data = matches ? matches[2] : fileDataUrl;
+      
+      aiOptions.messages = [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userPrompt },
+            { 
+              type: "image", 
+              image: Buffer.from(base64Data, "base64"), 
+              mimeType: mimeType 
+            }
+          ]
+        }
+      ];
+    } else {
+      aiOptions.prompt = userPrompt;
+    }
+
+    const { object } = await generateObject(aiOptions) as { object: { products: any[] } | null };
+    if (!object) {
+      return { success: false, error: "No se pudieron extraer productos del catálogo." };
+    }
 
     return { success: true, products: object.products };
   } catch (error: any) {

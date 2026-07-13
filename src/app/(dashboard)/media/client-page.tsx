@@ -18,7 +18,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { listMediaAssetsAction, createMediaAssetAction, deleteMediaAssetAction } from "@/actions/media";
 import { toast } from "sonner";
-import { formatBytes } from "@/lib/utils";
+
+export function formatBytes(bytes: number, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
 
 interface MediaAsset {
   id: string;

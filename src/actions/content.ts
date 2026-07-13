@@ -349,7 +349,28 @@ export async function generateCampaignCalendarAction(
     const objective = campaign.objective;
     const hasWebsite = !!campaign.business.website && campaign.business.website.trim() !== "";
 
-    let customizationGuidelines = "";
+    // Fetch niche trends dynamically
+    let nicheTrends = "";
+    try {
+      const { object: trendsObj } = await generateObject({
+        model: openrouter("google/gemini-2.5-flash"),
+        schema: z.object({
+          trends: z.array(z.string()),
+          hashtags: z.array(z.string())
+        }),
+        system: "Eres un analista de tendencias digitales y de marketing digital. Proporciona 3 tendencias clave del nicho y 3 hashtags populares en auge.",
+        prompt: `Genera tendencias clave de marketing digital y hashtags para el rubro/nicho: "${industry}"`,
+        temperature: 0.7
+      });
+      
+      nicheTrends = `TENDENCIAS DE MERCADO ACTUALES PARA ${industry.toUpperCase()}:\n` + 
+        trendsObj.trends.map(t => `- ${t}`).join("\n") + 
+        `\n\nHASHTAGS POPULARES DEL NICHO:\n` + trendsObj.hashtags.join(", ") + "\n\n";
+    } catch (err) {
+      console.error("Error fetching dynamic trends:", err);
+    }
+
+    let customizationGuidelines = nicheTrends;
     // Reglas de Rubro (Industry)
     if (industry.toLowerCase().includes("restaurante") || industry.toLowerCase().includes("comida") || industry.toLowerCase().includes("gastronomia")) {
       customizationGuidelines += `- Como el rubro es de alimentación/restaurantes, enfócate en contenidos altamente visuales, apetitosos, que muestren platos reales, ingredientes frescos y promociones o ganchos de antojo inmediatos.\n`;

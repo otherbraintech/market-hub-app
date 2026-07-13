@@ -49,7 +49,7 @@ export async function upsertCompetitorAction(
 
       const count = await prisma.competitor.count({ where: { businessId } })
       
-      const maxCompetitors = user?.maxCompetitors ?? 1
+      const maxCompetitors = user?.maxCompetitors ?? 3
       if (user && count >= maxCompetitors) {
         return { success: false, error: `Límite alcanzado (${maxCompetitors})` }
       }
@@ -193,8 +193,8 @@ async function triggerAutomaticConsolidatedAnalysis(businessId: string) {
 
     if (!business) return;
 
-    // Check if there's at least 1 social account and 1 competitor
-    if (business.socialAccounts.length >= 1 && business.competitors.length >= 1) {
+    // Check if there's at least 1 competitor
+    if (business.competitors.length >= 1) {
       // Check if consolidated analysis already exists
       const existingConsolidated = await prisma.analysisReport.findFirst({
         where: {

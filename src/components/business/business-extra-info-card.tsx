@@ -272,12 +272,29 @@ export function BusinessExtraInfoCard({
       })
 
       if (result.success && result.competitor) {
-        toast.success('Competidor añadido exitosamente')
         setCompetitors(prev => [...prev, result.competitor])
-        // Añadir plataformas seleccionadas para la edición posterior si es necesario
         const newIdx = competitors.length
         setSelectedPlatforms(prev => ({ ...prev, [newIdx]: newCompPlatforms }))
-        setIsNewCompOpen(false)
+        
+        const currentCount = competitors.length + 1;
+        if (currentCount < maxCompetitors) {
+          toast.success(`Competidor añadido exitosamente (${currentCount}/${maxCompetitors}). ¿Quieres añadir otro?`, {
+            action: {
+              label: 'Sí, añadir otro',
+              onClick: () => {
+                setNewCompData({ name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' })
+                setNewCompPlatforms([])
+              }
+            },
+            duration: 6000
+          })
+          // Limpiar datos para el siguiente pero no cerrar el modal por si el usuario decide seguir
+          setNewCompData({ name: '', website: '', facebook: '', instagram: '', tiktok: '', linkedin: '', youtube: '', seoGoogle: '' })
+          setNewCompPlatforms([])
+        } else {
+          toast.success(`Competidor añadido exitosamente. Has alcanzado el límite máximo (${maxCompetitors}) de tu plan.`)
+          setIsNewCompOpen(false)
+        }
       } else {
         toast.error(result.error || 'Error al guardar competidor')
       }

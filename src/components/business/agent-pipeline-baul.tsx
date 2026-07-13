@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Bot, Terminal, Loader2, Sparkles } from "lucide-react";
 import { AgentPipelineMonitor } from "./agent-pipeline-monitor";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 interface AgentPipelineBaulProps {
   businessId: string;
@@ -14,6 +15,13 @@ interface AgentPipelineBaulProps {
 export function AgentPipelineBaul({ businessId }: AgentPipelineBaulProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasActiveAgents, setHasActiveAgents] = useState(false);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  const [onboarding, setOnboarding] = useState<{
+    isBusinessConfigured: boolean;
+    competitorCount: number;
+    strategyCount: number;
+    scheduledContentCount: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!businessId) return;
@@ -28,9 +36,18 @@ export function AgentPipelineBaul({ businessId }: AgentPipelineBaulProps) {
           const processing = notifications.some((n: any) => n.status === "PROCESSING");
           setHasActiveAgents(processing);
 
-          // Si hay agentes activos procesando, abrir automáticamente "El Baúl" para mostrar feedback visual de "IA Trabajando"
+          if (data.onboarding) {
+            setOnboarding(data.onboarding);
+          }
+
+          // Si hay agentes activos procesando, abrir automáticamente "El Baúl" una sola vez
           if (processing) {
-            setIsOpen(true);
+            if (!hasAutoOpened) {
+              setIsOpen(true);
+              setHasAutoOpened(true);
+            }
+          } else {
+            setHasAutoOpened(false);
           }
         }
       } catch (err) {
@@ -41,7 +58,7 @@ export function AgentPipelineBaul({ businessId }: AgentPipelineBaulProps) {
     checkActiveAgents();
     const interval = setInterval(checkActiveAgents, 5000); // Polling cada 5 segundos
     return () => clearInterval(interval);
-  }, [businessId]);
+  }, [businessId, hasAutoOpened]);
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -82,8 +99,68 @@ export function AgentPipelineBaul({ businessId }: AgentPipelineBaulProps) {
           </SheetDescription>
         </SheetHeader>
         
-        <div className="flex-1 p-6 overflow-y-auto bg-background">
-          <AgentPipelineMonitor businessId={businessId} />
+        <div className="flex-1 p-6 overflow-y-auto bg-background flex flex-col justify-between">
+          <div className="space-y-6">
+            <AgentPipelineMonitor businessId={businessId} />
+          </div>
+
+          {/* Guía de Pasos Onboarding Directa en el Baúl */}
+          {onboarding && (
+            <div className="mt-8 p-4 rounded-2xl border border-violet-100 bg-violet-50/20 dark:border-violet-950/40 dark:bg-violet-950/10 space-y-3 shrink-0">
+              <span className="text-[10px] font-black uppercase tracking-widest text-violet-650 dark:text-violet-400">Pasos Recomendados</span>
+              
+              {!onboarding.isBusinessConfigured ? (
+                <>
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    ⚠️ Paso 1: Configura el perfil de tu negocio para que los agentes tengan base de datos.
+                  </p>
+                  <Button asChild size="sm" className="w-full bg-violet-650 hover:bg-violet-750 text-white text-xs font-bold gap-1 rounded-xl">
+                    <Link href={`/business/${businessId}`} onClick={() => setIsOpen(false)}>
+                      Configurar Negocio ➔
+                    </Link>
+                  </Button>
+                </>
+              ) : onboarding.competitorCount === 0 ? (
+                <>
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    👤 Paso 2: El análisis de negocio finalizó. Agrega competidores para benchmarking de mercado.
+                  </p>
+                  <Button asChild size="sm" className="w-full bg-violet-650 hover:bg-violet-750 text-white text-xs font-bold gap-1 rounded-xl">
+                    <Link href={`/business/${businessId}?new=true`} onClick={() => setIsOpen(false)}>
+                      Registrar Competidor ➔
+                    </Link>
+                  </Button>
+                </>
+              ) : onboarding.strategyCount === 0 ? (
+                <>
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    ✨ Paso 3: Diagnóstico consolidado listo. Genera tu estrategia de marketing con IA.
+                  </p>
+                  <Button asChild size="sm" className="w-full bg-violet-650 hover:bg-violet-750 text-white text-xs font-bold gap-1 rounded-xl">
+                    <Link href="/strategies" onClick={() => setIsOpen(false)}>
+                      Generar Estrategia con IA ➔
+                    </Link>
+                  </Button>
+                </>
+              ) : onboarding.scheduledContentCount === 0 ? (
+                <>
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    📅 Paso 4: Estrategia guardada. Ve al calendario y genera el plan de contenidos.
+                  </p>
+                  <Button asChild size="sm" className="w-full bg-violet-650 hover:bg-violet-750 text-white text-xs font-bold gap-1 rounded-xl">
+                    <Link href="/calendar" onClick={() => setIsOpen(false)}>
+                      Ver Calendario Editorial ➔
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <Sparkles className="h-4 w-4" />
+                  <span>¡Felicidades! Tienes tu calendario de contenidos activo.</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

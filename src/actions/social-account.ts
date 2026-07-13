@@ -37,8 +37,8 @@ async function triggerAutomaticConsolidatedAnalysis(businessId: string) {
 
     if (!business) return;
 
-    // Check if there's at least 1 social account and 1 competitor
-    if (business.socialAccounts.length >= 1 && business.competitors.length >= 1) {
+    // Check if there's at least 1 competitor
+    if (business.competitors.length >= 1) {
       // Check if consolidated analysis already exists
       const existingConsolidated = await prisma.analysisReport.findFirst({
         where: {

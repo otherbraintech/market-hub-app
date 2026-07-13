@@ -14,7 +14,29 @@ export async function GET(
       take: 15
     });
 
-    return NextResponse.json({ notifications });
+    const competitorCount = await prisma.competitor.count({ where: { businessId } });
+    const strategyCount = await prisma.marketingStrategy.count({ where: { businessId } });
+    const scheduledContentCount = await prisma.content.count({
+      where: {
+        campaign: { businessId },
+        status: "SCHEDULED"
+      }
+    });
+
+    const isBusinessConfigured = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { industry: true }
+    }).then(b => !!b?.industry);
+
+    return NextResponse.json({ 
+      notifications,
+      onboarding: {
+        isBusinessConfigured,
+        competitorCount,
+        strategyCount,
+        scheduledContentCount
+      }
+    });
   } catch (error) {
     console.error('Error fetching agent notifications:', error);
     return NextResponse.json({ error: 'Failed to fetch agent notifications' }, { status: 500 });

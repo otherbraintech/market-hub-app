@@ -9,7 +9,7 @@ import { triggerAnalysis } from "@/lib/analysis-service";
 import { analyzeBusiness } from "@/lib/ai/business-analyzer";
 import type { CreateBusinessInput, UpdateBusinessInput } from "@/modules/business/types";
 
-export async function createBusiness(data: z.infer<typeof businessSchema>) {
+export async function createBusiness(data: z.infer<typeof businessSchema>, skipAnalysis = false) {
   try {
     const { getSession } = await import("@/lib/auth");
     const { createBusiness: createBusinessService } = await import("@/modules/business/services");
@@ -42,42 +42,47 @@ export async function createBusiness(data: z.infer<typeof businessSchema>) {
       });
     }
 
-    // Disparar scraping automático para todos los canales que tengan URL en el nuevo negocio
-    let socialLinksObj: Record<string, any> = {};
-    if (business.socialLinks) {
-      if (typeof business.socialLinks === "string") {
-        try {
-          socialLinksObj = JSON.parse(business.socialLinks);
-        } catch (e) {}
-      } else if (typeof business.socialLinks === "object") {
-        socialLinksObj = business.socialLinks as Record<string, any>;
+    if (!skipAnalysis) {
+      // Disparar scraping automático para todos los canales que tengan URL en el nuevo negocio
+      let socialLinksObj: Record<string, any> = {};
+      if (business.socialLinks) {
+        if (typeof business.socialLinks === "string") {
+          try {
+            socialLinksObj = JSON.parse(business.socialLinks);
+          } catch (e) {}
+        } else if (typeof business.socialLinks === "object") {
+          socialLinksObj = business.socialLinks as Record<string, any>;
+        }
       }
-    }
 
-    const channelUrls = [
-      { name: "WEBSITE", url: business.website },
-      { name: "FACEBOOK", url: socialLinksObj.facebook },
-      { name: "INSTAGRAM", url: socialLinksObj.instagram },
-      { name: "TIKTOK", url: socialLinksObj.tiktok },
-      { name: "LINKEDIN", url: socialLinksObj.linkedin },
-      { name: "YOUTUBE", url: socialLinksObj.youtube },
-    ];
+      const channelUrls = [
+        { name: "WEBSITE", url: business.website },
+        { name: "FACEBOOK", url: socialLinksObj.facebook },
+        { name: "INSTAGRAM", url: socialLinksObj.instagram },
+        { name: "TIKTOK", url: socialLinksObj.tiktok },
+        { name: "LINKEDIN", url: socialLinksObj.linkedin },
+        { name: "YOUTUBE", url: socialLinksObj.youtube },
+      ];
 
-    const promises = channelUrls
-      .filter((ch) => ch.url && typeof ch.url === "string" && ch.url.trim() !== "")
-      .map((ch) =>
-        triggerAnalysis({
-          type: "MY_BUSINESS",
-          entityId: business.id,
-          channel: ch.name,
-          url: ch.url,
-        }).catch((err) => {
-          console.error(`Error al disparar scraping automático de negocio para canal ${ch.name}:`, err);
-        })
-      );
+      const promises = channelUrls
+        .filter((ch) => ch.url && typeof ch.url === "string" && ch.url.trim() !== "")
+        .map((ch) =>
+          triggerAnalysis({
+            type: "MY_BUSINESS",
+            entityId: business.id,
+            channel: ch.name,
+            url: ch.url,
+          }).catch((err) => {
+            console.error(`Error al disparar scraping automático de negocio para canal ${ch.name}:`, err);
+          })
+        );
 
-    if (promises.length > 0) {
-      await Promise.allSettled(promises);
+      // Ejecutar el scraping en segundo plano sin bloquear la respuesta al usuario
+      if (promises.length > 0) {
+        Promise.allSettled(promises).then(() => {
+          console.log(`[Scraping] Scraping inicial completado en segundo plano para negocio: ${business.id}`);
+        });
+      }
     }
 
     revalidatePath("/business");
@@ -97,36 +102,46 @@ export async function createBusinessWithAI(data: {
   phoneNumbers?: string;
   location?: string;
   socialLinks?: Record<string, string | undefined>;
-}) {
+}, skipAnalysis = false) {
   try {
-    // 1. Analizar con IA con fallback si falla
-    let analysis;
-    try {
-      analysis = await analyzeBusiness(data.name, data.description, data.website);
-    } catch (aiError) {
-      console.error("AI analysis failed, falling back to empty profile:", aiError);
-      analysis = {
-        industry: "",
-        brandVoice: { tone: [], personality: [], values: [] },
-        targetAudience: { demographics: "", psychographics: "" }
-      };
-    }
-    
-    // 2. Preparar datos completos
+    // 1. Preparar datos completos iniciales de forma rápida
     const fullData = {
       name: data.name,
       description: data.description || "",
       website: data.website || "",
-      industry: analysis.industry || "",
-      brandVoice: analysis.brandVoice || { tone: [], personality: [], values: [] },
-      targetAudience: analysis.targetAudience || { demographics: "", psychographics: "" },
+      industry: "",
+      brandVoice: { tone: [], personality: [], values: [] },
+      targetAudience: { demographics: "", psychographics: "" },
       phoneNumbers: data.phoneNumbers || "",
       location: data.location || "",
       socialLinks: data.socialLinks || { facebook: "", instagram: "", tiktok: "" },
     };
 
-    // 3. Crear el negocio
-    return await createBusiness(fullData as z.infer<typeof businessSchema>);
+    // 2. Crear el negocio en la base de datos de inmediato
+    const res = await createBusiness(fullData as z.infer<typeof businessSchema>, skipAnalysis);
+
+    if (res.success && res.data?.id) {
+      const businessId = res.data.id;
+      // 3. Lanzar la consulta con IA de fondo para no demorar la respuesta
+      (async () => {
+        try {
+          const analysis = await analyzeBusiness(data.name, data.description, data.website);
+          await prisma.business.update({
+            where: { id: businessId },
+            data: {
+              industry: analysis.industry || "",
+              brandVoice: analysis.brandVoice || { tone: [], personality: [], values: [] },
+              targetAudience: analysis.targetAudience || { demographics: "", psychographics: "" }
+            }
+          });
+          console.log(`[IA] Análisis de negocio de fondo completado para ID: ${businessId}`);
+        } catch (aiError) {
+          console.error("AI background analysis failed:", aiError);
+        }
+      })();
+    }
+
+    return res;
   } catch (error) {
     console.error("AI Creation Error:", error);
     return { success: false, error: "Error al registrar el negocio" };
@@ -223,6 +238,7 @@ export async function getBusinesses() {
   }
   return prisma.business.findMany({
     where: { userId: session.user.id },
+    include: { competitors: true },
     orderBy: { name: "asc" },
   });
 }
@@ -315,3 +331,515 @@ export async function updateBusinessSettings(id: string, settings: any) {
     return { success: false, error: error.message || "Error al actualizar la configuración" };
   }
 }
+
+export async function getUserLimits() {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado", maxCompetitors: 3, maxBusinesses: 1 };
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { maxCompetitors: true, maxBusinesses: true }
+    });
+
+    return {
+      success: true,
+      maxCompetitors: dbUser?.maxCompetitors ?? 3,
+      maxBusinesses: dbUser?.maxBusinesses ?? 1,
+    };
+  } catch (error) {
+    console.error("Error fetching user limits:", error);
+    return { success: false, error: "Error al obtener límites", maxCompetitors: 3, maxBusinesses: 1 };
+  }
+}
+
+export async function getBusinessWithCompetitors(id: string) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return null;
+    }
+    return await prisma.business.findFirst({
+      where: { id, userId: session.user.id },
+      include: { competitors: true }
+    });
+  } catch (error) {
+    console.error("Error fetching business with competitors:", error);
+    return null;
+  }
+}
+
+export async function getOnboardingResults(businessId: string) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId, userId: session.user.id },
+      include: { competitors: true }
+    });
+
+    if (!business) {
+      return { success: false, error: "Negocio no encontrado" };
+    }
+
+    const competitorIds = business.competitors.map(c => c.id);
+
+    const businessReports = await prisma.analysisReport.findMany({
+      where: {
+        entityId: businessId,
+        type: "MY_BUSINESS",
+        status: "COMPLETED"
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const competitorReports = competitorIds.length > 0 ? await prisma.analysisReport.findMany({
+      where: {
+        entityId: { in: competitorIds },
+        type: "COMPETITOR",
+        status: "COMPLETED"
+      },
+      orderBy: { createdAt: "desc" }
+    }) : [];
+
+    let activeStrategy = await prisma.marketingStrategy.findFirst({
+      where: { businessId, isActive: true },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (!activeStrategy) {
+      activeStrategy = await prisma.marketingStrategy.findFirst({
+        where: { businessId },
+        orderBy: { createdAt: "desc" }
+      });
+      if (activeStrategy) {
+        // Marcarla como activa en la base de datos de forma asíncrona
+        prisma.marketingStrategy.update({
+          where: { id: activeStrategy.id },
+          data: { isActive: true }
+        }).catch(err => console.error("Error setting fallback active strategy:", err));
+      }
+    }
+
+    const campaigns = await prisma.campaign.findMany({
+      where: { businessId },
+      orderBy: { createdAt: "desc" }
+    });
+
+    // Serializar Decimals a números planos para evitar errores de Next.js RSC
+    const serializedCampaigns = campaigns.map(c => ({
+      ...c,
+      budget: c.budget ? Number(c.budget) : 0,
+    }));
+
+    // Obtener contenidos/publicaciones programadas del calendario
+    const calendarContents = await prisma.content.findMany({
+      where: {
+        campaign: {
+          businessId
+        }
+      },
+      orderBy: { scheduledAt: "asc" },
+      take: 15 // Suficientes para mostrar un resumen excelente
+    });
+
+    return {
+      success: true,
+      businessReports,
+      competitorReports,
+      activeStrategy,
+      campaigns: serializedCampaigns,
+      calendarContents,
+      competitorsList: business.competitors,
+      businessInfo: business
+    };
+  } catch (error) {
+    console.error("Error in getOnboardingResults:", error);
+    return { success: false, error: "Error al obtener resultados" };
+  }
+}
+
+export async function startScrapingStage(businessId: string) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId, userId: session.user.id },
+      include: { competitors: true }
+    });
+
+    if (!business) {
+      return { success: false, error: "Negocio no encontrado" };
+    }
+
+    // 1. Limpiar notificaciones y reportes viejos para reiniciar limpio
+    await prisma.agentNotification.deleteMany({ where: { businessId } });
+    await prisma.analysisReport.deleteMany({ where: { entityId: businessId, NOT: { channel: "CONSOLIDATED" } } });
+    
+    const competitorIds = business.competitors.map(c => c.id);
+    if (competitorIds.length > 0) {
+      await prisma.analysisReport.deleteMany({ where: { entityId: { in: competitorIds } } });
+    }
+
+    // 2. Crear notificación inicial de procesamiento
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Extracción",
+        message: "Iniciando reanálisis y extracción autónoma de todos los canales configurados.",
+        step: "SCRAPING",
+        status: "PROCESSING"
+      }
+    });
+
+    // 3. Disparar scraping de canales propios del negocio
+    let socialLinksObj: Record<string, any> = {};
+    if (business.socialLinks) {
+      if (typeof business.socialLinks === "string") {
+        try {
+          socialLinksObj = JSON.parse(business.socialLinks);
+        } catch (e) {}
+      } else if (typeof business.socialLinks === "object") {
+        socialLinksObj = business.socialLinks as Record<string, any>;
+      }
+    }
+
+    const myChannels = [
+      { name: "WEBSITE", url: business.website },
+      { name: "FACEBOOK", url: socialLinksObj.facebook },
+      { name: "INSTAGRAM", url: socialLinksObj.instagram },
+      { name: "TIKTOK", url: socialLinksObj.tiktok },
+    ];
+
+    const promises = [];
+
+    // Canales del propio negocio
+    for (const ch of myChannels) {
+      if (ch.url && ch.url.trim() !== "") {
+        promises.push(
+          triggerAnalysis({
+            type: "MY_BUSINESS",
+            entityId: businessId,
+            channel: ch.name,
+            url: ch.url
+          }).catch(err => console.error("Error scraping business channel:", err))
+        );
+      }
+    }
+
+    // Canales de competidores
+    for (const comp of business.competitors) {
+      const compChannels = [
+        { name: "WEBSITE", url: comp.website },
+        { name: "FACEBOOK", url: comp.facebook },
+        { name: "INSTAGRAM", url: comp.instagram },
+        { name: "TIKTOK", url: comp.tiktok },
+      ];
+      for (const ch of compChannels) {
+        if (ch.url && ch.url.trim() !== "") {
+          promises.push(
+            triggerAnalysis({
+              type: "COMPETITOR",
+              entityId: comp.id,
+              channel: ch.name,
+              url: ch.url
+            }).catch(err => console.error("Error scraping competitor channel:", err))
+          );
+        }
+      }
+    }
+
+    // Ejecutar asíncronamente
+    Promise.allSettled(promises);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in startScrapingStage:", error);
+    return { success: false, error: "Error al iniciar extracción" };
+  }
+}
+
+export async function startDiagnosticStage(businessId: string) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // 1. Limpiar notificaciones previas en estado PROCESSING para evitar bloqueos
+    await prisma.agentNotification.deleteMany({
+      where: { businessId, step: "DIAGNOSTIC" }
+    });
+
+    // 2. Notificar inicio de procesamiento
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Diagnóstico",
+        message: "Analizando brechas y recopilando métricas de canales registrados...",
+        step: "DIAGNOSTIC",
+        status: "PROCESSING"
+      }
+    });
+
+    // 3. Ejecutar de forma asíncrona de fondo con simulación interactiva paso a paso
+    (async () => {
+      try {
+        await delay(2500);
+        
+        // Notificación intermedia
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Diagnóstico",
+            message: "Consolidando métricas e identificando debilidades vs competidores...",
+            step: "DIAGNOSTIC",
+            status: "PROCESSING"
+          }
+        });
+
+        await delay(2500);
+
+        const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
+        const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
+        
+        await runBusinessConsolidatedAnalysis(businessId);
+        await runGenerateGeneralReport(businessId);
+      } catch (err) {
+        console.error("Error in background diagnostic execution:", err);
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Diagnóstico",
+            message: "Fallo al consolidar análisis web y diagnosticar.",
+            step: "DIAGNOSTIC",
+            status: "FAILED"
+          }
+        });
+      }
+    })();
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in startDiagnosticStage:", error);
+    return { success: false, error: "Error al iniciar diagnóstico" };
+  }
+}
+
+export async function startStrategyStage(businessId: string) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // 1. Limpiar notificaciones previas en estado PROCESSING para evitar bloqueos
+    await prisma.agentNotification.deleteMany({
+      where: { businessId, step: "STRATEGY" }
+    });
+
+    // 2. Notificar inicio de procesamiento
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Growth & Estrategia",
+        message: "Modelando estrategias de crecimiento y pilares de contenido personalizados...",
+        step: "STRATEGY",
+        status: "PROCESSING"
+      }
+    });
+
+    // 3. Ejecutar de forma asíncrona la generación en cascada con simulación interactiva
+    (async () => {
+      try {
+        await delay(2500);
+
+        // Notificación intermedia
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Growth & Estrategia",
+            message: "Segmentando perfiles de buyer personas de tu mercado local...",
+            step: "STRATEGY",
+            status: "PROCESSING"
+          }
+        });
+
+        await delay(2500);
+
+        const { triggerCascadeGeneration } = await import("@/lib/cascade");
+        await triggerCascadeGeneration(businessId, true, 'STRATEGY');
+      } catch (err) {
+        console.error("Error in background strategy execution:", err);
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Growth & Estrategia",
+            message: "Fallo al modelar estrategias de crecimiento.",
+            step: "STRATEGY",
+            status: "FAILED"
+          }
+        });
+      }
+    })();
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in startStrategyStage:", error);
+    return { success: false, error: "Error al iniciar estrategia" };
+  }
+}
+
+export async function startCampaignStage(businessId: string) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // 1. Limpiar notificaciones previas en estado PROCESSING para evitar bloqueos
+    await prisma.agentNotification.deleteMany({
+      where: { businessId, step: "CAMPAIGN" }
+    });
+
+    // 2. Notificar inicio de procesamiento
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente de Planificación",
+        message: "Diseñando y estructurando plan de campañas automatizadas multicanal...",
+        step: "CAMPAIGN",
+        status: "PROCESSING"
+      }
+    });
+
+    // 3. Simular e iniciar
+    (async () => {
+      try {
+        await delay(2500);
+
+        // Notificación intermedia
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Planificación",
+            message: "Programando distribución multicanal y calendario editorial en base a tus objetivos...",
+            step: "CAMPAIGN",
+            status: "PROCESSING"
+          }
+        });
+
+        await delay(2500);
+
+        const { triggerCascadeGeneration } = await import("@/lib/cascade");
+        await triggerCascadeGeneration(businessId, true, 'CAMPAIGN');
+      } catch (err) {
+        console.error("Error in background campaign execution:", err);
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Planificación",
+            message: "Fallo al estructurar el plan de campañas.",
+            step: "CAMPAIGN",
+            status: "FAILED"
+          }
+        });
+      }
+    })();
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in startCampaignStage:", error);
+    return { success: false, error: "Error al iniciar campañas" };
+  }
+}
+
+export async function startCalendarStage(businessId: string) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // 1. Limpiar notificaciones previas en estado PROCESSING para evitar bloqueos
+    await prisma.agentNotification.deleteMany({
+      where: { businessId, step: "CALENDAR" }
+    });
+
+    // 2. Notificar inicio de procesamiento para el Agente Editorial (CALENDAR)
+    await prisma.agentNotification.create({
+      data: {
+        businessId,
+        title: "Agente Editorial",
+        message: "Distribuyendo y programando tus publicaciones en el calendario multicanal...",
+        step: "CALENDAR",
+        status: "PROCESSING"
+      }
+    });
+
+    // 3. Simular e iniciar de forma asíncrona
+    (async () => {
+      try {
+        await delay(2000);
+
+        // Notificación intermedia
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente Editorial",
+            message: "Optimizando copies, hashtags y horas sugeridas de publicación...",
+            step: "CALENDAR",
+            status: "PROCESSING"
+          }
+        });
+
+        await delay(2000);
+
+        const { triggerCascadeGeneration } = await import("@/lib/cascade");
+        // 'CAMPAIGN' regenerará también el calendario de forma aislada
+        await triggerCascadeGeneration(businessId, true, 'CAMPAIGN');
+      } catch (err) {
+        console.error("Error in background calendar execution:", err);
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente Editorial",
+            message: "Fallo al generar el calendario editorial.",
+            step: "CALENDAR",
+            status: "FAILED"
+          }
+        });
+      }
+    })();
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error in startCalendarStage:", error);
+    return { success: false, error: "Error al iniciar calendario" };
+  }
+}
+

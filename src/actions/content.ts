@@ -207,7 +207,12 @@ export async function updateCalendarContentAction(
     const channels = data.channels || (data.channel ? [data.channel] : ["INSTAGRAM"]);
     const firstChannel = channels[0];
 
-    // 1. Actualizar la publicación original con el primer canal
+    // Obtener la publicación original antes de actualizar para buscar publicaciones hermanas del mismo día y campaña
+    const original = await prisma.content.findUnique({
+      where: { id }
+    });
+
+    // 1. Actualizar la publicación original
     const content = await prisma.content.update({
       where: { id },
       data: {
@@ -224,41 +229,72 @@ export async function updateCalendarContentAction(
       }
     });
 
-    // 2. Para canales adicionales, duplicar el contenido
-    if (channels.length > 1) {
-      const original = await prisma.content.findUnique({
-        where: { id }
+    // 2. Si tiene campaña y fecha, sincronizar los cambios con los posts hermanos del mismo día y campaña
+    if (original && original.campaignId && original.scheduledAt && data.scheduledAt !== null) {
+      const origDate = new Date(original.scheduledAt);
+      const startOfDay = new Date(origDate.getFullYear(), origDate.getMonth(), origDate.getDate(), 0, 0, 0);
+      const endOfDay = new Date(origDate.getFullYear(), origDate.getMonth(), origDate.getDate(), 23, 59, 59);
+
+      // Buscar posts hermanos
+      const siblingPosts = await prisma.content.findMany({
+        where: {
+          campaignId: original.campaignId,
+          scheduledAt: {
+            gte: startOfDay,
+            lte: endOfDay
+          },
+          id: { not: id } // Excluir la que acabamos de actualizar
+        }
       });
 
-      if (original) {
-        const otherChannels = channels.slice(1);
-        await prisma.$transaction(
-          otherChannels.map((ch: string) => {
-            return prisma.content.create({
-              data: {
-                campaignId: original.campaignId,
-                productId: original.productId,
-                socialAccountId: original.socialAccountId,
-                title: data.title || original.title,
-                type: (data.type || original.type) as any,
-                format: (data.format || original.format) as any,
-                channel: ch as any,
-                body: data.body ?? original.body,
-                caption: data.caption ?? original.caption,
-                promptUsed: data.promptUsed ?? original.promptUsed,
-                scheduledAt: data.scheduledAt === null ? null : (data.scheduledAt || original.scheduledAt),
-                status: original.status,
-                metadata: original.metadata || undefined,
-              }
-            });
-          })
-        );
+      // Actualizar los posts hermanos en lote
+      if (siblingPosts.length > 0) {
+        await prisma.content.updateMany({
+          where: {
+            id: { in: siblingPosts.map(p => p.id) }
+          },
+          data: {
+            title: data.title !== undefined ? data.title : undefined,
+            type: data.type !== undefined ? data.type : undefined,
+            format: data.format !== undefined ? data.format : undefined,
+            body: data.body !== undefined ? data.body : undefined,
+            caption: data.caption !== undefined ? data.caption : undefined,
+            promptUsed: data.promptUsed !== undefined ? data.promptUsed : undefined,
+            scheduledAt: data.scheduledAt !== undefined ? (data.scheduledAt === null ? null : data.scheduledAt) : undefined,
+          }
+        });
       }
+    }
+
+    // 3. Para canales adicionales explícitos en data.channels, duplicar el contenido
+    if (channels.length > 1 && original) {
+      const otherChannels = channels.slice(1);
+      await prisma.$transaction(
+        otherChannels.map((ch: string) => {
+          return prisma.content.create({
+            data: {
+              campaignId: original.campaignId,
+              productId: original.productId,
+              socialAccountId: original.socialAccountId,
+              title: data.title || original.title,
+              type: (data.type || original.type) as any,
+              format: (data.format || original.format) as any,
+              channel: ch as any,
+              body: data.body ?? original.body,
+              caption: data.caption ?? original.caption,
+              promptUsed: data.promptUsed ?? original.promptUsed,
+              scheduledAt: data.scheduledAt === null ? null : (data.scheduledAt || original.scheduledAt),
+              status: original.status,
+              metadata: original.metadata || undefined,
+            }
+          });
+        })
+      );
     }
 
     revalidatePath(`/business/${businessId}`);
     revalidatePath("/calendar");
-    return { success: true, message: "Publicaciones actualizadas correctamente", content };
+    return { success: true, message: "Publicaciones actualizadas y sincronizadas correctamente", content };
   } catch (error: any) {
     console.error("Error al actualizar contenido:", error);
     return { success: false, error: error.message || "Error al actualizar la publicación" };

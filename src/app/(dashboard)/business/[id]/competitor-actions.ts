@@ -18,7 +18,8 @@ export async function upsertCompetitorAction(
     linkedin?: string | null
     youtube?: string | null
     seoGoogle?: string | null
-  }
+  },
+  skipAnalysis = false
 ) {
   try {
     // Sanitizar URLs antes de guardar o actualizar
@@ -58,20 +59,22 @@ export async function upsertCompetitorAction(
         data: { ...sanitizedData, businessId }
       })
 
-      // Notificar al usuario sobre el inicio del scraping
-      await prisma.agentNotification.create({
-        data: {
-          businessId,
-          title: "Agente de Scraping y Auditoría",
-          message: `Iniciando extracción y auditoría digital para el nuevo competidor: "${data.name}".`,
-          step: "SCRAPING",
-          status: "PROCESSING"
-        }
-      }).catch((err: unknown) => console.error("Error creating competitor scraping notification:", err))
+      if (!skipAnalysis) {
+        // Notificar al usuario sobre el inicio del scraping
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Scraping y Auditoría",
+            message: `Iniciando extracción y auditoría digital para el nuevo competidor: "${data.name}".`,
+            step: "SCRAPING",
+            status: "PROCESSING"
+          }
+        }).catch((err: unknown) => console.error("Error creating competitor scraping notification:", err))
+      }
     }
 
     // Disparar scraping automático para todos los canales que tengan URL y no estén analizados o haya cambiado la URL
-    if (dbCompetitor) {
+    if (dbCompetitor && !skipAnalysis) {
       const channelUrls = [
         { name: "WEBSITE", url: dbCompetitor.website },
         { name: "FACEBOOK", url: dbCompetitor.facebook },
@@ -116,8 +119,10 @@ export async function upsertCompetitorAction(
       await Promise.allSettled(promises);
     }
 
-    // Trigger automatic consolidated analysis if conditions are met
-    await triggerAutomaticConsolidatedAnalysis(businessId);
+    if (!skipAnalysis) {
+      // Trigger automatic consolidated analysis if conditions are met
+      await triggerAutomaticConsolidatedAnalysis(businessId);
+    }
 
     revalidatePath(`/business/${businessId}`)
     return { success: true, competitor: dbCompetitor }
@@ -238,5 +243,36 @@ export async function deleteCompetitorAction(businessId: string, competitorId: s
     return { success: true }
   } catch {
     return { success: false, error: 'Error al eliminar competidor' }
+  }
+}
+
+export async function saveMultipleCompetitorsAction(
+  businessId: string,
+  competitors: Array<{
+    name: string
+    website?: string | null
+    facebook?: string | null
+    instagram?: string | null
+    tiktok?: string | null
+  }>,
+  skipAnalysis = false
+) {
+  try {
+    const results = [];
+    for (const comp of competitors) {
+      if (!comp.name || comp.name.trim() === "") continue;
+      const res = await upsertCompetitorAction(businessId, undefined, {
+        name: comp.name,
+        website: comp.website || "",
+        facebook: comp.facebook || "",
+        instagram: comp.instagram || "",
+        tiktok: comp.tiktok || "",
+      }, skipAnalysis);
+      results.push(res);
+    }
+    return { success: true, results };
+  } catch (error) {
+    console.error("Error in saveMultipleCompetitorsAction:", error);
+    return { success: false, error: "Error al registrar competidores en bloque" };
   }
 }

@@ -75,6 +75,8 @@ export async function signup(prevState: any, formData: FormData) {
       username,
       name,
       password: hashedPassword,
+      maxCompetitors: 3,
+      maxBusinesses: 1,
     },
   });
 

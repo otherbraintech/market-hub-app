@@ -51,6 +51,10 @@ export default async function BusinessDetailPage({
     redirect("/business");
   }
 
+  if (business.competitors.length === 0) {
+    redirect(`/onboarding?businessId=${id}`);
+  }
+
   const role = session.user?.role || "USER";
 
   // Fetch products, campaigns, social accounts and contents sequentially to prevent DB pool connection failures

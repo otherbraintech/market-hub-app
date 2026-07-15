@@ -8,9 +8,9 @@ export function BusinessRedirector({ hasBusinesses }: { hasBusinesses: boolean }
   const router = useRouter();
 
   useEffect(() => {
-    // Si no tiene negocios y no está en la página de negocio ni de administración de usuarios, redirigir
-    if (!hasBusinesses && pathname !== "/business" && pathname !== "/settings/users" && pathname !== "/settings") {
-      router.push("/business");
+    // Si no tiene negocios y no está en la página de onboarding o de administración de usuarios, redirigir
+    if (!hasBusinesses && pathname !== "/onboarding" && pathname !== "/settings/users" && pathname !== "/settings") {
+      router.push("/onboarding");
     }
   }, [hasBusinesses, pathname, router]);
 

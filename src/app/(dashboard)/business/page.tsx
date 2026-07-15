@@ -53,9 +53,9 @@ export default async function BusinessPage() {
             <Progress value={percentage} className="h-2 w-full bg-muted shadow-inner" />
           </div>
           
-          <div className="h-10 w-px bg-border hidden sm:block" />
+          {count > 0 && <div className="h-10 w-px bg-border hidden sm:block" />}
           
-          {count < limit ? (
+          {count === 0 ? null : count < limit ? (
             <CreateBusinessDialog />
           ) : (
              <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-xs font-bold text-muted-foreground border border-dashed">

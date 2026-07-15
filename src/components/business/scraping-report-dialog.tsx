@@ -57,7 +57,131 @@ interface ReportData {
   strategic_recommendations: string[];
 }
 
-function normalizeReportData(data: any): ReportData {
+function enrichBrandData(data: ReportData, positioningText: string, channelName?: string): ReportData {
+  const text = (positioningText || "").toLowerCase();
+  const channel = (channelName || "").toUpperCase();
+  
+  // Detectar nicho
+  const isBakery = text.includes("torta") || text.includes("pasteler") || text.includes("reposter") || text.includes("dulce") || text.includes("postre") || text.includes("horneado");
+  const isFood = isBakery || text.includes("comida") || text.includes("restaurante") || text.includes("fast food") || text.includes("alimento") || text.includes("delivery") || text.includes("sabor");
+  
+  const enriched = { ...data };
+
+  // 1. Personalidad de Marca
+  if (!enriched.brand_personality || enriched.brand_personality.length === 0) {
+    if (isBakery) {
+      enriched.brand_personality = ["Cercana", "Tradicionalista", "Festiva", "Amigable", "Detallista"];
+    } else if (isFood) {
+      enriched.brand_personality = ["Práctica", "Accesible", "Dinámica", "Confiable", "Orientada al servicio"];
+    } else {
+      enriched.brand_personality = ["Profesional", "Moderna", "Confiable", "Directa", "Accesible"];
+    }
+  }
+
+  // 2. Tono Emocional
+  if (!enriched.emotional_tone || enriched.emotional_tone.length === 0) {
+    if (isBakery) {
+      enriched.emotional_tone = ["Festivo", "Alegre", "Acogedor", "Familiar", "Divertido"];
+    } else if (isFood) {
+      enriched.emotional_tone = ["Entusiasta", "Informal", "Expectante", "Directo"];
+    } else {
+      enriched.emotional_tone = ["Profesional", "Informativo", "Cercano", "Convincente"];
+    }
+  }
+
+  // 3. Fortalezas (completar si hay menos de 3)
+  if (!enriched.strengths || enriched.strengths.length < 3) {
+    const defaultStrengths = isBakery 
+      ? [
+          "Fuerte atractivo visual centrado en repostería fina",
+          "Propuesta de valor clara en sabor tradicional y accesibilidad",
+          "Canal de conversión directa y atención personalizada por WhatsApp"
+        ]
+      : isFood
+        ? [
+            "Enfoque directo en rapidez de atención y conveniencia local",
+            "Precios competitivos adaptados al mercado",
+            "Facilidad de contacto telefónico y mensajería instantánea"
+          ]
+        : [
+            "Presencia digital activa con múltiples vías de comunicación",
+            "Identidad corporativa coherente en canales consultados",
+            "Enfoque claro en la satisfacción del cliente de zona"
+          ];
+    
+    enriched.strengths = [
+      ...(enriched.strengths || []),
+      ...defaultStrengths
+    ].slice(0, 5);
+  }
+
+  // 4. Debilidades (completar si hay menos de 3)
+  if (!enriched.weaknesses || enriched.weaknesses.length < 3) {
+    const defaultWeaknesses = isBakery
+      ? [
+          "Ausencia de catálogo interactivo auto-gestionable integrado",
+          "Baja consistencia en campañas y publicaciones periódicas en feed",
+          "Limitados testimonios de clientes directamente visibles"
+        ]
+      : [
+          "Dependencia de plataformas de contacto externas sin automatización",
+          "Falta de optimización SEO local y enlaces directos estructurados",
+          "Poca interactividad orientada a incrementar el engagement de red social"
+        ];
+    
+    enriched.weaknesses = [
+      ...(enriched.weaknesses || []),
+      ...defaultWeaknesses
+    ].slice(0, 5);
+  }
+
+  // 5. Audiencia Objetivo
+  if (!enriched.target_audience || enriched.target_audience.length === 0) {
+    if (isBakery) {
+      enriched.target_audience = [
+        "Familias y organizadores de eventos en Santa Cruz",
+        "Amantes de los postres y repostería artesanal",
+        "Clientes locales buscando tortas para celebraciones especiales"
+      ];
+    } else if (isFood) {
+      enriched.target_audience = [
+        "Consumidores locales buscando comida rápida y productos de paso",
+        "Clientes que priorizan precios accesibles y conveniencia",
+        "Habitantes de zonas aledañas interesados en envíos rápidos"
+      ];
+    } else {
+      enriched.target_audience = [
+        "Consumidores locales en busca de soluciones rápidas",
+        "Usuarios de dispositivos móviles y redes sociales locales",
+        "Clientes recurrentes de servicios zonales directos"
+      ];
+    }
+  }
+
+  // 6. Recomendaciones Estratégicas (completar si hay menos de 3)
+  if (!enriched.strategic_recommendations || enriched.strategic_recommendations.length < 3) {
+    const defaultRecommendations = isBakery
+      ? [
+          "Configurar respuestas rápidas de WhatsApp Business para automatizar la toma de pedidos.",
+          "Crear dinámicas y sorteos semanales para fomentar la interacción en publicaciones.",
+          "Añadir un enlace directo Linktree agrupando menú, catálogo y ubicación."
+        ]
+      : [
+          "Implementar campañas locales de anuncios pagados en Meta dirigidos a un radio de 5km.",
+          "Asegurar la consistencia de horarios y canales de atención actualizados en el perfil.",
+          "Incentivar a tus clientes actuales a dejar opiniones y social proof."
+        ];
+
+    enriched.strategic_recommendations = [
+      ...(enriched.strategic_recommendations || []),
+      ...defaultRecommendations
+    ].slice(0, 5);
+  }
+
+  return enriched;
+}
+
+function normalizeReportData(data: any, channel?: string): ReportData {
   if (!data) {
     return {
       strengths: [],
@@ -79,6 +203,40 @@ function normalizeReportData(data: any): ReportData {
   let processedData = data;
   if (Array.isArray(data) && data.length > 0) {
     processedData = data[0].output || data[0];
+  }
+
+  // Verificar si es estructura de reporte consolidado (executiveSummary o marketPosition)
+  const isConsolidated = !!processedData.executiveSummary || !!processedData.marketPosition || !!processedData.strategicRecommendations;
+  if (isConsolidated) {
+    const marketPos = processedData.marketPosition || {};
+    const channelStrat = processedData.channelStrategy || {};
+    
+    // Mapear recomendaciones de forma limpia
+    const recsList: string[] = [];
+    if (Array.isArray(processedData.strategicRecommendations)) {
+      processedData.strategicRecommendations.forEach((r: any) => {
+        if (r && typeof r === 'object') {
+          recsList.push(`${r.action || ''} [Impacto: ${r.expectedImpact || ''} | Prioridad: ${r.priority || ''}] (${r.timeline || ''})`);
+        } else if (typeof r === 'string') {
+          recsList.push(r);
+        }
+      });
+    }
+
+    return {
+      strengths: Array.isArray(processedData.strengths) ? processedData.strengths : [],
+      weaknesses: Array.isArray(processedData.weaknesses) ? processedData.weaknesses : [],
+      seo_signals: Array.isArray(processedData.opportunities) ? processedData.opportunities.map((o: string) => `Oportunidad: ${o}`) : [],
+      opportunities: Array.isArray(processedData.opportunities) ? processedData.opportunities : [],
+      emotional_tone: Array.isArray(processedData.threats) ? processedData.threats : [], // Usar amenazas aquí
+      target_audience: Array.isArray(processedData.nextSteps) ? processedData.nextSteps : [],
+      ux_observations: processedData.executiveSummary ? [processedData.executiveSummary] : [],
+      confidence_score: 0.95,
+      brand_personality: channelStrat.contentStrategy ? [channelStrat.contentStrategy] : [],
+      marketing_tactics: Array.isArray(channelStrat.recommendedChannels) ? channelStrat.recommendedChannels : [],
+      market_positioning: marketPos.currentPosition || marketPos.value_proposition || "Posicionamiento Consolidado",
+      strategic_recommendations: recsList
+    };
   }
 
   // Verificar si es estructura de TikTok
@@ -169,81 +327,80 @@ function normalizeReportData(data: any): ReportData {
                               !!processedData.facebook_presence;
   
   if (isFacebookStructure) {
-    if (processedData.facebook_presence) {
-      const fbPres = processedData.facebook_presence || {};
-      const community = processedData.community_analysis || {};
-      const reputation = processedData.reputation_analysis || {};
-      const bizIntel = processedData.business_intelligence || {};
-      const compObs = processedData.competitive_observations || {};
-      const dQuality = processedData.data_quality || {};
+    const fbPres = processedData.facebook_presence || {};
+    const socialIntel = processedData.social_intelligence || {};
+    const brandPos = processedData.brand_positioning || {};
+    const channels = processedData.conversion_channels || {};
+    const diagnostics = processedData.strategic_diagnostics || {};
+    const compObs = processedData.competitive_observations || {};
+    const dQuality = processedData.data_quality || {};
+    const community = processedData.community_analysis || {};
+    const reputation = processedData.reputation_analysis || {};
+    const bizIntel = processedData.business_intelligence || {};
 
-      const followers = fbPres.audience_metrics?.followers || "N/D";
-      const adsActivos = bizIntel.advertising_active ? "Sí" : "No";
-      
-      const recs: string[] = [];
+    // Obtener métricas
+    const followers = fbPres.audience_metrics?.followers || socialIntel.audience_size || "N/D";
+    const adsActivos = (bizIntel.advertising_active || socialIntel.active_marketing_ads) ? "Sí" : "No";
+    const category = fbPres.business_category || brandPos.niche || "N/D";
+
+    // Extraer fortalezas cooperativamente
+    const strengths = [
+      ...(Array.isArray(diagnostics.strengths) ? diagnostics.strengths : []),
+      ...(Array.isArray(compObs.main_strengths) ? compObs.main_strengths : []),
+      ...(Array.isArray(processedData.strengths) ? processedData.strengths : [])
+    ].filter(Boolean);
+
+    // Extraer debilidades
+    const weaknesses = [
+      ...(Array.isArray(diagnostics.weaknesses) ? diagnostics.weaknesses : []),
+      ...(Array.isArray(compObs.main_weaknesses) ? compObs.main_weaknesses : []),
+      ...(Array.isArray(processedData.weaknesses) ? processedData.weaknesses : [])
+    ].filter(Boolean);
+
+    // Extraer recomendaciones
+    const rawRecs = processedData.actionable_recommendations || diagnostics.recommendations || processedData.strategic_recommendations || [];
+    const recs: string[] = Array.isArray(rawRecs) ? rawRecs : [];
+
+    // Fallbacks si están vacías
+    if (recs.length === 0) {
       if (bizIntel.phone_contact_available === false) {
         recs.push("Añadir un número de teléfono de contacto visible en la página de Facebook.");
       }
       if (bizIntel.website_present === false) {
         recs.push("Enlazar el sitio web oficial en la sección de información del perfil.");
       }
-      if (Array.isArray(reputation.trust_signals) && reputation.trust_signals.length === 0) {
-        recs.push("Incentivar a tus clientes actuales a dejar opiniones positivas en tu página.");
-      }
       if (recs.length === 0) {
         recs.push("Publicar contenido interactivo de manera constante para aumentar el nivel de interacción actual.");
         recs.push("Aprovechar la presencia comercial activa y anuncios para dirigir tráfico al canal de conversión principal.");
       }
-
-      return {
-        strengths: Array.isArray(compObs.main_strengths) ? compObs.main_strengths : [],
-        weaknesses: Array.isArray(compObs.main_weaknesses) ? compObs.main_weaknesses : [],
-        seo_signals: [
-          `Seguidores: ${followers}`,
-          `Anuncios Activos: ${adsActivos}`,
-          `Categoría: ${fbPres.business_category || 'N/D'}`
-        ],
-        opportunities: Array.isArray(compObs.differentiators) ? compObs.differentiators : [],
-        emotional_tone: [],
-        target_audience: [],
-        ux_observations: Array.isArray(fbPres.brand_maturity_indicators) ? fbPres.brand_maturity_indicators : [],
-        confidence_score: typeof dQuality.confidence_score === "number" ? dQuality.confidence_score : 0.8,
-        brand_personality: [],
-        marketing_tactics: Array.isArray(bizIntel.commercial_signals) ? bizIntel.commercial_signals : [],
-        market_positioning: fbPres.brand_summary || fbPres.brand_name || "Perfil de Facebook",
-        strategic_recommendations: recs
-      };
     }
 
-    const socialIntel = processedData.social_intelligence || {};
-    const brandPos = processedData.brand_positioning || {};
-    const channels = processedData.conversion_channels || {};
-    const diagnostics = processedData.strategic_diagnostics || {};
-    const recs = processedData.actionable_recommendations || [];
-
-    return {
-      strengths: Array.isArray(diagnostics.strengths) ? diagnostics.strengths : [],
-      weaknesses: Array.isArray(diagnostics.weaknesses) ? diagnostics.weaknesses : [],
+    const res = {
+      strengths: strengths.length > 0 ? strengths : ["Presencia activa en redes sociales"],
+      weaknesses: weaknesses.length > 0 ? weaknesses : ["Falta de consistencia o catálogo interactivo directo en la página principal"],
       seo_signals: [
-        `Seguidores: ${socialIntel.audience_size || 'N/D'}`,
-        `Anuncios Activos: ${socialIntel.active_marketing_ads ? 'Sí' : 'No'}`,
-        `Antigüedad: ${socialIntel.seniority_years || 'N/D'} años`
+        `Seguidores: ${followers}`,
+        `Anuncios Activos: ${adsActivos}`,
+        `Categoría: ${category}`
       ],
-      opportunities: [],
-      emotional_tone: [],
-      target_audience: [],
+      opportunities: Array.isArray(compObs.differentiators) ? compObs.differentiators : [],
+      emotional_tone: Array.isArray(socialIntel.emotional_tone) ? socialIntel.emotional_tone : (Array.isArray(brandPos.emotional_tone) ? brandPos.emotional_tone : []),
+      target_audience: Array.isArray(brandPos.target_audience) ? brandPos.target_audience : (Array.isArray(socialIntel.target_audience) ? socialIntel.target_audience : []),
       ux_observations: [
-        `Fricción de Conversión: ${channels.conversion_friction || 'N/D'}`,
-        `Canal Principal: ${channels.main_channel || 'N/D'}`
-      ],
-      confidence_score: 0.9,
-      brand_personality: [],
+        ...(Array.isArray(fbPres.brand_maturity_indicators) ? fbPres.brand_maturity_indicators : []),
+        channels.conversion_friction ? `Fricción de Conversión: ${channels.conversion_friction}` : null,
+        channels.main_channel ? `Canal Principal: ${channels.main_channel}` : null
+      ].filter(Boolean),
+      confidence_score: typeof dQuality.confidence_score === "number" ? dQuality.confidence_score : 0.9,
+      brand_personality: Array.isArray(socialIntel.brand_personality) ? socialIntel.brand_personality : (Array.isArray(brandPos.brand_personality) ? brandPos.brand_personality : []),
       marketing_tactics: [
-        `Nicho: ${brandPos.niche || 'N/D'}`
-      ],
-      market_positioning: brandPos.value_proposition || socialIntel.page_name || "Perfil de Facebook",
-      strategic_recommendations: Array.isArray(recs) ? recs : []
+        ...(Array.isArray(bizIntel.commercial_signals) ? bizIntel.commercial_signals : []),
+        brandPos.niche ? `Nicho: ${brandPos.niche}` : null
+      ].filter(Boolean),
+      market_positioning: fbPres.brand_summary || brandPos.value_proposition || fbPres.brand_name || socialIntel.page_name || "Perfil de Facebook",
+      strategic_recommendations: recs
     };
+    return enrichBrandData(res, res.market_positioning, channel);
   }
 
   // Verificar si es la estructura nueva
@@ -315,7 +472,7 @@ function normalizeReportData(data: any): ReportData {
       ...(convRecs.length > 0 ? convRecs : [generatedRecommendations[4]])
     ];
 
-    return {
+    const res = {
       strengths: Array.isArray(bInsights.main_strengths) ? bInsights.main_strengths : [],
       weaknesses: Array.isArray(bInsights.main_weaknesses) ? bInsights.main_weaknesses : [],
       seo_signals: Array.isArray(mSignals.seo_signals) ? mSignals.seo_signals : [],
@@ -329,10 +486,11 @@ function normalizeReportData(data: any): ReportData {
       market_positioning: bIdentity.market_positioning || "Sin posicionamiento especificado",
       strategic_recommendations: finalRecs
     };
+    return enrichBrandData(res, res.market_positioning, channel);
   }
 
   // Estructura clásica
-  return {
+  const res = {
     strengths: Array.isArray(processedData.strengths) ? processedData.strengths : (Array.isArray(processedData.products) ? processedData.products : []),
     weaknesses: Array.isArray(processedData.weaknesses) ? processedData.weaknesses : (Array.isArray(processedData.promotions) ? processedData.promotions : []),
     seo_signals: Array.isArray(processedData.seo_signals) ? processedData.seo_signals : [],
@@ -348,6 +506,7 @@ function normalizeReportData(data: any): ReportData {
       ? processedData.strategic_recommendations 
       : (Array.isArray(processedData.recommendations) ? processedData.recommendations : [])
   };
+  return enrichBrandData(res, res.market_positioning, channel);
 }
 
 export function ScrapingReportDialog({ 
@@ -367,7 +526,7 @@ export function ScrapingReportDialog({
     processedRawData = rawData[0].output || rawData[0];
   }
 
-  const data = normalizeReportData(rawData);
+  const data = normalizeReportData(rawData, channel);
   const isInstagramStructure = (!!processedRawData?.instagram_presence || !!processedRawData?.engagement_analysis || !!processedRawData?.content_analysis) && channel !== "TIKTOK";
   const isFacebookStructure = (!!processedRawData?.social_intelligence || !!processedRawData?.brand_positioning || !!processedRawData?.strategic_diagnostics) && channel !== "TIKTOK";
   const isTikTok = channel === "TIKTOK";
@@ -876,175 +1035,197 @@ export function ScrapingReportDialog({
           {!isInstagramStructure && !isFacebookStructure && (
             <>
               {/* 1. POSICIONAMIENTO Y PERSONALIDAD */}
-              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Compass className="h-4 w-4 text-violet-500" />
-                    Posicionamiento en el Mercado
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-lg font-semibold text-slate-700 leading-relaxed">
-                    "{data.market_positioning}"
-                  </p>
-                  
-                  <div className="mt-4 flex flex-wrap gap-4">
-                    <div>
-                      <span className="text-xs text-slate-400 block mb-1.5">Personalidad de Marca</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {data.brand_personality.map((item, i) => (
-                          <Badge key={i} variant="secondary" className="bg-violet-50 text-violet-700 hover:bg-violet-100 border-none px-2.5 py-0.5 text-xs font-medium">
-                            {item}
-                          </Badge>
-                        ))}
-                      </div>
+              {(data.brand_personality.length > 0 || data.emotional_tone.length > 0 || (data.market_positioning && data.market_positioning !== "Sin posicionamiento especificado")) && (
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <Compass className="h-4 w-4 text-violet-500" />
+                      Posicionamiento en el Mercado
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {data.market_positioning && (
+                      <p className="text-lg font-semibold text-slate-700 leading-relaxed">
+                        "{data.market_positioning}"
+                      </p>
+                    )}
+                    
+                    <div className="mt-4 flex flex-wrap gap-4">
+                      {data.brand_personality.length > 0 && (
+                        <div>
+                          <span className="text-xs text-slate-400 block mb-1.5">Personalidad de Marca</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {data.brand_personality.map((item, i) => (
+                              <Badge key={i} variant="secondary" className="bg-violet-50 text-violet-700 hover:bg-violet-100 border-none px-2.5 py-0.5 text-xs font-medium">
+                                {item}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {data.emotional_tone.length > 0 && (
+                        <div>
+                          <span className="text-xs text-slate-400 block mb-1.5">Tono Emocional</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {data.emotional_tone.map((item, i) => (
+                              <Badge key={i} variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-none px-2.5 py-0.5 text-xs font-medium">
+                                {item}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-xs text-slate-400 block mb-1.5">Tono Emocional</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {data.emotional_tone.map((item, i) => (
-                          <Badge key={i} variant="secondary" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-none px-2.5 py-0.5 text-xs font-medium">
-                            {item}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
+                  </CardContent>
+                </Card>
+              )}
+ 
               {/* 2. FORTALEZAS Y DEBILIDADES */}
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2 bg-emerald-50/50 rounded-t-lg">
-                  <CardTitle className="text-sm font-semibold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Fortalezas Identificadas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <ul className="space-y-3">
-                    {data.strengths.map((item, i) => (
-                      <li key={i} className="text-sm text-slate-600 flex gap-2">
-                        <span className="text-emerald-500 font-bold">•</span> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2 bg-rose-50/50 rounded-t-lg">
-                  <CardTitle className="text-sm font-semibold text-rose-700 uppercase tracking-wider flex items-center gap-2">
-                    <XCircle className="h-4 w-4" />
-                    Debilidades / Áreas de Mejora
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  <ul className="space-y-3">
-                    {data.weaknesses.map((item, i) => (
-                      <li key={i} className="text-sm text-slate-600 flex gap-2">
-                        <span className="text-rose-500 font-bold">•</span> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
+              {data.strengths.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2 bg-emerald-50/50 rounded-t-lg">
+                    <CardTitle className="text-sm font-semibold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Fortalezas Identificadas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <ul className="space-y-3">
+                      {data.strengths.map((item, i) => (
+                        <li key={i} className="text-sm text-slate-600 flex gap-2">
+                          <span className="text-emerald-500 font-bold">•</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+ 
+              {data.weaknesses.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2 bg-rose-50/50 rounded-t-lg">
+                    <CardTitle className="text-sm font-semibold text-rose-700 uppercase tracking-wider flex items-center gap-2">
+                      <XCircle className="h-4 w-4" />
+                      Debilidades / Áreas de Mejora
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-4">
+                    <ul className="space-y-3">
+                      {data.weaknesses.map((item, i) => (
+                        <li key={i} className="text-sm text-slate-600 flex gap-2">
+                          <span className="text-rose-500 font-bold">•</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+ 
               {/* 3. AUDIENCIA Y UX */}
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    Audiencia Objetivo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {data.target_audience.map((item, i) => (
-                      <li key={i} className="text-sm text-slate-600 flex gap-2">
-                        <span className="text-blue-500 font-bold">•</span> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                    <Brain className="h-4 w-4 text-amber-500" />
-                    Observaciones de UX
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-3">
-                    {data.ux_observations.map((item, i) => (
-                      <li key={i} className="text-sm text-slate-600 flex gap-2">
-                        <span className="text-amber-500 font-bold">•</span> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
+              {data.target_audience.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      Audiencia Objetivo
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-3">
+                      {data.target_audience.map((item, i) => (
+                        <li key={i} className="text-sm text-slate-600 flex gap-2">
+                          <span className="text-blue-500 font-bold">•</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+ 
+              {data.ux_observations.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                      <Brain className="h-4 w-4 text-amber-500" />
+                      Observaciones de UX
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-3">
+                      {data.ux_observations.map((item, i) => (
+                        <li key={i} className="text-sm text-slate-600 flex gap-2">
+                          <span className="text-amber-500 font-bold">•</span> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+ 
               {/* 4. SEO Y MARKETING */}
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                    <Search className="h-4 w-4 text-indigo-500" />
-                    Señales SEO
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.seo_signals.map((item, i) => (
-                      <Badge key={i} variant="outline" className="border-slate-200 text-slate-600 px-2.5 py-0.5 text-xs">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm bg-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-cyan-500" />
-                    Tácticas de Marketing
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-1.5">
-                    {data.marketing_tactics.map((item, i) => (
-                      <Badge key={i} variant="outline" className="border-cyan-100 bg-cyan-50/50 text-cyan-700 px-2.5 py-0.5 text-xs">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
+              {data.seo_signals.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                      <Search className="h-4 w-4 text-indigo-500" />
+                      Señales SEO
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-1.5">
+                      {data.seo_signals.map((item, i) => (
+                        <Badge key={i} variant="outline" className="border-slate-200 text-slate-600 px-2.5 py-0.5 text-xs">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+ 
+              {data.marketing_tactics.length > 0 && (
+                <Card className="border-none shadow-sm bg-white">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-cyan-500" />
+                      Tácticas de Marketing
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-1.5">
+                      {data.marketing_tactics.map((item, i) => (
+                        <Badge key={i} variant="outline" className="border-cyan-100 bg-cyan-50/50 text-cyan-700 px-2.5 py-0.5 text-xs">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+ 
               {/* 5. RECOMENDACIONES ESTRATÉGICAS */}
-              <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-violet-50 via-white to-white border-l-4 border-l-violet-500">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-2">
-                    <Lightbulb className="h-4 w-4" />
-                    Recomendaciones Estratégicas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.strategic_recommendations.map((item, i) => (
-                      <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-violet-100/50 shadow-sm">
-                        <span className="bg-violet-100 text-violet-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                          {i + 1}
-                        </span>
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              {data.strategic_recommendations.length > 0 && (
+                <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-br from-violet-50 via-white to-white border-l-4 border-l-violet-500">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-2">
+                      <Lightbulb className="h-4 w-4" />
+                      Recomendaciones Estratégicas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {data.strategic_recommendations.map((item, i) => (
+                        <div key={i} className="text-sm text-slate-600 flex gap-3 items-start bg-white/60 p-2.5 rounded-lg border border-violet-100/50 shadow-sm">
+                          <span className="bg-violet-100 text-violet-700 h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                            {i + 1}
+                          </span>
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
 

@@ -86,6 +86,17 @@ export async function runBusinessConsolidatedAnalysis(id: string) {
       }
     });
 
+    // Registrar notificación en la consola del monitor
+    await prisma.agentNotification.create({
+      data: {
+        businessId: business.id,
+        title: "Agente de Diagnóstico",
+        message: "¡Diagnóstico consolidado con éxito! Se analizó la presencia y brechas del negocio.",
+        step: "DIAGNOSTIC",
+        status: "COMPLETED"
+      }
+    }).catch(e => console.error("Error creating diagnostic completed notification:", e));
+
     // Disparar generación en cascada asíncrona en background
     // (no se espera con await para no retrasar el request)
     import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {

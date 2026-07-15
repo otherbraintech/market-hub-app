@@ -13,8 +13,6 @@ import { SessionWatcher } from "@/components/auth/session-watcher";
 import { triggerMissingCompetitorAnalyses } from "@/app/(dashboard)/business/[id]/competitor-actions";
 import { RoleAccessGuard } from "@/components/auth/role-access-guard";
 
-import { AgentPipelineBaul } from "@/components/business/agent-pipeline-baul"
-
 export default async function DashboardLayout({
   children,
 }: {
@@ -54,9 +52,6 @@ export default async function DashboardLayout({
               />
               <DynamicBreadcrumb />
             </div>
-            {selectedId && (
-              <AgentPipelineBaul businessId={selectedId} />
-            )}
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">

@@ -25,8 +25,8 @@ async function addAgentNotification(businessId: string, title: string, message: 
 }
 
 // Función principal para disparar la generación en cascada en segundo plano
-export async function triggerCascadeGeneration(businessId: string, force = false) {
-  console.log(`[CASCADE] Iniciando generación en cascada para el negocio: ${businessId} (force: ${force})`);
+export async function triggerCascadeGeneration(businessId: string, force = false, onlyStage?: 'STRATEGY' | 'CAMPAIGN') {
+  console.log(`[CASCADE] Iniciando generación en cascada para el negocio: ${businessId} (force: ${force}, onlyStage: ${onlyStage})`);
   try {
     // Registrar el inicio del proceso de consolidación de agentes
     await addAgentNotification(
@@ -71,7 +71,7 @@ export async function triggerCascadeGeneration(businessId: string, force = false
         status: 'PROCESSING'
       }
     });
-    if (activeProcessing) {
+    if (!force && activeProcessing) {
       console.log(`[CASCADE] Ya existe un agente procesando el diagnóstico para el negocio: ${businessId}. Cancelando ejecución paralela.`);
       return;
     }
@@ -124,9 +124,9 @@ export async function triggerCascadeGeneration(businessId: string, force = false
     const existingCount = existingStrategies.length;
     const savedStrategies = [...existingStrategies];
 
-    const needed = force ? 3 : (existingCount < 3 ? 3 - existingCount : 0);
+    const needed = force ? 1 : (existingCount < 1 ? 1 - existingCount : 0);
 
-    if (needed > 0) {
+    if (onlyStage !== 'CAMPAIGN' && needed > 0) {
       console.log(`[CASCADE] Generando ${needed} estrategias...`);
       await addAgentNotification(
         businessId, 
@@ -208,6 +208,7 @@ export async function triggerCascadeGeneration(businessId: string, force = false
       );
 
       // Guardar las nuevas estrategias adicionales en BBDD sin borrar nada
+      const hasActive = existingStrategies.some(s => s.isActive);
       for (let i = 0; i < newStrategiesData.length; i++) {
         const strat = newStrategiesData[i];
         const savedStrat = await prisma.marketingStrategy.create({
@@ -215,7 +216,7 @@ export async function triggerCascadeGeneration(businessId: string, force = false
             businessId,
             name: strat.name,
             description: strat.description,
-            isActive: false, // Las adicionales inician inactivas
+            isActive: !hasActive && i === 0, // La primera se activa si no hay ninguna previa activa
             objectives: strat.objectives || [],
             personas: strat.personas || [],
             funnelStages: strat.funnelStages || [],
@@ -244,6 +245,11 @@ export async function triggerCascadeGeneration(businessId: string, force = false
         "COMPLETED"
       );
     }
+    
+    if (onlyStage === 'STRATEGY') {
+      console.log(`[CASCADE] Finalizando etapa de estrategia de forma aislada para el negocio: ${businessId}`);
+      return;
+    }
 
     // 3. Generar Campañas de Marketing para alcanzar un mínimo de 3 sin borrar nada
     const existingCampaigns = await prisma.campaign.findMany({
@@ -251,7 +257,7 @@ export async function triggerCascadeGeneration(businessId: string, force = false
     });
     const campaignsCount = existingCampaigns.length;
 
-    const neededCampaigns = force ? 3 : (campaignsCount < 3 ? 3 - campaignsCount : 0);
+    const neededCampaigns = force ? 1 : (campaignsCount < 1 ? 1 - campaignsCount : 0);
 
     if (neededCampaigns > 0) {
       console.log(`[CASCADE] Generando ${neededCampaigns} campañas...`);
@@ -312,6 +318,7 @@ export async function triggerCascadeGeneration(businessId: string, force = false
                   title: post.title,
                   body: post.body || '',
                   caption: post.caption || '',
+                  promptUsed: post.promptUsed || '',
                   channel: (normalizedChannel as any) || "INSTAGRAM",
                   status: "SCHEDULED",
                   scheduledAt: new Date(post.scheduledAt),
@@ -498,6 +505,7 @@ export async function generateCampaignsCascade(business: { name: string }, strat
             title: z.string(),
             body: z.string(),
             caption: z.string(),
+            promptUsed: z.string().describe("AI image generator prompt in English describing the visual design, style and composition"),
             channel: z.enum(['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'LINKEDIN']),
             scheduledAt: z.string() // fecha en ISOString
           }))
@@ -506,7 +514,8 @@ export async function generateCampaignsCascade(business: { name: string }, strat
       system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes.
 Reglas clave:
 1. Cada campaña generada debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas). Las fechas generadas deben estar situadas en el año ${new Date().getFullYear()}.
-2. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, agregar, deducir o sugerir productos, servicios o variantes de productos que no estén explícitamente declarados en la información del negocio. No combines ingredientes ni inventes recetas nuevas (ej. no inventes 'panqueque de chuño'). Promociona única y exclusivamente los productos descritos.`,
+2. Para cada publicación en 'contents', debes redactar un 'promptUsed' detallado en inglés de al menos 15 palabras para generadores de imágenes por IA como Midjourney o DALL-E, que describa la composición visual, estilo fotográfico premium y colores correspondientes.
+3. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, agregar, deducir o sugerir productos, servicios o variantes de productos que no estén explícitamente declarados en la información del negocio. No combines ingredientes ni inventes recetas nuevas (ej. no inventes 'panqueque de chuño'). Promociona única y exclusivamente los productos descritos.`,
       prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
         `\nGenera fechas coherentes de planificación en formato ISO que inicien desde hoy (${new Date().toISOString().split('T')[0]}) en adelante, todas pertenecientes al año ${new Date().getFullYear()}.`,
@@ -720,6 +729,7 @@ function getFallbackCampaigns(business: { name: string }, strategies: { name: st
           title: `Publicación de lanzamiento - ${objective}`,
           body: `Lanzamiento oficial de la campaña orientada a ${objective.toLowerCase()}.`,
           caption: `¿Listos para una experiencia única? Síguenos y descubre la magia ✨ #marketing #${business.name.toLowerCase()}`,
+          promptUsed: `A professional food photography shot of premium desserts, high-end kitchen, warm direct natural light, cinematic, photorealistic, 8k --ar 4:5`,
           channel: 'INSTAGRAM',
           scheduledAt: getOffsetDate((i * 5) + 2)
         },
@@ -728,6 +738,7 @@ function getFallbackCampaigns(business: { name: string }, strategies: { name: st
           title: `Video detrás de cámaras - ${objective}`,
           body: `Muestra dinámica de cómo preparamos todo para ti.`,
           caption: `Así de fácil y con mucho amor preparamos todo lo que te gusta ❤️ #detrasdecamaras #${business.name.toLowerCase()}`,
+          promptUsed: `A behind-the-scenes premium bakery video frame showing a chef decorating a cake, soft focus background, warm cozy lighting, cinematic feel --ar 9:16`,
           channel: 'INSTAGRAM',
           scheduledAt: getOffsetDate((i * 5) + 5)
         },
@@ -736,6 +747,7 @@ function getFallbackCampaigns(business: { name: string }, strategies: { name: st
           title: `Preguntas y Respuestas - ${objective}`,
           body: `Interacción directa para resolver dudas de la audiencia.`,
           caption: `¡Pregúntanos lo que quieras en este día especial!`,
+          promptUsed: `A minimalist Instagram story background for a Q&A session, elegant pastel colors, subtle bakery utensils outlines, clean aesthetic --ar 9:16`,
           channel: 'FACEBOOK',
           scheduledAt: getOffsetDate((i * 5) + 8)
         }

@@ -63,6 +63,10 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         items: [
           { title: "Panel General", url: "/dashboard" },
           { title: "Mis Negocios", url: "/business" },
+          { 
+            title: "Asistente Onboarding", 
+            url: selectedId ? `/onboarding?businessId=${selectedId}&preview=true` : "/onboarding" 
+          },
         ],
       },
       {

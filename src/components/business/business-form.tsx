@@ -29,15 +29,16 @@ import { HelpCircle, Sparkles, MapPin, Phone, Globe, Facebook, Instagram, Chevro
 interface BusinessFormProps {
   defaultValues?: BusinessFormValues & { id?: string };
   onSuccess?: () => void;
+  onCreated?: (id: string) => void;
   isTutorialActive?: boolean;
+  hideStepHeader?: boolean;
+  singleStep?: boolean;
+  onSubmitOverride?: (data: BusinessFormValues) => void;
 }
-
-export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: BusinessFormProps) {
+export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialActive, hideStepHeader, singleStep, onSubmitOverride }: BusinessFormProps) {
   const [loading, setLoading] = useState(false);
   const [useAI, setUseAI] = useState(!defaultValues?.id);
   const [step, setStep] = useState(1);
-  const [showStep1Overlay, setShowStep1Overlay] = useState(isTutorialActive);
-  const [showStep2Overlay, setShowStep2Overlay] = useState(isTutorialActive);
   const isEditing = !!defaultValues?.id;
 
   const form = useForm<BusinessFormValues>({
@@ -67,7 +68,12 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
   });
 
   async function onSubmit(data: BusinessFormValues) {
-    if (useAI && step === 1) {
+    if (onSubmitOverride) {
+      onSubmitOverride(data);
+      return;
+    }
+
+    if (useAI && step === 1 && !singleStep) {
         setStep(2);
         return;
     }
@@ -95,7 +101,11 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
         toast.success(res.message);
         onSuccess?.();
         if (res.data?.id) {
-          window.location.href = `/business/${res.data.id}?new=true`;
+          if (onCreated) {
+            onCreated(res.data.id);
+          } else {
+            window.location.href = `/onboarding?businessId=${res.data.id}`;
+          }
         }
       } else {
         toast.error(res.error);
@@ -145,33 +155,9 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
           })} 
           className="space-y-4"
         >
-        {!isEditing && (
-          <div className="flex items-center justify-between mb-4 p-3 bg-primary/5 rounded-xl border border-primary/20">
-            <div className="flex flex-col">
-              <span className="text-sm font-bold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Inteligencia Artificial
-              </span>
-              <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
-                {useAI ? "Generación automática de estrategia activa" : "Configuración manual de estrategia"}
-              </span>
-            </div>
-            <Button 
-              type="button" 
-              variant={useAI ? "default" : "outline"} 
-              size="sm"
-              className="h-8 font-bold"
-              onClick={() => {
-                  setUseAI(!useAI);
-                  setStep(1);
-              }}
-            >
-              {useAI ? "Activado" : "Usar IA"}
-            </Button>
-          </div>
-        )}        {useAI && !isEditing ? (
+        {useAI && !isEditing ? (
           <div className="space-y-6 py-2">
-            {isTutorialActive && (
+            {isTutorialActive && !hideStepHeader && (
               <>
                 {/* 1. Indicador de pasos visual tipo Line/Wizard */}
                 <div className="flex items-center justify-between px-4 mb-2">
@@ -217,8 +203,8 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
                       </h5>
                       <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
                         {step === 1 
-                          ? 'Ingresa el nombre de tu negocio, sitio web y una descripción de tu marca. La IA analizará la web y la descripción para generar la estrategia y el perfil del negocio automáticamente.'
-                          : 'Completa los teléfonos, ubicación y redes sociales de tu marca. Cuando termines, dale click a Generar con IA y Crear para finalizar y activar tu panel.'}
+                          ? 'Ingresa el nombre de tu negocio y una descripción de tu marca. La IA analizará la descripción para generar la estrategia y el perfil del negocio automáticamente.'
+                          : 'Completa los teléfonos, ubicación, sitio web y redes sociales de tu marca. Cuando termines, dale click a Generar con IA y Crear para finalizar y activar tu panel.'}
                       </p>
                     </div>
                   </div>
@@ -226,29 +212,8 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
               </>
             )}
 
-            {step === 1 ? (
-              <div className="space-y-4 relative animate-in fade-in slide-in-from-right-4 duration-300">
-                {isTutorialActive && showStep1Overlay && (
-                  <div className="absolute -inset-2 bg-background/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 border border-primary/10 shadow-sm">
-                    <div className="flex flex-col items-center gap-2.5 max-w-xs text-center">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-1">
-                        <Sparkles className="h-5 w-5 animate-pulse" />
-                      </div>
-                      <span className="text-xs font-black uppercase tracking-wider text-primary">Identidad de Marca</span>
-                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                        Completa los campos básicos del negocio para que la IA diseñe tu estrategia.
-                      </p>
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        onClick={() => setShowStep1Overlay(false)}
-                        className="mt-3 rounded-xl font-bold shadow-md hover:shadow-lg px-5 h-9"
-                      >
-                        Entendido
-                      </Button>
-                    </div>
-                  </div>
-                )}
+            {singleStep || step === 1 ? (
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -257,19 +222,6 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
                       <LabelHelp label="Nombre del Negocio" help="El nombre comercial oficial de tu marca." />
                       <FormControl>
                         <Input placeholder="Ej. Acme Inc." {...field} className="h-11 rounded-xl" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="website"
-                  render={({ field }) => (
-                    <FormItem>
-                      <LabelHelp label="Sitio Web (Opcional)" help="La IA extraerá información de aquí si la proporcionas." />
-                      <FormControl>
-                        <Input placeholder="https://mi-negocio.com" {...field} className="h-11 rounded-xl" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -292,30 +244,126 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
                     </FormItem>
                   )}
                 />
-              </div>
-            ) : (
-              <div className="space-y-4 relative animate-in fade-in slide-in-from-right-4 duration-300">
-                {isTutorialActive && showStep2Overlay && (
-                  <div className="absolute -inset-2 bg-background/80 backdrop-blur-sm z-30 rounded-2xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-300 border border-primary/10 shadow-sm">
-                    <div className="flex flex-col items-center gap-2.5 max-w-xs text-center">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-1">
-                        <Sparkles className="h-5 w-5 animate-pulse" />
-                      </div>
-                      <span className="text-xs font-black uppercase tracking-wider text-primary">Contacto y Redes</span>
-                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                        Completa la información de contacto para que el sistema la integre en tus canales sociales.
-                      </p>
-                      <Button 
-                        type="button" 
-                        size="sm" 
-                        onClick={() => setShowStep2Overlay(false)}
-                        className="mt-3 rounded-xl font-bold shadow-md hover:shadow-lg px-5 h-9"
-                      >
-                        Entendido
-                      </Button>
+
+                {singleStep && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="website"
+                      render={({ field }) => (
+                        <FormItem>
+                          <LabelHelp label="Sitio Web" help="La IA extraerá información de aquí si la proporcionas." />
+                          <FormControl>
+                            <div className="relative">
+                              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input placeholder="https://mi-negocio.com" {...field} className="h-11 pl-10 rounded-xl" />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="phoneNumbers"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="flex items-center gap-2"><Phone className="h-3 w-3" /> Teléfonos</FormLabel>
+                                <FormControl>
+                                <Input placeholder="+51 987 654 321" {...field} className="h-11 rounded-xl" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="location"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="flex items-center gap-2"><MapPin className="h-3 w-3" /> Ubicación</FormLabel>
+                                <FormControl>
+                                <Input placeholder="Ciudad, País" {...field} className="h-11 rounded-xl" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                     </div>
-                  </div>
+                    <div className="space-y-3 p-4 bg-muted/30 rounded-2xl border border-dashed">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-2">Redes Sociales</span>
+                        <div className="grid grid-cols-3 gap-3">
+                            <FormField
+                                control={form.control}
+                                name="socialLinks.facebook"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <div className="relative">
+                                                <Facebook className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                                <Input placeholder="Facebook" {...field} className="h-9 pl-9 text-xs rounded-lg" />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage className="text-[10px]" />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="socialLinks.instagram"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <div className="relative">
+                                                <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                                <Input placeholder="Instagram" {...field} className="h-9 pl-9 text-xs rounded-lg" />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage className="text-[10px]" />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="socialLinks.tiktok"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <div className="relative">
+                                                <TikTokIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                                <Input placeholder="TikTok" {...field} className="h-9 pl-9 text-xs rounded-lg" />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage className="text-[10px]" />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    </div>
+                  </>
                 )}
+              </div>
+            ) : null}
+
+            {!singleStep && step === 2 ? (
+              <div className="space-y-4 relative animate-in fade-in slide-in-from-right-4 duration-300">
+                <FormField
+                  control={form.control}
+                  name="website"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Sitio Web" help="La IA extraerá información de aquí si la proporcionas." />
+                      <FormControl>
+                        <div className="relative">
+                          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="https://mi-negocio.com" {...field} className="h-11 pl-10 rounded-xl" />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="grid grid-cols-2 gap-4">
                     <FormField
                         control={form.control}
@@ -395,7 +443,7 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
                     </div>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         ) : (
           <Tabs defaultValue="basic" className="w-full">
@@ -624,14 +672,13 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
             </TabsContent>
           </Tabs>
         )}
-
         <DialogFooter className="mt-8 gap-2 sm:gap-0">
-          {useAI && step === 2 && (
+          {useAI && step === 2 && !singleStep && (
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => setStep(1)} 
-                disabled={loading || (isTutorialActive && showStep2Overlay)} 
+                disabled={loading} 
                 className="rounded-xl h-11 px-6"
               >
                 <ChevronLeft className="h-4 w-4 mr-2" /> Atrás
@@ -640,7 +687,7 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
           
           <Button 
             type="submit" 
-            disabled={loading || (isTutorialActive && ((step === 1 && showStep1Overlay) || (step === 2 && showStep2Overlay)))} 
+            disabled={loading} 
             className={`${useAI ? "flex-1 h-11" : "h-11 px-8"} rounded-xl font-bold`}
           >
             {loading ? (
@@ -650,8 +697,10 @@ export function BusinessForm({ defaultValues, onSuccess, isTutorialActive }: Bus
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                {useAI && !isEditing ? (
-                    step === 1 ? (
+                {singleStep ? (
+                    <>Siguiente <ChevronRight className="h-4 w-4 ml-1" /></>
+                ) : useAI && !isEditing ? (
+                    (step === 1) ? (
                         <>Siguiente <ChevronRight className="h-4 w-4 ml-1" /></>
                     ) : (
                         <><Sparkles className="h-4 w-4" /> Generar con IA y Crear</>

@@ -1,81 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { CreateBusinessDialog } from "./create-business-dialog";
-import { Sparkles, ArrowDown, X, HelpCircle, Target } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { BusinessForm } from "./business-form";
+import { Target } from "lucide-react";
 
 export function EmptyBusinessState() {
-  const [isOverlayOpen, setIsOverlayOpen] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const showOverlay = isOverlayOpen && !isDialogOpen;
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-[500px] border-2 border-dashed rounded-3xl bg-card/40 border-primary/20 text-center p-8 relative overflow-hidden shadow-inner">
-      {/* Elementos de fondo decorativos */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-primary/5 rounded-full blur-3xl -z-10" />
-
-      <div className="p-5 rounded-2xl bg-primary/10 mb-6 shadow-sm border border-primary/20">
-        <Sparkles className="h-10 w-10 text-primary" />
-      </div>
-
-      <h3 className="text-2xl font-black tracking-tight text-foreground uppercase italic mb-2">
-        ¡Bienvenido a MarketHub!
-      </h3>
-      <p className="text-muted-foreground mb-8 max-w-md text-sm font-medium">
-        Para comenzar a diseñar campañas, optimizar tus publicaciones y analizar la competencia, primero necesitamos crear el perfil de tu marca o empresa.
-      </p>
-
-      <Button onClick={() => setIsOverlayOpen(true)} variant="outline" className="rounded-xl font-bold h-11 px-6 gap-2">
-        <HelpCircle className="h-4 w-4 text-primary" /> Ver Asistente de Inicio
-      </Button>
-
-      {/* Capa oscura de tutorial (Backdrop Spotlight) */}
-      {isOverlayOpen && (
-        <div className={`fixed inset-0 bg-slate-950/75 backdrop-blur-md z-[100] flex items-center justify-center p-4 transition-all duration-300 ${isDialogOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
-          <div className="bg-card w-full max-w-lg rounded-[32px] border border-primary/25 shadow-2xl p-8 relative flex flex-col items-center text-center shadow-primary/5">
-            {/* Botón de cerrar */}
-            <button 
-              onClick={() => setIsOverlayOpen(false)}
-              className="absolute top-6 right-6 p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors"
-              aria-label="Cerrar tutorial"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            {/* Icono animado */}
-            <div className="relative mb-6">
-              <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
-              <div className="h-16 w-16 bg-primary/10 border-2 border-primary/30 rounded-2xl flex items-center justify-center relative">
-                <Target className="h-8 w-8 text-primary animate-bounce-slow" />
-              </div>
-            </div>
-
-            {/* Contenido de texto */}
-            <span className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Paso obligatorio</span>
-            <h4 className="text-2xl font-black text-foreground tracking-tight mb-3">
+    <div className="max-w-4xl mx-auto py-6 px-4 space-y-6">
+      {/* Tarjeta de bienvenida premium */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary/10 via-purple-500/5 to-transparent border border-primary/20 p-8 shadow-inner animate-in fade-in duration-300">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -z-10" />
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
+          <div className="h-14 w-14 bg-primary/15 rounded-2xl flex items-center justify-center text-primary shrink-0 shadow-sm border border-primary/20 animate-bounce-slow">
+            <Target className="h-7 w-7" />
+          </div>
+          <div className="space-y-2">
+            <span className="text-[10px] font-black uppercase tracking-widest bg-primary/20 text-primary px-3 py-1 rounded-full inline-block">
+              Paso Obligatorio
+            </span>
+            <h3 className="text-2xl font-black text-foreground tracking-tight italic uppercase">
               Crea tu primer negocio
-            </h4>
-            <p className="text-sm text-muted-foreground font-medium max-w-sm mb-8 leading-relaxed">
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
               Diseñemos tu estrategia de marca, segmentación de buyer personas y funnels en solo segundos utilizando Inteligencia Artificial.
             </p>
-
-            {/* Flecha animada apuntando al botón */}
-            <div className="flex flex-col items-center gap-1.5 mb-4 animate-bounce">
-              <span className="text-xs font-bold text-primary uppercase tracking-widest">Presiona aquí</span>
-              <ArrowDown className="h-4 w-4 text-primary" />
-            </div>
-
-            {/* Botón de creación con el modal del formulario */}
-            <div className="w-full sm:w-auto scale-110">
-              <CreateBusinessDialog isTutorialActive={true} onOpenChange={setIsDialogOpen} />
-            </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Estilos CSS Inline para la animación lenta */}
+      <div className="bg-card/60 backdrop-blur-md rounded-3xl border p-6 md:p-8 card-shadow">
+        <BusinessForm isTutorialActive={true} />
+      </div>
+
       <style jsx global>{`
         @keyframes bounceSlow {
           0%, 100% {

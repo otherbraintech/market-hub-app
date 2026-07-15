@@ -1301,10 +1301,23 @@ export function CalendarView({
 
         {/* Filas de días */}
         <div className="flex-1 overflow-y-auto divide-y">
-          {gridCells.filter(cell => cell.isCurrentMonth).map((cell, idx) => {
-            const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
-            const cellDateStr = format(cell.date, "yyyy-MM-dd");
-            const formattedDayName = format(cell.date, "EEEE d", { locale: es });
+          {(() => {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            yesterday.setHours(0, 0, 0, 0);
+
+            const filteredCells = gridCells.filter(cell => {
+              // Si estamos previsualizando posts simulados de una campaña, mostramos todas las celdas del mes
+              if (previewPosts && previewPosts.length > 0) return cell.isCurrentMonth;
+              
+              // Si no, mostramos desde el día de ayer en adelante
+              return cell.date >= yesterday;
+            });
+
+            return filteredCells.map((cell, idx) => {
+              const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+              const cellDateStr = format(cell.date, "yyyy-MM-dd");
+              const formattedDayName = format(cell.date, "EEEE d", { locale: es });
 
             const dayContents = contents.filter((item) => {
               if (!item.scheduledAt) return false;
@@ -1512,9 +1525,10 @@ export function CalendarView({
                 })}
               </div>
             );
-          })}
-        </div>
+          });
+        })()}
       </div>
+    </div>
 
       {/* DIÁLOGO DETALLES Y EDICIÓN DE PUBLICACIÓN */}
       <Dialog open={!!viewingContent} onOpenChange={(open) => !open && setViewingContent(null)}>

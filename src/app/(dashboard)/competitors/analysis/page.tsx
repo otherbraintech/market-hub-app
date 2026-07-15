@@ -1,4 +1,5 @@
 import { getSelectedBusinessId } from "@/actions/business";
+export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { CompetitorsAnalysisClient } from "./client-page";

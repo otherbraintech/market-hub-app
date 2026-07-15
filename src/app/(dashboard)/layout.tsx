@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar"
+export const dynamic = "force-dynamic";
 import { DynamicBreadcrumb } from "@/components/dynamic-breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import {

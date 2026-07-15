@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { getSelectedBusinessId } from "@/actions/business";
 import { CalendarView } from "@/components/calendar/calendar-view";

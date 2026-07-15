@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+export const dynamic = "force-dynamic";
 import { Target } from "lucide-react";
 import { getSelectedBusinessId } from "@/actions/business";
 import { CampaignsClientPage } from "./client-page";

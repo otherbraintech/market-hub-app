@@ -232,9 +232,11 @@ function normalizeReportData(data: any, channel?: string): ReportData {
       target_audience: Array.isArray(processedData.nextSteps) ? processedData.nextSteps : [],
       ux_observations: processedData.executiveSummary ? [processedData.executiveSummary] : [],
       confidence_score: 0.95,
-      brand_personality: channelStrat.contentStrategy ? [channelStrat.contentStrategy] : [],
-      marketing_tactics: Array.isArray(channelStrat.recommendedChannels) ? channelStrat.recommendedChannels : [],
-      market_positioning: marketPos.currentPosition || marketPos.value_proposition || "Posicionamiento Consolidado",
+      brand_personality: channelStrat.contentStrategy && String(channelStrat.contentStrategy).toUpperCase() !== "CONSOLIDATED" ? [channelStrat.contentStrategy] : [],
+      marketing_tactics: Array.isArray(channelStrat.recommendedChannels) 
+        ? channelStrat.recommendedChannels.filter((c: any) => c && String(c).toUpperCase() !== "CONSOLIDATED") 
+        : ["Facebook", "Instagram", "TikTok"],
+      market_positioning: marketPos.currentPosition || marketPos.value_proposition || "Presencia digital unificada y activa.",
       strategic_recommendations: recsList
     };
   }
@@ -629,196 +631,8 @@ export function ScrapingReportDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          
-          {/* Facebook-specific metrics */}
-          {isFacebookStructure && (
-            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-blue-50 via-cyan-50 to-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600 uppercase tracking-wider flex items-center gap-2">
-                  <Facebook className="h-4 w-4" />
-                  Métricas de Facebook
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-white rounded-lg p-3 border border-blue-100">
-                    <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
-                    <p className="text-lg font-bold text-slate-700">
-                      {processedRawData?.social_intelligence?.audience_size || 
-                       processedRawData?.facebook_presence?.audience_metrics?.followers || 
-                       'N/A'}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <span className="text-xs text-slate-400 block mb-1">Engagement</span>
-                    <p className="text-lg font-bold text-slate-700">
-                      {processedRawData?.social_intelligence?.engagement_level || 
-                       processedRawData?.community_analysis?.current_activity_level || 
-                       'N/A'}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-blue-100">
-                    <span className="text-xs text-slate-400 block mb-1">Anuncios en Meta</span>
-                    <p className={`text-lg font-bold ${(processedRawData?.social_intelligence?.active_marketing_ads || processedRawData?.business_intelligence?.advertising_active) ? 'text-emerald-600' : 'text-slate-700'}`}>
-                      {(processedRawData?.social_intelligence?.active_marketing_ads || processedRawData?.business_intelligence?.advertising_active) ? 'Activos' : 'Inactivos'}
-                    </p>
-                  </div>
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <span className="text-xs text-slate-400 block mb-1">Nicho / Categoría</span>
-                    <p className="text-sm font-bold text-slate-700 truncate">
-                      {processedRawData?.brand_positioning?.niche || 
-                       processedRawData?.facebook_presence?.business_category || 
-                       'N/A'}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* TikTok-specific metrics */}
-          {isTikTok && (
-            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-slate-900/10 via-slate-800/5 to-white dark:from-slate-800/20 dark:via-slate-900/10 dark:to-slate-950/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                  <TikTokIcon className="h-4 w-4" />
-                  Métricas de TikTok
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Métricas de Perfil */}
-                <div>
-                  <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Métricas del Perfil</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                      <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
-                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokFollowers}</p>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                      <span className="text-xs text-slate-400 block mb-1">Me gusta totales</span>
-                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokLikes}</p>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                      <span className="text-xs text-slate-400 block mb-1">Videos Publicados</span>
-                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">{tiktokVideos}</p>
-                    </div>
-                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                      <span className="text-xs text-slate-400 block mb-1">Siguiendo</span>
-                      <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                        {processedRawData?.profile?.following !== undefined ? formatLocaleNumber(processedRawData.profile.following) : "N/D"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Métricas del Video Analizado */}
-                {processedRawData?.engagement && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Desempeño del Último Contenido</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                        <span className="text-xs text-slate-400 block mb-1">Visualizaciones</span>
-                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.views !== undefined ? formatLocaleNumber(processedRawData.engagement.views) : "N/D"}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                        <span className="text-xs text-slate-400 block mb-1">Me gusta</span>
-                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.likes !== undefined ? formatLocaleNumber(processedRawData.engagement.likes) : "N/D"}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                        <span className="text-xs text-slate-400 block mb-1">Compartidos</span>
-                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.shares !== undefined ? formatLocaleNumber(processedRawData.engagement.shares) : "N/D"}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800">
-                        <span className="text-xs text-slate-400 block mb-1">Comentarios</span>
-                        <p className="text-lg font-bold text-slate-700 dark:text-slate-200">
-                          {processedRawData.engagement.comments !== undefined ? formatLocaleNumber(processedRawData.engagement.comments) : "N/D"}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-slate-100 dark:border-slate-800 col-span-2 md:col-span-1">
-                        <span className="text-xs text-slate-400 block mb-1">Engagement</span>
-                        <p className={`text-sm font-bold uppercase ${
-                          processedRawData.engagement.engagement_level === "high" || processedRawData.engagement.engagement_level === "alto"
-                            ? "text-emerald-600"
-                            : processedRawData.engagement.engagement_level === "medium" || processedRawData.engagement.engagement_level === "medio"
-                              ? "text-blue-600"
-                              : "text-amber-600"
-                        } mt-1`}>
-                          {processedRawData.engagement.engagement_level || "N/D"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Instagram-specific metrics */}
-          {isInstagramStructure && (
-            <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none shadow-sm bg-gradient-to-r from-pink-50 via-purple-50 to-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-pink-600 uppercase tracking-wider flex items-center gap-2">
-                  <Instagram className="h-4 w-4" />
-                  Métricas de Instagram
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {(() => {
-                    const followers = processedRawData?.instagram_presence?.audience_size?.followers || 
-                                      processedRawData?.engagement_analysis?.social_proof_signals?.find((s: string) => s.toLowerCase().includes('seguidor')) ||
-                                      processedRawData?.engagement_analysis?.social_proof_signals?.[0];
-                    const posts = processedRawData?.instagram_presence?.audience_size?.posts_count;
-                    const following = processedRawData?.instagram_presence?.audience_size?.following;
-                    const engagement = processedRawData?.engagement_analysis?.engagement_level || 
-                                       processedRawData?.engagement_analysis?.current_activity_level || 
-                                       processedRawData?.community_analysis?.current_activity_level;
-
-                    const hasFollowers = followers && followers !== 'N/A' && followers !== 'N/D';
-                    const hasPosts = posts && posts !== 'N/A' && posts !== 'N/D';
-                    const hasFollowing = following && following !== 'N/A' && following !== 'N/D';
-                    const hasEngagement = engagement && engagement !== 'N/A' && engagement !== 'N/D';
-
-                    return (
-                      <>
-                        {hasFollowers && (
-                          <div className="bg-white rounded-lg p-3 border border-pink-100">
-                            <span className="text-xs text-slate-400 block mb-1">Seguidores</span>
-                            <p className="text-lg font-bold text-slate-700">{followers}</p>
-                          </div>
-                        )}
-                        {hasPosts && (
-                          <div className="bg-white rounded-lg p-3 border border-purple-100">
-                            <span className="text-xs text-slate-400 block mb-1">Publicaciones</span>
-                            <p className="text-lg font-bold text-slate-700">{posts}</p>
-                          </div>
-                        )}
-                        {hasFollowing && (
-                          <div className="bg-white rounded-lg p-3 border border-pink-100">
-                            <span className="text-xs text-slate-400 block mb-1">Siguiendo</span>
-                            <p className="text-lg font-bold text-slate-700">{following}</p>
-                          </div>
-                        )}
-                        {hasEngagement && (
-                          <div className="bg-white rounded-lg p-3 border border-purple-100">
-                            <span className="text-xs text-slate-400 block mb-1">Engagement</span>
-                            <p className="text-sm font-bold text-slate-700 truncate">{engagement}</p>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Solo se muestran las secciones cualitativas del informe a continuación */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
           {/* Instagram content analysis */}
           {isInstagramStructure && processedRawData?.content_analysis && (
@@ -1193,7 +1007,11 @@ export function ScrapingReportDialog({
                   </CardHeader>
                   <CardContent>
                     <div className="flex flex-wrap gap-1.5">
-                      {data.marketing_tactics.map((item, i) => (
+                      {Array.from(new Set(
+                        data.marketing_tactics
+                          .map(item => item?.trim())
+                          .filter(item => item && item.toUpperCase() !== "CONSOLIDATED" && item !== "")
+                      )).map((item, i) => (
                         <Badge key={i} variant="outline" className="border-cyan-100 bg-cyan-50/50 text-cyan-700 px-2.5 py-0.5 text-xs">
                           {item}
                         </Badge>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   getOnboardingResults, 
   startScrapingStage, 
@@ -15,12 +15,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScrapingReportDialog } from "@/components/business/scraping-report-dialog";
 import { CompetitorGeneralReportDialog } from "@/components/business/competitor-general-report-dialog";
+import { BusinessForm } from "@/components/business/business-form";
 import { 
   FileText, ShieldCheck, Target, Users, Megaphone, 
   CheckCircle2, Loader2, Network, HelpCircle, ArrowRight, ArrowLeft,
   Database, Eye, EyeIcon, CalendarDays, Compass, MessageSquare,
   Play, RefreshCw, Check, X, Clock, Cpu, Bot, Sparkles, Layers, AlertTriangle,
-  Facebook, Instagram, Globe, Lock
+  Facebook, Instagram, Globe, Lock, Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -114,10 +115,18 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     }
   };
 
+  const [campaignStartDate, setCampaignStartDate] = useState<string>("");
+
+  useEffect(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setCampaignStartDate(tomorrow.toISOString().split('T')[0]);
+  }, []);
+
   const handleStartCampaign = async () => {
     setCampaignLoading(true);
     try {
-      const res = await startCampaignStage(businessId);
+      const res = await startCampaignStage(businessId, campaignStartDate || undefined);
       if (res.success) {
         toast.success("¡Agente de Planificación de Campañas activado!");
         fetchResults(true);
@@ -185,7 +194,6 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     fetchNotifications();
   }, [businessId]);
 
-  // Polling inteligente: solo cuando hay agentes trabajando, y a ritmo moderado
   useEffect(() => {
     if (!hasActiveProcessing) return;
     const interval = setInterval(() => {
@@ -194,6 +202,39 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     }, 8000);
     return () => clearInterval(interval);
   }, [businessId, hasActiveProcessing]);
+
+  // Referencia para trackear estados previos y evitar duplicados de Toasts
+  const prevStatusesRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    notifications.forEach((notif) => {
+      const prevStatus = prevStatusesRef.current[notif.id];
+      if (prevStatus !== notif.status) {
+        // El estado cambió o es nuevo
+        if (notif.status === 'PROCESSING') {
+          toast.info(`🤖 ${notif.title}: ${notif.message}`, {
+            id: notif.id,
+            duration: 10000,
+            position: "bottom-right",
+          });
+        } else if (notif.status === 'COMPLETED') {
+          toast.success(`✅ ${notif.title}: ¡Completado con éxito!`, {
+            id: notif.id,
+            duration: 5000,
+            position: "bottom-right",
+          });
+        } else if (notif.status === 'FAILED') {
+          toast.error(`❌ ${notif.title}: Falló el procesamiento.`, {
+            id: notif.id,
+            duration: 5000,
+            position: "bottom-right",
+          });
+        }
+        // Actualizar referencia
+        prevStatusesRef.current[notif.id] = notif.status;
+      }
+    });
+  }, [notifications]);
 
   if (loading && !data) {
     return (
@@ -308,26 +349,44 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     // 1. Si los datos específicos de esta pestaña ya existen, NUNCA la bloqueamos
     if (tabName === "extracciones") return false;
     if (tabName === "analisis" && (individualBusinessReports.length > 0 || competitorReports.length > 0)) return false;
-    if (tabName === "informe" && (consolidatedReport || data?.businessInfo?.competitorGeneralReport)) return false;
+    if (tabName === "informe" && (consolidatedReport || data?.businessInfo?.competitorGeneralReport || individualBusinessReports.length > 0)) return false;
     if (tabName === "estrategia" && activeStrategy) return false;
     if (tabName === "campanas" && campaigns.length > 0) return false;
     if (tabName === "calendario" && isCalendarReady) return false;
 
-    // 2. Si no existen los datos, evaluamos la secuencia en base al estado del paso anterior
+    // 2. Si alguna etapa previa está en pleno procesamiento activo, bloquear inmediatamente todas las siguientes
+    const isScrapingActive = scrapingLoading || getStepStatus("SCRAPING") === "processing";
+    const isAnalysisActive = getStepStatus("ANALYSIS") === "processing";
+    const isDiagnosticActive = diagnosticLoading || getStepStatus("DIAGNOSTIC") === "processing" || isScrapingActive || isAnalysisActive;
+    const isStrategyActive = strategyLoading || getStepStatus("STRATEGY") === "processing" || isDiagnosticActive;
+    const isCampaignActive = campaignLoading || getStepStatus("CAMPAIGN") === "processing" || isStrategyActive;
+
+    if (tabName === "analisis" && isScrapingActive) return true;
+    if (tabName === "informe" && (isScrapingActive || isAnalysisActive)) return true;
+    if (tabName === "estrategia" && isDiagnosticActive) return true;
+    if (tabName === "campanas" && isStrategyActive) return true;
+    if (tabName === "calendario" && isCampaignActive) return true;
+
+    // 3. Si no existen los datos, evaluamos la secuencia en base al estado del paso anterior (permitimos continuar si terminó con éxito o error)
     if (tabName === "analisis") {
-      return getStepStatus("SCRAPING") !== "completed";
+      const status = getStepStatus("SCRAPING");
+      return status !== "completed" && status !== "failed";
     }
     if (tabName === "informe") {
-      return getStepStatus("ANALYSIS") !== "completed";
+      const status = getStepStatus("ANALYSIS");
+      return status !== "completed" && status !== "failed";
     }
     if (tabName === "estrategia") {
-      return getStepStatus("DIAGNOSTIC") !== "completed";
+      const status = getStepStatus("DIAGNOSTIC");
+      return status !== "completed" && status !== "failed";
     }
     if (tabName === "campanas") {
-      return getStepStatus("STRATEGY") !== "completed";
+      const status = getStepStatus("STRATEGY");
+      return status !== "completed" && status !== "failed";
     }
     if (tabName === "calendario") {
-      return getStepStatus("CAMPAIGN") !== "completed";
+      const status = getStepStatus("CAMPAIGN");
+      return status !== "completed" && status !== "failed";
     }
     return false;
   };
@@ -399,6 +458,9 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     return 'idle';
   };
 
+  const isCampaignProcessing = getStepStatus("CAMPAIGN") === "processing" || campaignLoading;
+  const isCalendarProcessing = getStepStatus("CALENDAR") === "processing" || calendarLoading;
+
 
 
   const parsedStrategyObj = activeStrategy ? {
@@ -428,12 +490,12 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   };
 
   const pipelineAgents = [
-    { key: "SCRAPING", label: "Agente de Extracción", icon: Cpu, tab: "extracciones", color: "slate" },
-    { key: "ANALYSIS", label: "Agente de Análisis", icon: FileText, tab: "analisis", color: "blue" },
-    { key: "DIAGNOSTIC", label: "Agente de Diagnóstico", icon: Layers, tab: "informe", color: "orange" },
-    { key: "STRATEGY", label: "Agente de Estrategia", icon: Sparkles, tab: "estrategia", color: "purple" },
-    { key: "CAMPAIGN", label: "Agente de Planificación", icon: Bot, tab: "campanas", color: "emerald" },
-    { key: "CALENDAR", label: "Agente Editorial", icon: ShieldCheck, tab: "calendario", color: "sky" },
+    { key: "SCRAPING", label: "Agente de Extracción Web", icon: Cpu, tab: "extracciones", color: "slate", desc: "Escaneo web y redes", emoji: "🕵️", processingEmoji: "🔍" },
+    { key: "ANALYSIS", label: "Agente de Canales y Métricas", icon: FileText, tab: "analisis", color: "blue", desc: "Diagnóstico de canales", emoji: "📊", processingEmoji: "🔬" },
+    { key: "DIAGNOSTIC", label: "Agente de Diagnóstico Competitivo", icon: Layers, tab: "informe", color: "orange", desc: "Benchmark y rivales", emoji: "🧠", processingEmoji: "⚡" },
+    { key: "STRATEGY", label: "Agente de Growth & Estrategia", icon: Sparkles, tab: "estrategia", color: "purple", desc: "Buyer personas y plan", emoji: "🎯", processingEmoji: "✨" },
+    { key: "CAMPAIGN", label: "Agente de Campañas de Marketing", icon: Bot, tab: "campanas", color: "emerald", desc: "Campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
+    { key: "CALENDAR", label: "Agente Editorial y de Contenidos", icon: ShieldCheck, tab: "calendario", color: "sky", desc: "Copies y prompts de imagen", emoji: "📝", processingEmoji: "🤖" },
   ];
 
   const getAgentStatusStyle = (stepKey: string) => {
@@ -478,6 +540,20 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
+        @keyframes agent-radar {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          50% { transform: scale(1.3); opacity: 0; }
+          100% { transform: scale(0.8); opacity: 0; }
+        }
+        @keyframes agent-float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-3px); }
+        }
+        @keyframes agent-working {
+          0%, 100% { transform: rotate(0deg) scale(1); }
+          25% { transform: rotate(-4deg) scale(1.05); }
+          75% { transform: rotate(4deg) scale(1.05); }
+        }
         .action-btn-pulse { animation: guided-pulse 2s ease-in-out infinite; }
         .action-btn-pulse-purple { animation: guided-pulse-purple 2s ease-in-out infinite; }
         .action-btn-pulse-emerald { animation: guided-pulse-emerald 2s ease-in-out infinite; }
@@ -489,6 +565,15 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
           background: linear-gradient(90deg, transparent 0%, rgba(16,185,129,0.08) 50%, transparent 100%);
           background-size: 200% 100%;
           animation: celebration-shimmer 3s ease-in-out infinite;
+        }
+        .agent-radar-ring {
+          animation: agent-radar 1.5s ease-out infinite;
+        }
+        .agent-float {
+          animation: agent-float 2.5s ease-in-out infinite;
+        }
+        .agent-working {
+          animation: agent-working 0.6s ease-in-out infinite;
         }
       `}</style>
 
@@ -570,27 +655,44 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                       Etapa 0{idx + 1}
                     </span>
 
-                    {/* Icono */}
-                    <div className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all duration-300 ${
-                      isBlocked
-                        ? 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-900 text-slate-400'
-                        : isActive 
-                          ? activeIconBg[agent.color]
-                          : status !== 'idle' ? `${style.bg} ${style.ring}` : 'bg-muted/40 border-muted-foreground/10'
-                    }`}>
-                      {isBlocked ? (
-                        <Lock className="h-3.5 w-3.5" />
-                      ) : status === 'processing' ? (
-                        <Loader2 className={`h-4.5 w-4.5 animate-spin ${isActive ? activeTextColors[agent.color] : style.text}`} />
-                      ) : status === 'completed' ? (
-                        <Check className={`h-4.5 w-4.5 stroke-[3] ${isActive ? activeTextColors[agent.color] : style.text}`} />
-                      ) : status === 'failed' ? (
-                        <AlertTriangle className={`h-4.5 w-4.5 ${isActive ? 'text-rose-600' : style.text}`} />
-                      ) : (
-                        <AgentIcon className={`h-4.5 w-4.5 transition-all duration-200 ${
-                          isActive ? activeTextColors[agent.color] : 'text-muted-foreground/40'
-                        }`} />
+                    {/* Avatar del Agente Robot */}
+                    <div className="relative">
+                      {/* Ondas de radar cuando está procesando */}
+                      {status === 'processing' && !isBlocked && (
+                        <>
+                          <div className="absolute inset-0 rounded-xl bg-blue-500/20 agent-radar-ring" />
+                          <div className="absolute inset-0 rounded-xl bg-blue-500/10 agent-radar-ring" style={{ animationDelay: '0.5s' }} />
+                        </>
                       )}
+                      {/* Halo de éxito cuando completado */}
+                      {status === 'completed' && !isBlocked && (
+                        <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-br from-emerald-400/20 to-teal-400/20 blur-sm" />
+                      )}
+                      <div className={`relative h-10 w-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${
+                        isBlocked
+                          ? 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 grayscale'
+                          : status === 'processing'
+                            ? 'bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 border-blue-400 dark:border-blue-500 shadow-lg shadow-blue-500/20'
+                            : status === 'completed'
+                              ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 border-emerald-400 dark:border-emerald-500 shadow-md shadow-emerald-500/15'
+                              : status === 'failed'
+                                ? 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950 dark:to-red-950 border-rose-400 dark:border-rose-500'
+                                : isActive
+                                  ? `bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950 dark:to-purple-950 border-violet-400 dark:border-violet-500 shadow-md`
+                                  : 'bg-muted/30 border-muted-foreground/10'
+                      }`}>
+                        <span className={`text-base select-none ${
+                          isBlocked ? 'opacity-30 grayscale'
+                          : status === 'processing' ? 'agent-working'
+                          : status === 'completed' ? 'agent-float'
+                          : ''
+                        }`}>
+                          {isBlocked ? '🔒'
+                            : status === 'processing' ? (agent as any).processingEmoji
+                            : status === 'failed' ? '❌'
+                            : (agent as any).emoji}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Label del Agente */}
@@ -599,17 +701,26 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                     }`}>
                       {agent.label}
                     </span>
+
+                    {/* Descripción del Agente */}
+                    <span className="text-[8px] text-muted-foreground/60 leading-normal block max-w-[90px] mt-0.5">
+                      {agent.desc}
+                    </span>
                   </div>
 
                   {/* Estado Badge */}
-                  <div className="mt-2 w-full">
+                  <div className="mt-1.5 w-full">
                     {isBlocked ? (
                       <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800">
                         BLOQUEADO
                       </span>
+                    ) : status === 'processing' ? (
+                      <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        Trabajando
+                      </span>
                     ) : status !== 'idle' ? (
                       <span className={`text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        status === 'processing' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
                         status === 'completed' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
                         'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                       }`}>
@@ -640,7 +751,7 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
         <ScrollArea className="flex-1 p-5 h-[420px]">
           {/* TAB 1: EXTRACCIONES */}
           <TabsContent value="extracciones" className="space-y-4 mt-0">
-            <div className="flex justify-between items-center border-b pb-3 mb-4">
+            <div className="flex justify-between items-center border-b pb-3 mb-2">
               <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                 <Database className="h-3.5 w-3.5 text-slate-500" /> Canales Registrados para Scraping
               </h5>
@@ -654,13 +765,46 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-lg rounded-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-                      <DialogHeader className="p-6 pb-2">
-                        <DialogTitle className="text-sm font-black uppercase tracking-widest text-orange-700">
-                          Perfil del Negocio e Identidad de Marca
-                        </DialogTitle>
-                        <DialogDescription className="text-xs">
-                          Datos generales e identidad de marca estructurados a partir de la propuesta de valor.
-                        </DialogDescription>
+                      <DialogHeader className="p-6 pb-2 flex flex-row items-start justify-between">
+                        <div className="space-y-1">
+                          <DialogTitle className="text-sm font-black uppercase tracking-widest text-orange-700">
+                            Perfil del Negocio e Identidad de Marca
+                          </DialogTitle>
+                          <DialogDescription className="text-xs">
+                            Datos generales e identidad de marca estructurados a partir de la propuesta de valor.
+                          </DialogDescription>
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-7 text-[10px] font-bold gap-1 rounded-lg shrink-0 ml-3 mt-0.5">
+                              <Pencil className="h-3 w-3" /> Editar
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl">
+                            <DialogHeader>
+                              <DialogTitle>Editar {data.businessInfo.name}</DialogTitle>
+                              <DialogDescription>
+                                Actualiza los datos básicos y estratégicos de tu negocio.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <BusinessForm 
+                              defaultValues={{
+                                ...data.businessInfo,
+                                description: data.businessInfo.description || "",
+                                industry: data.businessInfo.industry || "",
+                                website: data.businessInfo.website || "",
+                                phoneNumbers: data.businessInfo.phoneNumbers || "",
+                                location: data.businessInfo.location || "",
+                                socialLinks: (data.businessInfo.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
+                                brandVoice: (data.businessInfo.brandVoice as any) || { tone: [], personality: [], values: [] },
+                                targetAudience: (data.businessInfo.targetAudience as any) || { demographics: "", psychographics: "" }
+                              }}
+                              onSuccess={() => {
+                                window.location.reload();
+                              }}
+                            />
+                          </DialogContent>
+                        </Dialog>
                       </DialogHeader>
                       
                       <div className="flex-1 overflow-y-auto p-6 pt-2 max-h-[60vh] pr-4 space-y-4">
@@ -675,6 +819,12 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                                 <span className="font-bold text-slate-700 dark:text-slate-300 block text-[9px] uppercase">Nombre del Negocio</span>
                                 <span className="text-muted-foreground font-medium">{data.businessInfo.name}</span>
                               </div>
+                              {data.businessInfo.industry && (
+                                <div>
+                                  <span className="font-bold text-slate-700 dark:text-slate-300 block text-[9px] uppercase">Industria</span>
+                                  <span className="text-muted-foreground font-medium">{data.businessInfo.industry}</span>
+                                </div>
+                              )}
                               {data.businessInfo.website && (
                                 <div>
                                   <span className="font-bold text-slate-700 dark:text-slate-300 block text-[9px] uppercase">Sitio Web</span>
@@ -683,7 +833,54 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                                   </a>
                                 </div>
                               )}
+                              {data.businessInfo.location && (
+                                <div>
+                                  <span className="font-bold text-slate-700 dark:text-slate-300 block text-[9px] uppercase">Ubicación</span>
+                                  <span className="text-muted-foreground font-medium">{data.businessInfo.location}</span>
+                                </div>
+                              )}
+                              {data.businessInfo.phoneNumbers && (
+                                <div>
+                                  <span className="font-bold text-slate-700 dark:text-slate-300 block text-[9px] uppercase">Teléfono</span>
+                                  <span className="text-muted-foreground font-medium">{data.businessInfo.phoneNumbers}</span>
+                                </div>
+                              )}
                             </div>
+
+                            {/* Descripción del Negocio */}
+                            {data.businessInfo.description && (
+                              <div className="pt-1 border-t border-dashed">
+                                <span className="font-bold text-slate-700 dark:text-slate-300 block text-[9px] uppercase mb-1">Descripción</span>
+                                <p className="text-muted-foreground font-medium leading-relaxed">{data.businessInfo.description}</p>
+                              </div>
+                            )}
+
+                            {/* Redes Sociales */}
+                            {(() => {
+                              const socialLinks = parseJson(data.businessInfo.socialLinks);
+                              if (!socialLinks) return null;
+                              const links = Object.entries(socialLinks).filter(([, v]) => v && String(v).trim());
+                              if (links.length === 0) return null;
+                              return (
+                                <div className="pt-1 border-t border-dashed">
+                                  <span className="font-bold text-slate-700 dark:text-slate-300 block text-[9px] uppercase mb-1.5">Redes Sociales</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {links.map(([platform, url]) => (
+                                      <a
+                                        key={platform}
+                                        href={String(url)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-background border rounded-lg text-[9px] font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-500/5 transition-colors"
+                                      >
+                                        {getSocialIcon(platform)}
+                                        <span className="capitalize">{platform}</span>
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                             
                             {/* Voz de Marca */}
                             {(() => {
@@ -838,7 +1035,7 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                             })()}
                           </div>
 
-                          {/* 3. Colores y Fuentes */}
+                          {/* 3. Colores y Fuentes (Identidad Visual separada) */}
                           {(() => {
                             const colors = parseJson(data.businessInfo.brandColors);
                             const fonts = parseJson(data.businessInfo.brandFonts);
@@ -898,10 +1095,14 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                   ) : (
                     <Play className="h-3 w-3 fill-current" />
                   )}
-                  Iniciar Extracción
+                  {data.businessInfo?.brandVoice ? "Regenerar Extracción" : "Iniciar Extracción"}
                 </Button>
               </div>
             </div>
+
+            <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-slate-500/5 p-3 rounded-xl border border-slate-100 dark:border-slate-800/40">
+              💡 <strong>Agente de Extracción Web:</strong> Escanea y recupera la información pública de tus redes sociales y sitio web para estructurar la identidad base de tu marca.
+            </p>
 
 
 
@@ -1066,73 +1267,211 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                     ) : (
                       <Play className="h-3 w-3 fill-current" />
                     )}
-                    Generar Diagnóstico e Informe
+                    {consolidatedReport || data?.businessInfo?.competitorGeneralReport ? "Regenerar" : "Generar Diagnóstico"}
                   </Button>
                 </div>
+
+                <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-blue-500/5 p-3 rounded-xl border border-blue-100 dark:border-blue-800/40 mb-4">
+                  💡 <strong>Agente de Canales y Métricas:</strong> Analiza la presencia, frecuencia y rendimiento de las publicaciones en cada uno de tus perfiles digitales activos.
+                </p>
 
 
 
                 <div>
-                  <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5 border-t pt-3">
+                  <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-1.5 border-t pt-3">
                     <CheckCircle2 className="h-3.5 w-3.5 text-blue-500" /> Mi Negocio (Canales Auditados)
                   </h5>
                   {individualBusinessReports.length === 0 ? (
-                    <div className="p-4 bg-muted/20 rounded-2xl border border-dashed text-center text-xs text-muted-foreground">
-                      Esperando que los agentes de scraping finalicen de auditar tus canales...
+                    <div className="p-3 bg-muted/10 rounded-xl border border-dashed text-center text-[10px] text-muted-foreground">
+                      Esperando que los agentes de scraping finalicen...
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-2.5">
-                      {individualBusinessReports.map((report: any) => (
-                        <div key={report.id} className="p-3 bg-muted/30 hover:bg-muted/40 rounded-xl border flex items-center justify-between transition-all group">
-                          <div className="space-y-0.5">
-                            <span className="text-[11px] font-bold text-foreground capitalize">
-                              Canal: {report.channel}
-                            </span>
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">
-                              URL: {report.url || "Autodetectada"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-black text-[9px] rounded-lg">
-                              AUDITADO
-                            </Badge>
-                            <ScrapingReportDialog data={report.data} channel={report.channel} />
-                          </div>
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                      {individualBusinessReports.map((report: any) => {
+                        const parsedData = parseJson(report.data) || {};
+                        
+                        // Extraer variables cualitativas
+                        const positioning = parsedData.market_positioning || 
+                                            parsedData.brand_positioning?.value_proposition || 
+                                            parsedData.instagram_presence?.value_proposition ||
+                                            "Presencia digital activa y posicionada.";
+                        
+                        const personality: string[] = parsedData.brand_personality || 
+                                                     parsedData.brand_positioning?.brand_personality || 
+                                                     parsedData.instagram_presence?.brand_personality || 
+                                                     [];
+
+                        const isInstagram = report.channel.toUpperCase() === "INSTAGRAM";
+                        const isFacebook = report.channel.toUpperCase() === "FACEBOOK";
+
+                        let cardBorder = "hover:border-slate-400/50";
+                        let bgGradient = "from-slate-500/5 to-transparent";
+                        if (isInstagram) {
+                          cardBorder = "hover:border-pink-500/40 hover:shadow-pink-500/5 border-pink-500/10";
+                          bgGradient = "from-pink-500/10 via-purple-500/5 to-transparent";
+                        } else if (isFacebook) {
+                          cardBorder = "hover:border-blue-500/40 hover:shadow-blue-500/5 border-blue-500/10";
+                          bgGradient = "from-blue-600/10 via-blue-500/5 to-transparent";
+                        } else {
+                          cardBorder = "hover:border-teal-500/40 hover:shadow-teal-500/5 border-teal-500/10";
+                          bgGradient = "from-teal-500/10 via-rose-500/5 to-transparent";
+                        }
+
+                        return (
+                          <Card 
+                            key={report.id} 
+                            className={`bg-gradient-to-br ${bgGradient} border p-3 rounded-2xl flex flex-col justify-between space-y-2.5 transition-all duration-300 ${cardBorder} hover:scale-[1.01]`}
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1 w-6 h-6 bg-background rounded-lg border flex items-center justify-center">
+                                    {getSocialIcon(report.channel)}
+                                  </div>
+                                  <span className="text-[10.5px] font-black text-foreground capitalize">
+                                    {report.channel.toLowerCase()}
+                                  </span>
+                                </div>
+                                {renderStatusIcon(getChannelStatus(businessId, report.channel, false))}
+                              </div>
+
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black uppercase text-muted-foreground tracking-wider block">
+                                  Posicionamiento
+                                </span>
+                                <p className="text-[9.5px] text-slate-600 dark:text-slate-300 leading-normal line-clamp-1">
+                                  {positioning}
+                                </p>
+                              </div>
+
+                              {personality.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-1 border-t border-dashed">
+                                  {personality.slice(0, 2).map((item, idx) => (
+                                    <Badge 
+                                      key={idx} 
+                                      variant="outline" 
+                                      className="text-[8px] font-semibold rounded-md bg-background px-1 py-0 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                                    >
+                                      {item}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="w-full pt-1 flex justify-between items-center border-t border-slate-100 dark:border-slate-900/50">
+                              <span className="text-[8.5px] text-muted-foreground truncate max-w-[100px]">
+                                {report.url || "Autodetectado"}
+                              </span>
+                              <ScrapingReportDialog 
+                                data={report.data} 
+                                channel={report.channel} 
+                                triggerText="Ver Informe"
+                                triggerClassName="h-6 text-[9.5px] font-bold rounded-lg px-2 border-none bg-background hover:bg-muted text-foreground transition-all"
+                              />
+                            </div>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
-                <div className="pt-2">
-                  <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-orange-500" /> Competidores (Canales Analizados)
+                <div className="pt-3">
+                  <h5 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3 w-3 text-orange-500" /> Competidores (Canales Analizados)
                   </h5>
                   {competitorReports.length === 0 ? (
-                    <div className="p-4 bg-muted/20 rounded-2xl border border-dashed text-center text-xs text-muted-foreground">
+                    <div className="p-3 bg-muted/10 rounded-xl border border-dashed text-center text-[10px] text-muted-foreground">
                       Esperando que los agentes de scraping extraigan la huella digital de tus rivales...
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                       {competitorReports.map((report: any) => {
                         const compName = competitorsList.find((c: any) => c.id === report.entityId)?.name || "Competidor";
+                        const parsedData = parseJson(report.data) || {};
+
+                        // Extraer variables cualitativas
+                        const positioning = parsedData.market_positioning || 
+                                            parsedData.brand_positioning?.value_proposition || 
+                                            parsedData.instagram_presence?.value_proposition ||
+                                            "Presencia digital activa y posicionada.";
+                        
+                        const personality: string[] = parsedData.brand_personality || 
+                                                     parsedData.brand_positioning?.brand_personality || 
+                                                     parsedData.instagram_presence?.brand_personality || 
+                                                     [];
+
+                        const isInstagram = report.channel.toUpperCase() === "INSTAGRAM";
+                        const isFacebook = report.channel.toUpperCase() === "FACEBOOK";
+
+                        let cardBorder = "hover:border-slate-400/50";
+                        let bgGradient = "from-slate-500/5 to-transparent";
+                        if (isInstagram) {
+                          cardBorder = "hover:border-pink-500/40 hover:shadow-pink-500/5 border-pink-500/10";
+                          bgGradient = "from-pink-500/10 via-purple-500/5 to-transparent";
+                        } else if (isFacebook) {
+                          cardBorder = "hover:border-blue-500/40 hover:shadow-blue-500/5 border-blue-500/10";
+                          bgGradient = "from-blue-600/10 via-blue-500/5 to-transparent";
+                        } else {
+                          cardBorder = "hover:border-teal-500/40 hover:shadow-teal-500/5 border-teal-500/10";
+                          bgGradient = "from-teal-500/10 via-rose-500/5 to-transparent";
+                        }
+
                         return (
-                          <div key={report.id} className="p-3 bg-muted/30 hover:bg-muted/40 rounded-xl border flex items-center justify-between transition-all group">
-                            <div className="space-y-0.5">
-                              <span className="text-[11px] font-bold text-foreground">
-                                {compName} ({report.channel})
+                          <Card 
+                            key={report.id} 
+                            className={`bg-gradient-to-br ${bgGradient} border p-3 rounded-2xl flex flex-col justify-between space-y-2.5 transition-all duration-300 ${cardBorder} hover:scale-[1.01]`}
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1 w-6 h-6 bg-background rounded-lg border flex items-center justify-center">
+                                    {getSocialIcon(report.channel)}
+                                  </div>
+                                  <span className="text-[10.5px] font-black text-foreground block truncate max-w-[100px]">
+                                    {compName}
+                                  </span>
+                                </div>
+                                {renderStatusIcon(getChannelStatus(report.entityId, report.channel, true))}
+                              </div>
+
+                              <div className="space-y-0.5">
+                                <span className="text-[8px] font-black uppercase text-muted-foreground tracking-wider block">
+                                  Posicionamiento de Rival
+                                </span>
+                                <p className="text-[9.5px] text-slate-600 dark:text-slate-300 leading-normal line-clamp-1">
+                                  {positioning}
+                                </p>
+                              </div>
+
+                              {personality.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-1 border-t border-dashed">
+                                  {personality.slice(0, 2).map((item, idx) => (
+                                    <Badge 
+                                      key={idx} 
+                                      variant="outline" 
+                                      className="text-[8px] font-semibold rounded-md bg-background px-1 py-0 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                                    >
+                                      {item}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="w-full pt-1 flex justify-between items-center border-t border-slate-100 dark:border-slate-900/50">
+                              <span className="text-[8.5px] text-muted-foreground truncate max-w-[100px]">
+                                {report.url || "Autodetectado"}
                               </span>
-                              <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">
-                                URL: {report.url || "Autodetectada"}
-                              </p>
+                              <ScrapingReportDialog 
+                                data={report.data} 
+                                channel={report.channel} 
+                                triggerText="Ver Informe"
+                                triggerClassName="h-6 text-[9.5px] font-bold rounded-lg px-2 border-none bg-background hover:bg-muted text-foreground transition-all"
+                              />
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-black text-[9px] rounded-lg">
-                                ANALIZADO
-                              </Badge>
-                              <ScrapingReportDialog data={report.data} channel={report.channel} />
-                            </div>
-                          </div>
+                          </Card>
                         );
                       })}
                     </div>
@@ -1163,6 +1502,10 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                 {consolidatedReport || data?.businessInfo?.competitorGeneralReport ? "Regenerar" : "Generar Diagnóstico"}
               </Button>
             </div>
+
+            <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-orange-500/5 p-3 rounded-xl border border-orange-100 dark:border-orange-850 mb-4">
+              💡 <strong>Agente de Diagnóstico Competitivo:</strong> Realiza un benchmark comparativo frente a tus competidores locales para identificar brechas de posicionamiento y oportunidades.
+            </p>
 
 
 
@@ -1273,6 +1616,10 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
               </Button>
             </div>
 
+            <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-purple-500/5 p-3 rounded-xl border border-purple-100 dark:border-purple-850 mb-4">
+              💡 <strong>Agente de Growth & Estrategia:</strong> Define tus buyer personas clave y modela el enfoque estratégico del embudo y pilares de contenido.
+            </p>
+
 
 
             {!parsedStrategyObj ? (
@@ -1288,9 +1635,206 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
             ) : (
               <div className="space-y-4 animate-in fade-in duration-300">
                 {/* Header de la estrategia */}
-                <div className="p-4 bg-gradient-to-br from-purple-500/5 via-violet-500/3 to-indigo-500/5 rounded-2xl border border-purple-200/50 dark:border-purple-900/40 space-y-2">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400">Estrategia Activa</span>
-                  <h6 className="text-sm font-bold text-foreground capitalize">{activeStrategy.name}</h6>
+                <div className="p-4 bg-gradient-to-br from-purple-500/5 via-violet-500/3 to-indigo-500/5 rounded-2xl border border-purple-200/50 dark:border-purple-900/40 space-y-3">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400">Estrategia Activa</span>
+                      <h6 className="text-sm font-bold text-foreground capitalize">{activeStrategy.name}</h6>
+                    </div>
+                    
+                    {/* Botón para Detalles / Modal */}
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7 text-[9px] font-black rounded-lg gap-1 border-purple-500/30 text-purple-700 hover:bg-purple-500/5">
+                          <EyeIcon className="h-3 w-3" /> Ver Plan Completo
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl rounded-2xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden bg-background">
+                        <DialogHeader className="p-6 pb-3 border-b shrink-0 bg-muted/20">
+                          <DialogTitle className="text-sm font-black uppercase tracking-wider text-purple-700 flex items-center gap-2">
+                            <Target className="h-4.5 w-4.5 text-purple-600" /> Plan Estratégico de Crecimiento
+                          </DialogTitle>
+                        </DialogHeader>
+
+                        {/* Contenedor principal con scrollbar elegante e independiente */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
+                          {/* Título de la Estrategia */}
+                          <div className="p-4 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-indigo-500/10 rounded-2xl border border-purple-200/50 space-y-2">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400">Concepto de la Estrategia</span>
+                            <h4 className="text-base font-bold text-foreground capitalize">{activeStrategy.name}</h4>
+                            {activeStrategy.description && (
+                              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                {activeStrategy.description}
+                              </p>
+                            )}
+                          </div>
+
+
+
+                          {/* Buyer Personas */}
+                          {parsedStrategyObj.personas.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
+                                <Users className="h-3.5 w-3.5 text-purple-500" /> Buyer Personas
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                {parsedStrategyObj.personas.map((persona: any, index: number) => (
+                                  <div key={index} className="p-3 bg-muted/30 rounded-xl border space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="h-6 w-6 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[9px] font-black shrink-0">
+                                        P{index + 1}
+                                      </div>
+                                      <span className="font-bold text-[10.5px] text-foreground">{persona.name || persona.nombre || `Audiencia ${index + 1}`}</span>
+                                    </div>
+                                    {(persona.description || persona.profile || persona.perfil) && (
+                                      <p className="text-[9.5px] text-muted-foreground leading-relaxed">{persona.description || persona.profile || persona.perfil}</p>
+                                    )}
+                                    <div className="flex flex-wrap gap-1">
+                                      {persona.age && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-purple-500/5">{persona.age}</Badge>}
+                                      {persona.edad && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-purple-500/5">{persona.edad}</Badge>}
+                                      {persona.gender && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-purple-500/5">{persona.gender}</Badge>}
+                                      {persona.location && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-blue-500/5">{persona.location}</Badge>}
+                                      {persona.ubicacion && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-blue-500/5">{persona.ubicacion}</Badge>}
+                                      {persona.income && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-emerald-500/5">{persona.income}</Badge>}
+                                    </div>
+                                    {(persona.painPoints || persona.pain_points || persona.problemas) && (
+                                      <div>
+                                        <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Puntos de Dolor</span>
+                                        <div className="flex flex-wrap gap-1">
+                                          {(Array.isArray(persona.painPoints || persona.pain_points || persona.problemas) 
+                                            ? (persona.painPoints || persona.pain_points || persona.problemas) 
+                                            : [persona.painPoints || persona.pain_points || persona.problemas]
+                                          ).map((p: any, i: number) => (
+                                            <Badge key={i} variant="outline" className="text-[7.5px] font-medium rounded-md bg-rose-500/5 border-rose-200/50 text-rose-700">
+                                              {typeof p === 'string' ? p : p.title || p.description || JSON.stringify(p)}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Objetivos Estratégicos */}
+                          {parsedStrategyObj.objectives.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-purple-500" /> Objetivos Estratégicos
+                              </span>
+                              <div className="grid grid-cols-1 gap-2">
+                                {parsedStrategyObj.objectives.map((obj: any, index: number) => (
+                                  <div key={index} className="p-3 bg-muted/20 rounded-xl border space-y-1">
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-600 font-bold rounded-lg shrink-0 text-[9px]">
+                                        OBJ {index + 1}
+                                      </Badge>
+                                      <span className="font-bold text-[10px] text-foreground leading-tight">
+                                        {typeof obj === "string" ? obj : obj.title || obj.name || obj.objetivo || obj.description}
+                                      </span>
+                                    </div>
+                                    {typeof obj !== "string" && (obj.description || obj.details || obj.detalle || obj.kpi) && (
+                                      <p className="text-[9.5px] text-muted-foreground leading-relaxed pl-[52px]">
+                                        {obj.description || obj.details || obj.detalle}
+                                        {obj.kpi && <span className="font-bold text-purple-600 block mt-0.5">KPI: {obj.kpi}</span>}
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Embudo de Conversión */}
+                          {parsedStrategyObj.funnelStages.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
+                                <Network className="h-3.5 w-3.5 text-purple-500" /> Embudo de Conversión
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {parsedStrategyObj.funnelStages.map((stage: any, i: number) => (
+                                  <div key={i} className="flex items-center gap-1">
+                                    <Badge variant="outline" className="bg-violet-500/5 border-violet-300/40 text-violet-700 dark:text-violet-300 font-bold text-[9px] rounded-lg px-2.5 py-1">
+                                      {typeof stage === 'string' ? stage : stage.name || stage.stage || stage.etapa}
+                                    </Badge>
+                                    {i < parsedStrategyObj.funnelStages.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground/40" />}
+                                  </div>
+                                ))}
+                              </div>
+                              {/* Detalles de cada etapa del embudo */}
+                              <div className="grid grid-cols-1 gap-2 mt-1">
+                                {parsedStrategyObj.funnelStages.map((stage: any, i: number) => {
+                                  if (typeof stage === 'string') return null;
+                                  if (!stage.description && !stage.contentTypes) return null;
+                                  return (
+                                    <div key={i} className="p-2.5 bg-muted/20 rounded-xl border space-y-0.5">
+                                      <span className="text-[10px] font-bold text-foreground">{stage.name || stage.stage || stage.etapa}</span>
+                                      {stage.description && <p className="text-[9px] text-muted-foreground leading-relaxed">{stage.description}</p>}
+                                      {stage.contentTypes && (
+                                        <div className="flex flex-wrap gap-1 pt-0.5">
+                                          {(Array.isArray(stage.contentTypes) ? stage.contentTypes : [stage.contentTypes]).map((ct: any, j: number) => (
+                                            <Badge key={j} variant="secondary" className="text-[7.5px] font-bold rounded-md bg-violet-500/5">{ct}</Badge>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Canales de Distribución */}
+                          {parsedStrategyObj.channels.length > 0 && (
+                            <div className="space-y-2">
+                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
+                                <Compass className="h-3.5 w-3.5 text-purple-500" /> Canales de Distribución
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {parsedStrategyObj.channels
+                                  .filter((ch: any) => {
+                                    const name = (typeof ch === 'string' ? ch : ch.name || ch.platform || ch.canal || '').toUpperCase();
+                                    return name.includes('FACEBOOK') || name.includes('INSTAGRAM') || name.includes('TIKTOK');
+                                  })
+                                  .map((ch: any, i: number) => (
+                                    <Badge key={i} variant="secondary" className="bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 font-bold text-[9px] rounded-lg border border-indigo-200/40 px-2.5 py-1">
+                                      {typeof ch === 'string' ? ch : ch.name || ch.platform || ch.canal}
+                                    </Badge>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Pilares de Contenido */}
+                          {(() => {
+                            const pillars = parseJson(activeStrategy.contentPillars) || [];
+                            if (!Array.isArray(pillars) || pillars.length === 0) return null;
+                            return (
+                              <div className="space-y-2">
+                                <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
+                                  <Layers className="h-3.5 w-3.5 text-purple-500" /> Pilares de Contenido
+                                </span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {pillars.map((pillar: any, i: number) => (
+                                    <div key={i} className="p-2.5 bg-muted/20 rounded-xl border space-y-0.5">
+                                      <span className="text-[10px] font-bold text-foreground">
+                                        {typeof pillar === 'string' ? pillar : pillar.name || pillar.title || pillar.pilar}
+                                      </span>
+                                      {typeof pillar !== 'string' && (pillar.description || pillar.descripcion) && (
+                                        <p className="text-[9px] text-muted-foreground leading-relaxed">{pillar.description || pillar.descripcion}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                   {activeStrategy.description && (
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
                       {activeStrategy.description}
@@ -1298,141 +1842,29 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                   )}
                 </div>
 
-                {/* Buyer Personas */}
-                {parsedStrategyObj.personas.length > 0 && (
-                  <div className="space-y-2">
-                    <h6 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5 text-purple-500" /> Buyer Personas Definidos
-                    </h6>
-                    <div className="grid grid-cols-1 gap-2.5">
-                      {parsedStrategyObj.personas.map((persona: any, index: number) => (
-                        <div key={index} className="p-3.5 bg-muted/30 rounded-xl border space-y-2">
-                          <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[10px] font-black shrink-0">
-                              P{index + 1}
-                            </div>
-                            <span className="text-[11px] font-bold text-foreground">{persona.name || persona.nombre || `Audiencia ${index + 1}`}</span>
-                          </div>
-                          {(persona.description || persona.profile || persona.perfil) && (
-                            <p className="text-[10px] text-muted-foreground leading-relaxed">{persona.description || persona.profile || persona.perfil}</p>
-                          )}
-                          <div className="flex flex-wrap gap-1.5">
-                            {persona.age && <Badge variant="secondary" className="text-[8px] font-bold rounded-md bg-purple-500/5 border-none">{persona.age}</Badge>}
-                            {persona.edad && <Badge variant="secondary" className="text-[8px] font-bold rounded-md bg-purple-500/5 border-none">{persona.edad}</Badge>}
-                            {persona.gender && <Badge variant="secondary" className="text-[8px] font-bold rounded-md bg-purple-500/5 border-none">{persona.gender}</Badge>}
-                            {persona.location && <Badge variant="secondary" className="text-[8px] font-bold rounded-md bg-blue-500/5 border-none">{persona.location}</Badge>}
-                            {persona.ubicacion && <Badge variant="secondary" className="text-[8px] font-bold rounded-md bg-blue-500/5 border-none">{persona.ubicacion}</Badge>}
-                            {persona.income && <Badge variant="secondary" className="text-[8px] font-bold rounded-md bg-emerald-500/5 border-none">{persona.income}</Badge>}
-                          </div>
-                          {(persona.painPoints || persona.pain_points || persona.problemas) && (
-                            <div className="space-y-1">
-                              <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground">Puntos de Dolor</span>
-                              <div className="flex flex-wrap gap-1">
-                                {(Array.isArray(persona.painPoints || persona.pain_points || persona.problemas) 
-                                  ? (persona.painPoints || persona.pain_points || persona.problemas) 
-                                  : [persona.painPoints || persona.pain_points || persona.problemas]
-                                ).map((p: any, i: number) => (
-                                  <Badge key={i} variant="outline" className="text-[8px] font-medium rounded-md bg-rose-500/5 border-rose-200/50 text-rose-700 dark:text-rose-400">
-                                    {typeof p === 'string' ? p : p.title || p.description || JSON.stringify(p)}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Objetivos */}
-                {parsedStrategyObj.objectives.length > 0 && (
-                  <div className="space-y-2">
-                    <h6 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-purple-500" /> Objetivos de Crecimiento
-                    </h6>
-                    <div className="grid grid-cols-1 gap-2">
-                      {parsedStrategyObj.objectives.map((obj: any, index: number) => (
-                        <div key={index} className="p-3 bg-muted/30 rounded-xl border space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-600 font-bold rounded-lg shrink-0 text-[9px]">
-                              OBJ {index + 1}
-                            </Badge>
-                            <span className="text-[10px] font-bold text-foreground leading-tight">
-                              {typeof obj === "string" ? obj : obj.title || obj.name || obj.objetivo || obj.description}
-                            </span>
-                          </div>
-                          {typeof obj !== "string" && (obj.description || obj.details || obj.detalle || obj.kpi) && (
-                            <p className="text-[9px] text-muted-foreground leading-relaxed pl-[52px]">
-                              {obj.description || obj.details || obj.detalle}
-                              {obj.kpi && <span className="font-bold text-purple-600"> · KPI: {obj.kpi}</span>}
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Embudo de Conversión */}
-                {parsedStrategyObj.funnelStages.length > 0 && (
-                  <div className="space-y-2">
-                    <h6 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-                      <Network className="h-3.5 w-3.5 text-purple-500" /> Embudo de Conversión
-                    </h6>
-                    <div className="flex flex-wrap gap-1.5">
-                      {parsedStrategyObj.funnelStages.map((stage: any, i: number) => (
-                        <div key={i} className="flex items-center gap-1">
-                          <Badge variant="outline" className="bg-violet-500/5 border-violet-300/40 text-violet-700 dark:text-violet-300 font-bold text-[9px] rounded-lg px-2.5 py-1">
-                            {typeof stage === 'string' ? stage : stage.name || stage.stage || stage.etapa}
-                          </Badge>
-                          {i < parsedStrategyObj.funnelStages.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground/40" />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Canales */}
-                {parsedStrategyObj.channels.length > 0 && (
-                  <div className="space-y-2">
-                    <h6 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-                      <Compass className="h-3.5 w-3.5 text-purple-500" /> Canales de Distribución
-                    </h6>
-                    <div className="flex flex-wrap gap-1.5">
-                      {parsedStrategyObj.channels.map((ch: any, i: number) => (
-                        <Badge key={i} variant="secondary" className="bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 font-bold text-[9px] rounded-lg border border-indigo-200/40">
-                          {typeof ch === 'string' ? ch : ch.name || ch.platform || ch.canal}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pilares de Contenido */}
-                {(() => {
-                  const pillars = parseJson(activeStrategy.contentPillars) || [];
-                  if (!Array.isArray(pillars) || pillars.length === 0) return null;
-                  return (
-                    <div className="space-y-2">
-                      <h6 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-                        <Layers className="h-3.5 w-3.5 text-purple-500" /> Pilares de Contenido
-                      </h6>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {pillars.map((pillar: any, i: number) => (
-                          <div key={i} className="p-2.5 bg-muted/20 rounded-xl border space-y-0.5">
-                            <span className="text-[10px] font-bold text-foreground">
-                              {typeof pillar === 'string' ? pillar : pillar.name || pillar.title || pillar.pilar}
-                            </span>
-                            {typeof pillar !== 'string' && (pillar.description || pillar.descripcion) && (
-                              <p className="text-[9px] text-muted-foreground leading-relaxed">{pillar.description || pillar.descripcion}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
+                {/* Resumen compacto — toda la info detallada está en el dialog "Ver Plan Completo" */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {parsedStrategyObj.personas.length > 0 && (
+                    <Badge variant="secondary" className="text-[9px] font-bold rounded-lg bg-purple-500/5 border border-purple-200/40 text-purple-700 gap-1">
+                      <Users className="h-3 w-3" /> {parsedStrategyObj.personas.length} Buyer Persona{parsedStrategyObj.personas.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                  {parsedStrategyObj.objectives.length > 0 && (
+                    <Badge variant="secondary" className="text-[9px] font-bold rounded-lg bg-blue-500/5 border border-blue-200/40 text-blue-700 gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> {parsedStrategyObj.objectives.length} Objetivo{parsedStrategyObj.objectives.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                  {parsedStrategyObj.funnelStages.length > 0 && (
+                    <Badge variant="secondary" className="text-[9px] font-bold rounded-lg bg-violet-500/5 border border-violet-200/40 text-violet-700 gap-1">
+                      <Network className="h-3 w-3" /> {parsedStrategyObj.funnelStages.length} Etapas de Embudo
+                    </Badge>
+                  )}
+                  {parsedStrategyObj.channels.length > 0 && (
+                    <Badge variant="secondary" className="text-[9px] font-bold rounded-lg bg-indigo-500/5 border border-indigo-200/40 text-indigo-700 gap-1">
+                      <Compass className="h-3 w-3" /> {parsedStrategyObj.channels.length} Canal{parsedStrategyObj.channels.length > 1 ? 'es' : ''}
+                    </Badge>
+                  )}
+                </div>
 
               </div>
             )}
@@ -1440,54 +1872,74 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
 
           {/* TAB 5: CAMPAÑAS */}
           <TabsContent value="campanas" className="space-y-4 mt-0">
-            <div className="flex justify-between items-center border-b pb-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 mb-4">
               <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                 <Megaphone className="h-3.5 w-3.5 text-emerald-500" /> Plan de Campañas y Calendario
               </h5>
               
-              <Button 
-                onClick={handleStartCampaign}
-                disabled={campaignLoading}
-                className={`h-8 text-xs font-bold gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all ${
-                  shouldActionPulse("campanas") ? 'action-btn-pulse-emerald scale-105' : ''
-                }`}
-              >
-                {campaignLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Play className="h-3 w-3 fill-current" />
-                )}
-                {campaigns.length > 0 ? "Regenerar" : "Generar Campañas"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-muted/30 px-2.5 py-1.5 rounded-xl border border-muted/80">
+                  <span className="text-[9px] font-black uppercase text-muted-foreground">Inicio:</span>
+                  <input
+                    type="date"
+                    value={campaignStartDate}
+                    onChange={(e) => setCampaignStartDate(e.target.value)}
+                    min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]} // Mínimo mañana
+                    className="bg-transparent text-[10px] font-bold text-foreground focus:outline-none border-none p-0 w-24 cursor-pointer"
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleStartCampaign}
+                  disabled={campaignLoading}
+                  className={`h-8 text-xs font-bold gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all ${
+                    shouldActionPulse("campanas") ? 'action-btn-pulse-emerald scale-105' : ''
+                  }`}
+                >
+                  {campaignLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3 fill-current" />
+                  )}
+                  {campaigns.length > 0 ? "Regenerar" : "Generar Campañas"}
+                </Button>
+              </div>
             </div>
 
+            <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-emerald-500/5 p-3 rounded-xl border border-emerald-100 dark:border-emerald-850 mb-4">
+              💡 <strong>Agente de Campañas de Marketing:</strong> Estructura tu plan mensual, definiendo objetivos de conversión, segmentación detallada y presupuestos por canal.
+            </p>
 
 
-            {campaigns.length === 0 ? (
+
+            {isCampaignProcessing ? (
+              <div className="flex flex-col items-center justify-center p-8 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-center min-h-[180px] space-y-4 animate-pulse">
+                <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
+                <div className="space-y-1">
+                  <span className="text-xs font-black uppercase text-emerald-700 block">IA Procesando Campañas</span>
+                  <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
+                    El Agente de Campañas de Marketing está estructurando tus metas mensuales, presupuestos y segmentaciones de audiencia.
+                  </p>
+                </div>
+              </div>
+            ) : campaigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-2xl border border-dashed text-center min-h-[180px] space-y-4">
-                <Loader2 className="h-6 w-6 text-emerald-500 opacity-60" />
+                <Clock className="h-6 w-6 text-muted-foreground/45" />
                 <div className="space-y-1">
                   <span className="text-xs font-bold text-muted-foreground block">Plan de Campañas Pendiente</span>
                   <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
-                    El Agente de Planificación diseñará tu plan de campañas y calendario editorial multicanal.
+                    El Agente de Campañas de Marketing formulará tu plan de campañas mensuales una vez activado.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="p-3 bg-muted/20 rounded-xl border flex items-center justify-between gap-4">
+                <div className="p-3 bg-muted/20 rounded-xl border flex items-center gap-2">
+                  <Megaphone className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <div className="space-y-0.5">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Plan Editorial</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 block leading-none">Plan Editorial</span>
                     <h6 className="text-[11px] font-bold text-foreground">Campañas e Ideas de Contenido Listas</h6>
                   </div>
-                  <Button
-                    onClick={handleStartCampaign}
-                    disabled={campaignLoading}
-                    variant="outline"
-                    className="h-8 text-[10px] font-bold gap-1 rounded-xl"
-                  >
-                    <RefreshCw className={`h-3 w-3 ${campaignLoading ? 'animate-spin' : ''}`} /> Regenerar
-                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
@@ -1549,43 +2001,55 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                           <Dialog>
                             <DialogTrigger asChild>
                               <Button variant="outline" size="sm" className="h-7 text-[9px] font-black rounded-lg gap-1 border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/5">
-                                <EyeIcon className="h-3 w-3" /> Ver Segmentación y Contenido
+                                <EyeIcon className="h-3 w-3" /> Ver Detalles
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-lg rounded-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-                              <DialogHeader className="p-5 pb-2">
-                                <DialogTitle className="text-xs font-black uppercase tracking-widest text-emerald-700 flex items-center gap-2">
-                                  <Megaphone className="h-4 w-4" /> Detalle de Campaña: {camp.name}
+                            <DialogContent className="max-w-lg rounded-2xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden bg-background">
+                              <DialogHeader className="p-6 pb-3 border-b shrink-0 bg-muted/20">
+                                <DialogTitle className="text-sm font-black uppercase tracking-wider text-emerald-700 flex items-center gap-2">
+                                  <Megaphone className="h-4.5 w-4.5 text-emerald-600" /> Plan de Campaña
                                 </DialogTitle>
                               </DialogHeader>
 
-                              <div className="flex-1 overflow-y-auto p-5 pt-1 space-y-4 max-h-[60vh] text-xs">
-                                {/* Segmentación (Targeting) */}
-                                <div className="p-3 bg-muted/20 rounded-xl border space-y-2">
-                                  <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] border-b pb-1">
-                                    Segmentación de Audiencia
-                                  </span>
-                                  {targeting.demographics && (
-                                    <div>
-                                      <span className="font-bold text-[9px] text-muted-foreground uppercase block">Demografía</span>
-                                      <span className="text-foreground">{targeting.demographics}</span>
-                                    </div>
-                                  )}
-                                  {targeting.interests && (
-                                    <div>
-                                      <span className="font-bold text-[9px] text-muted-foreground uppercase block">Intereses Clave</span>
-                                      <span className="text-foreground">{Array.isArray(targeting.interests) ? targeting.interests.join(", ") : targeting.interests}</span>
-                                    </div>
-                                  )}
-                                  {targeting.geography && (
-                                    <div>
-                                      <span className="font-bold text-[9px] text-muted-foreground uppercase block">Ubicación Geográfica</span>
-                                      <span className="text-foreground">{targeting.geography}</span>
-                                    </div>
-                                  )}
+                              {/* Contenedor principal con scrollbar elegante e independiente */}
+                              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-emerald-200 scrollbar-track-transparent">
+                                {/* Título de la campaña */}
+                                <div className="p-4 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 rounded-2xl border border-emerald-200/50 space-y-2">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Campaña de Marketing</span>
+                                  <h4 className="text-base font-bold text-foreground capitalize">{camp.name}</h4>
                                 </div>
 
-                                {/* Fechas y Presupuesto */}
+                                {/* Descripción */}
+                                {camp.description && (
+                                  <div className="p-3.5 bg-muted/20 rounded-xl border space-y-1">
+                                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px]">
+                                      Descripción de la Campaña
+                                    </span>
+                                    <p className="text-muted-foreground leading-relaxed">{camp.description}</p>
+                                  </div>
+                                )}
+
+                                {/* Objetivo, Presupuesto, Estado */}
+                                <div className="grid grid-cols-3 gap-2">
+                                  {camp.objective && (
+                                    <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-200/40 text-center space-y-0.5">
+                                      <span className="font-black text-[8px] text-muted-foreground uppercase block">Objetivo</span>
+                                      <span className="text-[10px] font-bold text-blue-700">{camp.objective}</span>
+                                    </div>
+                                  )}
+                                  {camp.budget && (
+                                    <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-200/40 text-center space-y-0.5">
+                                      <span className="font-black text-[8px] text-muted-foreground uppercase block">Presupuesto</span>
+                                      <span className="text-[10px] font-bold text-emerald-700">${Number(camp.budget)} USD</span>
+                                    </div>
+                                  )}
+                                  <div className="p-3 bg-slate-500/5 rounded-xl border border-slate-200/40 text-center space-y-0.5">
+                                    <span className="font-black text-[8px] text-muted-foreground uppercase block">Estado</span>
+                                    <span className="text-[10px] font-bold text-slate-700">{camp.status || 'ACTIVA'}</span>
+                                  </div>
+                                </div>
+
+                                {/* Fechas */}
                                 <div className="grid grid-cols-2 gap-3 p-3 bg-muted/20 rounded-xl border">
                                   <div>
                                     <span className="font-bold text-[9px] text-muted-foreground uppercase block">Fecha de Inicio</span>
@@ -1600,6 +2064,59 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                                     </span>
                                   </div>
                                 </div>
+
+                                {/* Canales */}
+                                {channelsList.length > 0 && (
+                                  <div className="p-3 bg-muted/20 rounded-xl border space-y-2">
+                                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px]">
+                                      Canales Activos
+                                    </span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {channelsList.map((chan: any, index: number) => {
+                                        const platform = typeof chan === 'object' ? (chan.platform || chan.name) : String(chan);
+                                        const chanBudget = typeof chan === 'object' ? chan.budget : null;
+                                        return (
+                                          <Badge key={index} variant="outline" className="text-[9px] font-bold rounded-lg bg-indigo-500/5 border-indigo-200/40 text-indigo-700 px-2 py-1">
+                                            {platform} {chanBudget ? `· $${chanBudget}` : ''}
+                                          </Badge>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Segmentación (Targeting) */}
+                                {(targeting.locations || targeting.interests || targeting.ageRange) && (
+                                  <div className="p-3 bg-muted/20 rounded-xl border space-y-2">
+                                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px]">
+                                      Segmentación de Audiencia
+                                    </span>
+                                    {targeting.locations && (
+                                      <div>
+                                        <span className="font-bold text-[9px] text-muted-foreground uppercase block">Ubicaciones</span>
+                                        <span className="text-foreground">{Array.isArray(targeting.locations) ? targeting.locations.join(", ") : targeting.locations}</span>
+                                      </div>
+                                    )}
+                                    {targeting.ageRange && (
+                                      <div>
+                                        <span className="font-bold text-[9px] text-muted-foreground uppercase block">Rango de Edad</span>
+                                        <span className="text-foreground">{Array.isArray(targeting.ageRange) ? targeting.ageRange.join(" - ") + " años" : targeting.ageRange}</span>
+                                      </div>
+                                    )}
+                                    {targeting.interests && (
+                                      <div>
+                                        <span className="font-bold text-[9px] text-muted-foreground uppercase block">Intereses</span>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {(Array.isArray(targeting.interests) ? targeting.interests : [targeting.interests]).map((interest: any, idx: number) => (
+                                            <Badge key={idx} variant="secondary" className="text-[8px] font-medium rounded-md bg-rose-500/5 text-rose-700">
+                                              {interest}
+                                            </Badge>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </DialogContent>
                           </Dialog>
@@ -1633,13 +2150,27 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
               </Button>
             </div>
 
-            {!isCalendarReady ? (
-              <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-2xl border border-dashed text-center min-h-[180px] space-y-4">
-                <Loader2 className="h-6 w-6 text-sky-500 opacity-60" />
+            <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-sky-500/5 p-3 rounded-xl border border-sky-100 dark:border-sky-850 mb-4">
+              💡 <strong>Agente Editorial y de Contenidos:</strong> Distribuye y calendariza las publicaciones diarias, redactando copys persuasivos y generando prompts de imágenes IA.
+            </p>
+
+            {isCalendarProcessing ? (
+              <div className="flex flex-col items-center justify-center p-8 bg-sky-500/5 rounded-2xl border border-sky-500/20 text-center min-h-[180px] space-y-4 animate-pulse">
+                <Loader2 className="h-8 w-8 text-sky-600 animate-spin" />
                 <div className="space-y-1">
-                  <span className="text-xs font-bold text-muted-foreground block">Calendario Pendiente</span>
+                  <span className="text-xs font-black uppercase text-sky-700 block">IA Procesando Calendario</span>
                   <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
-                    El Agente Editorial generará tu calendario de publicaciones una vez que las campañas estén listas.
+                    El Agente Editorial y de Contenidos está formulando y programando las publicaciones, copies, hashtags y prompts de imagen.
+                  </p>
+                </div>
+              </div>
+            ) : !isCalendarReady ? (
+              <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-2xl border border-dashed text-center min-h-[180px] space-y-4">
+                <Clock className="h-6 w-6 text-muted-foreground/45" />
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-muted-foreground block">Calendario Editorial Pendiente</span>
+                  <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
+                    El Agente Editorial y de Contenidos programará tu calendario una vez que lo actives.
                   </p>
                 </div>
               </div>

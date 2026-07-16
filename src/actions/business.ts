@@ -708,7 +708,7 @@ export async function startStrategyStage(businessId: string) {
   }
 }
 
-export async function startCampaignStage(businessId: string) {
+export async function startCampaignStage(businessId: string, startDate?: string) {
   try {
     const { getSession } = await import("@/lib/auth");
     const session = await getSession();
@@ -753,7 +753,8 @@ export async function startCampaignStage(businessId: string) {
         await delay(2500);
 
         const { triggerCascadeGeneration } = await import("@/lib/cascade");
-        await triggerCascadeGeneration(businessId, true, 'CAMPAIGN');
+        // Pasar el startDate a la cascada
+        await triggerCascadeGeneration(businessId, true, 'CAMPAIGN', startDate);
       } catch (err) {
         console.error("Error in background campaign execution:", err);
         await prisma.agentNotification.create({
@@ -820,8 +821,8 @@ export async function startCalendarStage(businessId: string) {
         await delay(2000);
 
         const { triggerCascadeGeneration } = await import("@/lib/cascade");
-        // 'CAMPAIGN' regenerará también el calendario de forma aislada
-        await triggerCascadeGeneration(businessId, true, 'CAMPAIGN');
+        // 'CALENDAR' regenerará SOLO el calendario de contenidos de forma aislada
+        await triggerCascadeGeneration(businessId, true, 'CALENDAR');
       } catch (err) {
         console.error("Error in background calendar execution:", err);
         await prisma.agentNotification.create({

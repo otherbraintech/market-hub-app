@@ -9,7 +9,7 @@ import {
   Users, ThumbsUp, MessageSquare, Activity, Flame, MapPin, Award, ShieldCheck,
   Megaphone, Zap, Eye, Compass, Briefcase, TrendingUp, Heart, Target,
   AlertCircle, Star, Linkedin, Youtube, Search, ArrowLeft, Smile, RefreshCw,
-  CheckCircle2, Lightbulb
+  CheckCircle2, Lightbulb, Download
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -250,6 +250,375 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
     }
   };
 
+  const handleDownloadPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("El navegador bloqueó la ventana emergente. Por favor, permite ventanas emergentes para este sitio.");
+      return;
+    }
+
+    const brandName = business.name || "Mi Negocio";
+    const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Build consolidated analysis HTML
+    let consolidatedHtml = "";
+    if (consolidatedAnalysis) {
+      const swotHtml = `
+        <div class="swot-grid">
+          <div class="swot-card swot-fortalezas">
+            <h4>Fortalezas</h4>
+            <ul>${(consolidatedAnalysis.strengths || []).map((s: string) => `<li>${s}</li>`).join("")}</ul>
+          </div>
+          <div class="swot-card swot-debilidades">
+            <h4>Debilidades</h4>
+            <ul>${(consolidatedAnalysis.weaknesses || []).map((w: string) => `<li>${w}</li>`).join("")}</ul>
+          </div>
+          <div class="swot-card swot-oportunidades">
+            <h4>Oportunidades</h4>
+            <ul>${(consolidatedAnalysis.opportunities || []).map((o: string) => `<li>${o}</li>`).join("")}</ul>
+          </div>
+          <div class="swot-card swot-amenazas">
+            <h4>Amenazas</h4>
+            <ul>${(consolidatedAnalysis.threats || []).map((t: string) => `<li>${t}</li>`).join("")}</ul>
+          </div>
+        </div>
+      `;
+
+      const marketPositionHtml = consolidatedAnalysis.marketPosition ? `
+        <div class="sub-section">
+          <h3>Posicionamiento de Mercado</h3>
+          <p><strong>Posición Actual:</strong> ${consolidatedAnalysis.marketPosition.currentPosition || "N/D"}</p>
+          <p><strong>Ventaja Competitiva:</strong> ${consolidatedAnalysis.marketPosition.competitiveAdvantage || "N/D"}</p>
+          <p><strong>Oportunidad de Mercado (Brecha):</strong> ${consolidatedAnalysis.marketPosition.marketGap || "N/D"}</p>
+        </div>
+      ` : "";
+
+      const recommendationsHtml = consolidatedAnalysis.strategicRecommendations ? `
+        <div class="sub-section">
+          <h3>Recomendaciones Estratégicas Clave</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Categoría</th>
+                <th>Acción Recomendada</th>
+                <th>Prioridad</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(consolidatedAnalysis.strategicRecommendations || []).map((rec: any) => `
+                <tr>
+                  <td><strong>${rec.category || "General"}</strong></td>
+                  <td>${rec.action || ""}</td>
+                  <td><span class="badge badge-${rec.priority || "media"}">${rec.priority || "media"}</span></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      ` : "";
+
+      const nextStepsHtml = consolidatedAnalysis.nextSteps ? `
+        <div class="sub-section" style="page-break-inside: avoid;">
+          <h3>Próximos Pasos Recomendados</h3>
+          <ol>
+            ${(consolidatedAnalysis.nextSteps || []).map((step: string) => `<li>${step}</li>`).join("")}
+          </ol>
+        </div>
+      ` : "";
+
+      consolidatedHtml = `
+        <div class="section-card">
+          <h2>1. Análisis Consolidado de IA</h2>
+          ${consolidatedAnalysis.executiveSummary ? `<p class="executive-summary">"${consolidatedAnalysis.executiveSummary}"</p>` : ""}
+          ${marketPositionHtml}
+          ${swotHtml}
+          ${recommendationsHtml}
+          ${nextStepsHtml}
+        </div>
+      `;
+    }
+
+    // Build Channels HTML
+    let channelsHtml = "";
+    if (cards && cards.length > 0) {
+      channelsHtml = `
+        <div class="section-card" style="page-break-before: always;">
+          <h2>2. Diagnósticos Detallados por Canal</h2>
+          ${cards.map((card: any) => {
+            const report = card.report;
+            if (!report || report.status !== "COMPLETED") {
+              return `
+                <div class="channel-container">
+                  <h3 class="channel-title">
+                    <span>${card.label}</span>
+                    <span class="channel-url">${card.url || "N/D"}</span>
+                  </h3>
+                  <p style="color: #64748b; font-style: italic;">Estado del análisis: ${report?.status || "Sin iniciar o pendiente"}</p>
+                </div>
+              `;
+            }
+
+            let dataObj: any = null;
+            if (report.data) {
+              try {
+                dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
+                if (Array.isArray(dataObj) && dataObj.length > 0) {
+                  dataObj = dataObj[0].output || dataObj[0];
+                }
+              } catch (e) {
+                console.error("Error parsing report data for PDF", e);
+              }
+            }
+
+            if (!dataObj) {
+              return `
+                <div class="channel-container">
+                  <h3 class="channel-title">
+                    <span>${card.label}</span>
+                    <span class="channel-url">${card.url || "N/D"}</span>
+                  </h3>
+                  <p style="color: #64748b;">No hay datos de análisis detallados disponibles.</p>
+                </div>
+              `;
+            }
+
+            // Normalización similar a ScrapingReportDialog
+            const isTikTok = card.channel === "TIKTOK";
+            let strengths = dataObj.strengths || [];
+            let weaknesses = dataObj.weaknesses || [];
+            let recommendations = dataObj.strategic_recommendations || dataObj.recommendations || [];
+            let positioning = dataObj.market_positioning || "";
+
+            if (isTikTok && dataObj.tiktok_presence) {
+              positioning = dataObj.tiktok_presence.brand_summary || positioning;
+              strengths = dataObj.competitive_observations?.main_strengths || strengths;
+              weaknesses = dataObj.competitive_observations?.main_weaknesses || weaknesses;
+              recommendations = dataObj.strategic_recommendations || recommendations;
+            }
+
+            const formatItems = (arr: any) => {
+              if (!arr) return "<li>No especificado</li>";
+              const items = Array.isArray(arr) ? arr : [arr];
+              if (items.length === 0) return "<li>No especificado</li>";
+              return items.map(item => `<li>${item}</li>`).join("");
+            };
+
+            return `
+              <div class="channel-container">
+                <h3 class="channel-title">
+                  <span>${card.label}</span>
+                  <span class="channel-url">${card.url || "N/D"}</span>
+                </h3>
+                
+                ${positioning ? `<p><strong>Propuesta de Valor / Posicionamiento:</strong> ${positioning}</p>` : ""}
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+                  <div>
+                    <h4 style="color: #166534; margin: 0 0 8px 0; font-size: 13px;">Fortalezas del Canal</h4>
+                    <ul>${formatItems(strengths)}</ul>
+                  </div>
+                  <div>
+                    <h4 style="color: #991b1b; margin: 0 0 8px 0; font-size: 13px;">Debilidades del Canal</h4>
+                    <ul>${formatItems(weaknesses)}</ul>
+                  </div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                  <h4 style="color: #4f46e5; margin: 0 0 8px 0; font-size: 13px;">Recomendaciones Tácticas</h4>
+                  <ul>${formatItems(recommendations)}</ul>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Informe de Negocio - ${brandName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;750;800&display=swap');
+            body {
+              font-family: 'Outfit', sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 40px;
+              line-height: 1.6;
+              background-color: #ffffff;
+            }
+            .header-container {
+              border-bottom: 3px solid #8b5cf6;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header-container h1 {
+              margin: 0 0 10px 0;
+              font-size: 32px;
+              color: #1e1b4b;
+              font-weight: 800;
+              letter-spacing: -0.025em;
+            }
+            .metadata-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              font-size: 13px;
+              color: #64748b;
+            }
+            h2 {
+              color: #1e1b4b;
+              font-size: 22px;
+              border-bottom: 2px solid #f1f5f9;
+              padding-bottom: 8px;
+              margin-top: 0;
+              font-weight: 700;
+            }
+            h3 {
+              color: #312e81;
+              font-size: 17px;
+              margin-bottom: 12px;
+              font-weight: 600;
+            }
+            .section-card {
+              margin-bottom: 40px;
+            }
+            .executive-summary {
+              font-size: 15px;
+              line-height: 1.6;
+              color: #475569;
+              font-style: italic;
+              background: #faf5ff;
+              padding: 20px;
+              border-left: 4px solid #8b5cf6;
+              border-radius: 8px;
+              margin-bottom: 25px;
+            }
+            .swot-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-top: 20px;
+              margin-bottom: 25px;
+            }
+            .swot-card {
+              padding: 18px;
+              border-radius: 12px;
+              border: 1px solid;
+            }
+            .swot-fortalezas { background: #f0fdf4; border-color: #bbf7d0; }
+            .swot-fortalezas h4 { color: #166534; margin: 0 0 10px 0; font-size: 14px; font-weight: 700; }
+            .swot-debilidades { background: #fef2f2; border-color: #fecaca; }
+            .swot-debilidades h4 { color: #991b1b; margin: 0 0 10px 0; font-size: 14px; font-weight: 700; }
+            .swot-oportunidades { background: #eff6ff; border-color: #bfdbfe; }
+            .swot-oportunidades h4 { color: #1e40af; margin: 0 0 10px 0; font-size: 14px; font-weight: 700; }
+            .swot-amenazas { background: #fffbeb; border-color: #fef3c7; }
+            .swot-amenazas h4 { color: #92400e; margin: 0 0 10px 0; font-size: 14px; font-weight: 700; }
+            
+            .sub-section {
+              margin-top: 25px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 12px;
+              font-size: 13px;
+            }
+            th {
+              background: #f8fafc;
+              text-align: left;
+              padding: 12px;
+              border-bottom: 2px solid #e2e8f0;
+              font-weight: 600;
+              color: #475569;
+            }
+            td {
+              padding: 12px;
+              border-bottom: 1px solid #e2e8f0;
+              color: #334155;
+            }
+            .badge {
+              padding: 3px 8px;
+              border-radius: 6px;
+              font-size: 10px;
+              font-weight: 700;
+              text-transform: uppercase;
+            }
+            .badge-alta { background: #fee2e2; color: #991b1b; }
+            .badge-media { background: #fef3c7; color: #92400e; }
+            .badge-baja { background: #f1f5f9; color: #475569; }
+            
+            ul, ol {
+              padding-left: 20px;
+              margin-top: 5px;
+              font-size: 13px;
+              color: #334155;
+            }
+            li {
+              margin-bottom: 6px;
+            }
+            p {
+              font-size: 13.5px;
+              color: #334155;
+            }
+            .channel-container {
+              margin-bottom: 35px;
+              border-bottom: 1px solid #e2e8f0;
+              padding-bottom: 25px;
+              page-break-inside: avoid;
+            }
+            .channel-title {
+              color: #4f46e5;
+              border-bottom: 2px solid #e0e7ff;
+              padding-bottom: 6px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 18px;
+              font-weight: 700;
+            }
+            .channel-url {
+              font-size: 12px;
+              color: #64748b;
+              font-weight: normal;
+              align-self: center;
+            }
+            @media print {
+              body {
+                padding: 20px;
+              }
+              .section-card {
+                page-break-inside: auto;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-container">
+            <h1>Informe Estratégico de Negocio: ${brandName}</h1>
+            <div class="metadata-grid">
+              <div><strong>Fecha de Generación:</strong> ${dateStr}</div>
+              <div style="text-align: right;"><strong>Generado por:</strong> OB MarketHub (IA)</div>
+            </div>
+          </div>
+
+          ${consolidatedHtml}
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const handleRequestAnalysis = async (channel: string, url: string) => {
     const promise = new Promise(async (resolve, reject) => {
       try {
@@ -370,16 +739,27 @@ export function BusinessAnalysisClient({ businessId, business, initialAnalyses }
               <Sparkles className="h-5 w-5 text-violet-600 dark:text-violet-400" />
               Análisis Consolidado con IA
             </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={generateConsolidatedAnalysis}
-              disabled={generatingAnalysis}
-              className="gap-2 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-slate-800 bg-violet-50 dark:bg-slate-900 hover:bg-violet-100 dark:hover:bg-slate-800"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${generatingAnalysis ? 'animate-spin' : ''}`} />
-              {generatingAnalysis ? 'Generando...' : 'Actualizar Análisis'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                className="gap-2 text-violet-750 dark:text-violet-400 border-violet-200 dark:border-slate-800 bg-violet-50/50 dark:bg-slate-900 hover:bg-violet-100 dark:hover:bg-slate-800"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Descargar PDF
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={generateConsolidatedAnalysis}
+                disabled={generatingAnalysis}
+                className="gap-2 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-slate-800 bg-violet-50 dark:bg-slate-900 hover:bg-violet-100 dark:hover:bg-slate-800"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${generatingAnalysis ? 'animate-spin' : ''}`} />
+                {generatingAnalysis ? 'Generando...' : 'Actualizar Análisis'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Executive Summary */}

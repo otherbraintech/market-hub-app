@@ -47,6 +47,37 @@ export async function POST(request: Request) {
             status: "FAILED"
           }
         }).catch((err: any) => console.error("Error creating agent notification for callback error:", err));
+
+        // Verificar si todos los canales del negocio y competidores han terminado su extracción
+        try {
+          const competitors = await prisma.competitor.findMany({
+            where: { businessId: resolvedBusinessId },
+            select: { id: true }
+          });
+          const entityIds = [resolvedBusinessId, ...competitors.map(c => c.id)];
+          
+          const pendingReports = await prisma.analysisReport.count({
+            where: {
+              entityId: { in: entityIds },
+              status: "PENDING"
+            }
+          });
+
+          if (pendingReports === 0) {
+            console.log(`[CALLBACK-ERROR] 🎉 ¡Todos los canales terminaron (con algunos fallos)! Completando etapa de extracción para negocio: ${resolvedBusinessId}`);
+            await prisma.agentNotification.create({
+              data: {
+                businessId: resolvedBusinessId,
+                title: "Agente de Extracción",
+                message: "Fase de extracción de datos finalizada para todos los canales propios y competidores.",
+                step: "SCRAPING",
+                status: "COMPLETED"
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Error al verificar finalización de scraping global en flujo de error:", err);
+        }
       }
 
       return NextResponse.json({ success: true, report });
@@ -98,6 +129,37 @@ export async function POST(request: Request) {
           status: "COMPLETED"
         }
       }).catch((err: any) => console.error("Error creating agent notification for callback success:", err));
+
+      // Verificar si todos los canales del negocio y competidores han terminado su extracción
+      try {
+        const competitors = await prisma.competitor.findMany({
+          where: { businessId: resolvedBusinessId },
+          select: { id: true }
+        });
+        const entityIds = [resolvedBusinessId, ...competitors.map(c => c.id)];
+        
+        const pendingReports = await prisma.analysisReport.count({
+          where: {
+            entityId: { in: entityIds },
+            status: "PENDING"
+          }
+        });
+
+        if (pendingReports === 0) {
+          console.log(`[CALLBACK] 🎉 ¡Todos los canales terminaron! Completando etapa de extracción para negocio: ${resolvedBusinessId}`);
+          await prisma.agentNotification.create({
+            data: {
+              businessId: resolvedBusinessId,
+              title: "Agente de Extracción",
+              message: "Fase de extracción de datos completada para todos los canales propios y competidores.",
+              step: "SCRAPING",
+              status: "COMPLETED"
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Error al verificar finalización de scraping global:", err);
+      }
     }
 
     // Si el reporte es exitoso, actualizar automáticamente el informe consolidado / análisis general del negocio

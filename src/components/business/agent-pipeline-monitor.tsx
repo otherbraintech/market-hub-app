@@ -26,12 +26,12 @@ interface AgentPipelineMonitorProps {
 }
 
 const stepsMeta = [
-  { key: "SCRAPING", label: "Agente de Extracción", icon: Cpu, desc: "Escaneo de audiencias y canales digitales del negocio y rivales" },
-  { key: "ANALYSIS", label: "Agente de Análisis", icon: FileText, desc: "Evaluación detallada de canales y métricas de posicionamiento" },
-  { key: "DIAGNOSTIC", label: "Agente de Diagnóstico", icon: Layers, desc: "Benchmark y consolidación de brechas de posicionamiento" },
-  { key: "STRATEGY", label: "Agente de Growth & Estrategia", icon: Sparkles, desc: "Modelado inteligente de 6 estrategias de crecimiento" },
-  { key: "CAMPAIGN", label: "Agente de Planificación", icon: Bot, desc: "Diseño y estructuración de 6 campañas automatizadas" },
-  { key: "CALENDAR", label: "Agente Editorial", icon: ShieldCheck, desc: "Distribución y calendarización de contenidos multicanal" },
+  { key: "SCRAPING", label: "Agente de Extracción Web", icon: Cpu, desc: "Escaneo web y redes de tu negocio", emoji: "🕵️", processingEmoji: "🔍" },
+  { key: "ANALYSIS", label: "Agente de Canales y Métricas", icon: FileText, desc: "Diagnóstico inicial de canales", emoji: "📊", processingEmoji: "🔬" },
+  { key: "DIAGNOSTIC", label: "Agente de Diagnóstico Competitivo", icon: Layers, desc: "Análisis competitivo de rivales", emoji: "🧠", processingEmoji: "⚡" },
+  { key: "STRATEGY", label: "Agente de Growth & Estrategia", icon: Sparkles, desc: "Diseña buyer personas y plan estratégico", emoji: "🎯", processingEmoji: "✨" },
+  { key: "CAMPAIGN", label: "Agente de Campañas de Marketing", icon: Bot, desc: "Formula tus campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
+  { key: "CALENDAR", label: "Agente Editorial y de Contenidos", icon: ShieldCheck, desc: "Crea copys, hashtags y prompts de imagen", emoji: "📝", processingEmoji: "🤖" },
 ];
 
 export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) {
@@ -56,9 +56,10 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(() => fetchNotifications(true), 4000); // Polling cada 4 segundos
+    const interval = setInterval(() => {
+      fetchNotifications(true);
+    }, 8000);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [businessId]);
 
   const handleClear = async () => {
@@ -131,61 +132,93 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
       </CardHeader>
 
       <CardContent className="pt-6">
+        {/* Animaciones de Agente */}
+        <style>{`
+          @keyframes monitor-radar {
+            0% { transform: scale(0.8); opacity: 0.7; }
+            50% { transform: scale(1.35); opacity: 0; }
+            100% { transform: scale(0.8); opacity: 0; }
+          }
+          @keyframes monitor-working {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(-5deg) scale(1.08); }
+            75% { transform: rotate(5deg) scale(1.08); }
+          }
+          @keyframes monitor-float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-2px); }
+          }
+          .monitor-radar-ring { animation: monitor-radar 1.5s ease-out infinite; }
+          .monitor-agent-working { animation: monitor-working 0.6s ease-in-out infinite; }
+          .monitor-agent-float { animation: monitor-float 2.5s ease-in-out infinite; }
+        `}</style>
+
         {/* PIPELINE INTERACTIVO */}
         <div className="relative">
           {/* Línea conectora base */}
-          <div className="absolute top-4.5 left-6 right-6 h-0.5 bg-violet-100 dark:bg-white/5 z-0 hidden md:block" />
+          <div className="absolute top-5 left-6 right-6 h-0.5 bg-violet-100 dark:bg-white/5 z-0 hidden md:block" />
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 relative z-10">
             {stepsMeta.map((step, idx) => {
               const status = getStepStatus(step.key);
-              const StepIcon = step.icon;
-
-              let statusColor = "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-white/5";
-              let glowEffect = "";
-              let statusLabel = "Inactivo";
-
-              if (status === 'processing') {
-                statusColor = "bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-500 shadow-md shadow-blue-500/20";
-                glowEffect = "animate-pulse ring-2 ring-blue-500/30";
-                statusLabel = "Procesando";
-              } else if (status === 'completed') {
-                statusColor = "bg-emerald-50 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500 shadow-md shadow-emerald-500/15";
-                statusLabel = "Completado";
-              } else if (status === 'failed') {
-                statusColor = "bg-red-50 dark:bg-red-950/80 text-red-600 dark:text-red-400 border-red-300 dark:border-red-500 shadow-md shadow-red-500/20 animate-bounce";
-                statusLabel = "Error";
-              }
 
               return (
                 <div key={step.key} className="flex md:flex-col items-center gap-3 md:text-center group select-none">
-                  {/* Icono de Estado */}
-                  <div className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all duration-300 ${statusColor} ${glowEffect}`}>
-                    {status === 'processing' ? (
-                      <Loader2 className="h-4.5 w-4.5 animate-spin" />
-                    ) : status === 'completed' ? (
-                      <Check className="h-4.5 w-4.5 font-bold" />
-                    ) : status === 'failed' ? (
-                      <AlertTriangle className="h-4.5 w-4.5" />
-                    ) : (
-                      <StepIcon className="h-4.5 w-4.5 opacity-60" />
+                  {/* Avatar del Agente con efectos */}
+                  <div className="relative">
+                    {status === 'processing' && (
+                      <>
+                        <div className="absolute inset-0 rounded-xl bg-blue-500/20 monitor-radar-ring" />
+                        <div className="absolute inset-0 rounded-xl bg-blue-500/10 monitor-radar-ring" style={{ animationDelay: '0.5s' }} />
+                      </>
                     )}
+                    {status === 'completed' && (
+                      <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-br from-emerald-400/20 to-teal-400/20 blur-sm" />
+                    )}
+                    <div className={`relative h-10 w-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${
+                      status === 'processing'
+                        ? 'bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 border-blue-400 dark:border-blue-500 shadow-lg shadow-blue-500/20'
+                        : status === 'completed'
+                          ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 border-emerald-400 dark:border-emerald-500 shadow-md shadow-emerald-500/15'
+                          : status === 'failed'
+                            ? 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950 dark:to-red-950 border-rose-400 dark:border-rose-500'
+                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                    }`}>
+                      <span className={`text-base select-none ${
+                        status === 'processing' ? 'monitor-agent-working'
+                        : status === 'completed' ? 'monitor-agent-float'
+                        : 'opacity-50'
+                      }`}>
+                        {status === 'processing' ? step.processingEmoji
+                          : status === 'failed' ? '❌'
+                          : step.emoji}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Nombre y descripción */}
-                  <div className="md:space-y-0.5 text-left md:text-center">
-                    <p className="text-[11px] font-black tracking-tight text-slate-800 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                  <div className="flex flex-col gap-0.5 text-left md:text-center items-start md:items-center">
+                    <p className="text-[11px] font-black tracking-tight text-slate-800 dark:text-white group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors leading-tight">
                       {step.label}
                     </p>
-                    <p className="text-[9.5px] text-slate-500 dark:text-slate-400 hidden md:block max-w-[120px] mx-auto leading-normal">
+                    <p className="text-[9.5px] text-slate-500 dark:text-slate-400 block max-w-[130px] leading-normal">
                       {step.desc}
                     </p>
-                    {status !== 'idle' && (
-                      <span className={`text-[8.5px] font-black uppercase tracking-wider inline-block px-1.5 py-0.5 rounded border-none mt-1 ${
+                    {status === 'processing' ? (
+                      <span className="text-[8px] font-black uppercase tracking-wider inline-flex items-center gap-1 px-1.5 py-0.5 rounded mt-1 bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                        Trabajando
+                      </span>
+                    ) : status !== 'idle' ? (
+                      <span className={`text-[8px] font-black uppercase tracking-wider inline-block px-1.5 py-0.5 rounded mt-1 ${
                         status === 'completed' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-                        status === 'failed' ? 'bg-red-500/10 text-red-600 dark:text-red-400' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        'bg-red-500/10 text-red-600 dark:text-red-400'
                       }`}>
-                        {statusLabel}
+                        {status === 'completed' ? 'Completado' : 'Error'}
+                      </span>
+                    ) : (
+                      <span className="text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-600 mt-1">
+                        Inactivo
                       </span>
                     )}
                   </div>

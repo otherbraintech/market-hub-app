@@ -9,7 +9,7 @@ import {
   Sparkles, Globe, Loader2, Plus, Facebook, Instagram, ChevronRight, ChevronLeft, FileText,
   Users, ThumbsUp, MessageSquare, Activity, Flame, MapPin, Award, ShieldCheck,
   Megaphone, Zap, Eye, Compass, Briefcase, TrendingUp, Heart, Target,
-  AlertCircle, Star, Linkedin, Youtube, Search, RefreshCw, CheckCircle2, Lightbulb, Smile
+  AlertCircle, Star, Linkedin, Youtube, Search, RefreshCw, CheckCircle2, Lightbulb, Smile, Download
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -704,6 +704,680 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
     }
   };
 
+  const handleDownloadPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("El navegador bloqueó la ventana emergente. Por favor, permite ventanas emergentes para este sitio.");
+      return;
+    }
+
+    const brandName = businessName || "Mi Negocio";
+    const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Helper to format lists
+    const formatList = (arr: any) => {
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return "<li>No especificado</li>";
+      return arr.map(item => `<li>${item}</li>`).join("");
+    };
+
+    // Build executive summary HTML
+    let consolidatedHtml = "";
+    if (executiveSummary) {
+      if (typeof executiveSummary === 'string') {
+        consolidatedHtml = `
+          <div class="section-card-general">
+            <h2>1. Informe General de Competidores (IA)</h2>
+            <p class="executive-summary">"${executiveSummary.replace(/\n/g, '<br>')}"</p>
+          </div>
+        `;
+      } else {
+        const pg = executiveSummary.panoramaGlobal || {};
+        const opGaps = executiveSummary.oportunidadesGaps || {};
+        const estPos = executiveSummary.estrategiaPosicionamiento || {};
+        const estCont = executiveSummary.estrategiaContenidos || {};
+
+        // Digitalización, Branding, Interacción Grid
+        let pgGridHtml = "";
+        if (pg.digitalizacion || pg.branding || pg.interaccion) {
+          pgGridHtml = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px; margin-bottom: 20px;">
+              ${pg.digitalizacion ? `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
+                  <h4 style="color: #64748b; font-size: 10px; text-transform: uppercase; margin: 0 0 6px 0; letter-spacing: 0.05em;">Digitalización</h4>
+                  <p style="margin: 0; font-size: 12px; color: #334155; line-height: 1.5;">${pg.digitalizacion}</p>
+                </div>
+              ` : ""}
+              ${pg.branding ? `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
+                  <h4 style="color: #64748b; font-size: 10px; text-transform: uppercase; margin: 0 0 6px 0; letter-spacing: 0.05em;">Branding General</h4>
+                  <p style="margin: 0; font-size: 12px; color: #334155; line-height: 1.5;">${pg.branding}</p>
+                </div>
+              ` : ""}
+              ${pg.interaccion ? `
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
+                  <h4 style="color: #64748b; font-size: 10px; text-transform: uppercase; margin: 0 0 6px 0; letter-spacing: 0.05em;">Interacción y Engagement</h4>
+                  <p style="margin: 0; font-size: 12px; color: #334155; line-height: 1.5;">${pg.interaccion}</p>
+                </div>
+              ` : ""}
+            </div>
+          `;
+        }
+
+        // Observaciones clave
+        let obsHtml = "";
+        if (pg.observacionesClave && pg.observacionesClave.length > 0) {
+          obsHtml = `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+              <h4 style="color: #1e3a8a; margin: 0 0 10px 0; font-size: 13px; font-weight: 700;">Observaciones Clave del Mercado</h4>
+              <ul style="margin: 0; padding-left: 15px; font-size: 12px; color: #334155;">
+                ${pg.observacionesClave.map((o: string) => `<li>${o}</li>`).join("")}
+              </ul>
+            </div>
+          `;
+        }
+
+        // Propuesta de Valor y Brechas Grid
+        let posAndBreachHtml = "";
+        if (estPos.propuestaValor || opGaps.necesidadesNoResueltas || opGaps.formatosDesatendidos) {
+          posAndBreachHtml = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+              ${estPos.propuestaValor ? `
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px;">
+                  <h4 style="color: #166534; margin: 0 0 8px 0; font-size: 13px; font-weight: bold;">Propuesta de Valor Sugerida</h4>
+                  <p style="margin: 0; font-size: 12px; color: #14532d; line-height: 1.5;">${estPos.propuestaValor}</p>
+                  ${estPos.anguloComunicacion ? `
+                    <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(22, 101, 52, 0.15);">
+                      <span style="font-size: 9px; color: #166534; font-weight: bold; text-transform: uppercase; display: block;">Ángulo Recomendado</span>
+                      <span style="font-size: 12px; color: #14532d; font-weight: 600;">${estPos.anguloComunicacion}</span>
+                    </div>
+                  ` : ""}
+                </div>
+              ` : ""}
+              ${(opGaps.necesidadesNoResueltas || opGaps.formatosDesatendidos) ? `
+                <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px;">
+                  <h4 style="color: #991b1b; margin: 0 0 8px 0; font-size: 13px; font-weight: bold;">Oportunidades de Diferenciación (Brechas)</h4>
+                  ${opGaps.necesidadesNoResueltas ? `
+                    <div style="margin-bottom: 8px;">
+                      <span style="font-size: 9px; color: #991b1b; font-weight: bold; text-transform: uppercase; display: block;">Necesidades no resueltas</span>
+                      <p style="margin: 0; font-size: 12px; color: #7f1d1d; line-height: 1.5;">${opGaps.necesidadesNoResueltas}</p>
+                    </div>
+                  ` : ""}
+                  ${opGaps.formatosDesatendidos ? `
+                    <div style="border-top: 1px solid rgba(153, 27, 27, 0.15); padding-top: 8px;">
+                      <span style="font-size: 9px; color: #991b1b; font-weight: bold; text-transform: uppercase; display: block;">Formatos desatendidos</span>
+                      <p style="margin: 0; font-size: 12px; color: #7f1d1d; line-height: 1.5;">${opGaps.formatosDesatendidos}</p>
+                    </div>
+                  ` : ""}
+                </div>
+              ` : ""}
+            </div>
+          `;
+        }
+
+        // Oportunidades de crecimiento
+        let growthOpsHtml = "";
+        if (opGaps.oportunidadesCrecimiento && opGaps.oportunidadesCrecimiento.length > 0) {
+          growthOpsHtml = `
+            <div style="margin-bottom: 20px;">
+              <h4 style="color: #4b5563; font-size: 11px; font-weight: 700; text-transform: uppercase; margin: 0 0 10px 0;">Oportunidades de Crecimiento</h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                ${opGaps.oportunidadesCrecimiento.map((op: any) => `
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
+                      <span style="font-size: 10px; font-weight: bold; color: #475569;">${op.titulo}</span>
+                      <span style="font-size: 8px; font-weight: bold; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 1px 4px; border-radius: 4px;">Impacto: ${op.impacto}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 11px; color: #334155; line-height: 1.4;">${op.accion}</p>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `;
+        }
+
+        // Pilares y frecuencia
+        let pillarsAndFreqHtml = "";
+        if ((estCont.pilaresContenido && estCont.pilaresContenido.length > 0) || (estCont.frecuenciaCanal && estCont.frecuenciaCanal.length > 0)) {
+          pillarsAndFreqHtml = `
+            <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 8px; padding: 15px; margin-bottom: 0;">
+              <h4 style="color: #6b21a8; margin: 0 0 10px 0; font-size: 13px; font-weight: 700;">Estrategia de Contenidos Sugerida</h4>
+              ${estCont.pilaresContenido && estCont.pilaresContenido.length > 0 ? `
+                <div style="margin-bottom: 10px;">
+                  <span style="font-size: 9px; color: #6b21a8; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px;">Pilares de Contenido</span>
+                  <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    ${estCont.pilaresContenido.map((p: string) => `<span style="font-size: 11px; background: #f3e8ff; color: #6b21a8; padding: 2px 6px; border-radius: 4px; border: 1px solid #e9d5ff;">${p}</span>`).join("")}
+                  </div>
+                </div>
+              ` : ""}
+              ${estCont.frecuenciaCanal && estCont.frecuenciaCanal.length > 0 ? `
+                <div style="border-top: 1px solid rgba(107, 33, 168, 0.15); padding-top: 8px;">
+                  <span style="font-size: 9px; color: #6b21a8; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px;">Frecuencia por Canal</span>
+                  <ul style="margin: 0; padding-left: 15px; font-size: 11px; color: #581c87;">
+                    ${estCont.frecuenciaCanal.map((f: string) => `<li>${f}</li>`).join("")}
+                  </ul>
+                </div>
+              ` : ""}
+            </div>
+          `;
+        }
+
+        consolidatedHtml = `
+          <div class="section-card-general">
+            <h2>1. Informe General de Competidores (IA)</h2>
+            ${pg.resumen ? `<p class="executive-summary">"${pg.resumen}"</p>` : ""}
+            ${pgGridHtml}
+            ${obsHtml}
+            ${posAndBreachHtml}
+            ${growthOpsHtml}
+            ${pillarsAndFreqHtml}
+          </div>
+        `;
+      }
+    }
+
+    // Build comparison table HTML
+    let tableHtml = "";
+    if (hasMyAnalysisGeneral || completedCompetitorsGeneral.length > 0) {
+      const competitorsHeader = completedCompetitorsGeneral.map((c: any) => `<th>${c.name}</th>`).join("");
+      
+      const posCells = completedCompetitorsGeneral.map((c: any) => {
+        const cDetails = getConsolidatedDetails(c.reportsByChannel);
+        return `<td>${cDetails.positioning || "No disponible"}</td>`;
+      }).join("");
+      
+      const strengthsCells = completedCompetitorsGeneral.map((c: any) => {
+        const cDetails = getConsolidatedDetails(c.reportsByChannel);
+        return `<td><ul>${(cDetails.strengths || []).map((s: string) => `<li>${s}</li>`).join("")}</ul></td>`;
+      }).join("");
+      
+      const weaknessesCells = completedCompetitorsGeneral.map((c: any) => {
+        const cDetails = getConsolidatedDetails(c.reportsByChannel);
+        return `<td><ul>${(cDetails.weaknesses || []).map((w: string) => `<li>${w}</li>`).join("")}</ul></td>`;
+      }).join("");
+      
+      const recsCells = completedCompetitorsGeneral.map((c: any) => {
+        const cDetails = getConsolidatedDetails(c.reportsByChannel);
+        return `<td><ul>${(cDetails.recommendations || []).map((r: string) => `<li>${r}</li>`).join("")}</ul></td>`;
+      }).join("");
+
+      tableHtml = `
+        <div class="section-card" style="page-break-before: always;">
+          <h2>2. Tabla Comparativa de Canales Digitales</h2>
+          <table>
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                <th style="width: 150px;">Aspecto</th>
+                <th style="width: 250px; background: #e0e7ff; color: #4338ca;">Mi Negocio (Consolidado)</th>
+                ${competitorsHeader}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight: bold; background: #f8fafc;">Posicionamiento</td>
+                <td style="font-weight: 600; background: #f5f3ff;">${myDetails.positioning}</td>
+                ${posCells}
+              </tr>
+              <tr>
+                <td style="font-weight: bold; background: #f8fafc;">Fortalezas</td>
+                <td style="background: #f5f3ff;"><ul>${(myDetails.strengths || []).map((s: string) => `<li>${s}</li>`).join("")}</ul></td>
+                ${strengthsCells}
+              </tr>
+              <tr>
+                <td style="font-weight: bold; background: #f8fafc;">Debilidades</td>
+                <td style="background: #f5f3ff;"><ul>${(myDetails.weaknesses || []).map((w: string) => `<li>${w}</li>`).join("")}</ul></td>
+                ${weaknessesCells}
+              </tr>
+              <tr>
+                <td style="font-weight: bold; background: #f8fafc;">Recomendaciones</td>
+                <td style="background: #f5f3ff; font-weight: 500; color: #4f46e5;"><ul>${(myDetails.recommendations || []).map((r: string) => `<li>${r}</li>`).join("")}</ul></td>
+                ${recsCells}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Build Individual Competitors Diagnostics HTML
+    let competitorsDiagnosticsHtml = "";
+    if (competitors && competitors.length > 0) {
+      competitorsDiagnosticsHtml = `
+        <div class="section-card" style="page-break-before: always;">
+          <h2>3. Diagnósticos Estratégicos Individuales de Competidores</h2>
+          ${competitors.map((comp: any) => {
+            const compAnalysis = comp.insights?.strategicAnalysis || (() => {
+              // Si no tiene el strategicAnalysis consolidado, generamos uno a partir de sus canales
+              const channelMap: Record<string, { key: string; label: string }> = {
+                WEBSITE: { key: "WEBSITE", label: "Sitio Web" },
+                FACEBOOK: { key: "FACEBOOK", label: "Facebook" },
+                INSTAGRAM: { key: "INSTAGRAM", label: "Instagram" },
+                TIKTOK: { key: "TIKTOK", label: "TikTok" },
+                LINKEDIN: { key: "LINKEDIN", label: "LinkedIn" },
+                YOUTUBE: { key: "YOUTUBE", label: "YouTube" },
+                SEO_GOOGLE: { key: "SEO_GOOGLE", label: "SEO Google" },
+              };
+              const fortalezas: string[] = [];
+              const debilidades: string[] = [];
+              const recomendaciones: string[] = [];
+
+              for (const [chKey, chConfig] of Object.entries(channelMap)) {
+                const report = comp.reportsByChannel?.[chKey];
+                if (!report || report.status !== "COMPLETED" || !report.data) continue;
+                const data = normalizeReportData(report.data);
+                if (!data) continue;
+                const chName = chConfig.label;
+
+                const strengthSources = [
+                  data.business_insights?.main_strengths,
+                  data.business_insights?.differentiators,
+                  data.ux_analysis?.ux_strengths,
+                  data.competitive_observations?.main_strengths,
+                  data.competitive_observations?.differentiators,
+                  data.competitive_insights?.strengths,
+                  data.content_analysis?.top_performing_content,
+                  data.content_analysis?.content_pillars,
+                  data.branding_analysis?.brand_personality,
+                  data.engagement_analysis?.social_proof_signals,
+                  data.community_analysis?.audience_loyalty_indicators,
+                  data.strengths,
+                  data.instagram_presence?.brand_summary ? [data.instagram_presence.brand_summary] : null,
+                  data.competitive_observations?.customer_perception_indicators,
+                  data.products,
+                  data.topics,
+                ];
+
+                for (const src of strengthSources) {
+                  if (!src) continue;
+                  const items = Array.isArray(src) ? src : (typeof src === "string" ? [src] : []);
+                  items.slice(0, 3).forEach((item: any) => {
+                    if (item && typeof item === "string" && fortalezas.length < 10) {
+                      fortalezas.push(`${item} (${chName})`);
+                    }
+                  });
+                }
+
+                const weaknessSources = [
+                  data.business_insights?.main_weaknesses,
+                  data.ux_analysis?.ux_weaknesses,
+                  data.competitive_observations?.main_weaknesses,
+                  data.competitive_insights?.weaknesses,
+                  data.data_quality?.missing_information,
+                  data.growthOps,
+                  data.weaknesses,
+                ];
+
+                for (const src of weaknessSources) {
+                  if (!src) continue;
+                  const items = Array.isArray(src) ? src : (typeof src === "string" ? [src] : []);
+                  items.slice(0, 3).forEach((item: any) => {
+                    if (item && typeof item === "string" && debilidades.length < 10) {
+                      debilidades.push(`${item} (${chName})`);
+                    }
+                  });
+                }
+
+                const recSources = [
+                  data.strategic_recommendations,
+                  data.recommendations,
+                  data.contentRecs,
+                  data.content_recommendations,
+                  data.marketing_insights?.content_recommendations,
+                  data.competitive_insights?.opportunities,
+                  data.growthOps,
+                ];
+
+                for (const src of recSources) {
+                  if (!src) continue;
+                  const items = Array.isArray(src) ? src : (typeof src === "string" ? [src] : []);
+                  items.slice(0, 3).forEach((item: any) => {
+                    if (item && typeof item === "string" && recomendaciones.length < 10) {
+                      recomendaciones.push(`${item} (${chName})`);
+                    }
+                  });
+                }
+              }
+
+              if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.length === 0) {
+                return null;
+              }
+
+              return {
+                desempenoCanales: fortalezas,
+                debilidadesGaps: debilidades,
+                planContramedida: recomendaciones
+              };
+            })();
+
+            // Build channel analysis table for this specific competitor
+            const compCards = cards.filter((c: any) => c.competitorId === comp.id);
+            let channelTableHtml = "";
+            if (compCards.length > 0) {
+              const rowsHtml = compCards.map((card: any) => {
+                const report = card.report;
+                if (!report || report.status !== "COMPLETED") {
+                  return `
+                    <tr>
+                      <td style="font-weight: bold; color: #4b5563; padding: 8px; border: 1px solid #e5e7eb;">${card.label}</td>
+                      <td colspan="4" style="color: #6b7280; font-style: italic; padding: 8px; border: 1px solid #e5e7eb;">Análisis de canal pendiente o sin iniciar</td>
+                    </tr>
+                  `;
+                }
+
+                let dataObj: any = null;
+                try {
+                  dataObj = typeof report.data === "string" ? JSON.parse(report.data) : report.data;
+                  if (Array.isArray(dataObj) && dataObj.length > 0) {
+                    dataObj = dataObj[0].output || dataObj[0];
+                  }
+                } catch (e) {
+                  console.error("Error parsing competitor card data for PDF", e);
+                }
+
+                if (!dataObj) {
+                  return `
+                    <tr>
+                      <td style="font-weight: bold; color: #4b5563; padding: 8px; border: 1px solid #e5e7eb;">${card.label}</td>
+                      <td colspan="4" style="color: #6b7280; padding: 8px; border: 1px solid #e5e7eb;">No hay datos detallados disponibles</td>
+                    </tr>
+                  `;
+                }
+
+                const isTikTok = card.channel === "TIKTOK";
+                const isInstagram = card.channel === "INSTAGRAM";
+                const isFacebook = card.channel === "FACEBOOK";
+
+                let strengths = dataObj.strengths || dataObj.products || [];
+                let weaknesses = dataObj.weaknesses || dataObj.promotions || [];
+                let recommendations = dataObj.strategic_recommendations || dataObj.recommendations || [];
+                let positioning = dataObj.market_positioning || dataObj.competitor_overview?.market_positioning || "";
+
+                let metricsList: string[] = [];
+
+                if (isTikTok) {
+                  const profile = dataObj.profile || {};
+                  const engagement = dataObj.engagement || {};
+                  
+                  if (profile.followers) metricsList.push(`Seguidores: ${formatLocaleNumber(profile.followers)}`);
+                  if (profile.total_likes) metricsList.push(`Me gusta: ${formatLocaleNumber(profile.total_likes)}`);
+                  if (profile.total_videos) metricsList.push(`Videos: ${profile.total_videos}`);
+                  if (engagement.engagement_level) metricsList.push(`Engagement: ${engagement.engagement_level}`);
+                  
+                  strengths = dataObj.competitive_observations?.main_strengths || strengths;
+                  weaknesses = dataObj.competitive_observations?.main_weaknesses || weaknesses;
+                  recommendations = dataObj.strategic_recommendations || recommendations;
+                } else if (isInstagram) {
+                  const presence = dataObj.instagram_presence || {};
+                  const size = presence.audience_size || {};
+                  const engagement = dataObj.engagement_analysis || {};
+
+                  if (size.followers) metricsList.push(`Seguidores: ${formatLocaleNumber(size.followers)}`);
+                  if (size.posts_count) metricsList.push(`Publicaciones: ${size.posts_count}`);
+                  if (engagement.engagement_level) metricsList.push(`Engagement: ${engagement.engagement_level}`);
+
+                  strengths = dataObj.competitive_observations?.main_strengths || strengths;
+                  weaknesses = dataObj.competitive_observations?.main_weaknesses || weaknesses;
+                } else if (isFacebook) {
+                  const presence = dataObj.facebook_presence || {};
+                  const metrics = presence.audience_metrics || {};
+                  
+                  if (metrics.followers) metricsList.push(`Seguidores: ${formatLocaleNumber(metrics.followers)}`);
+                  if (metrics.talking_about_count) metricsList.push(`Actividad (Talking): ${formatLocaleNumber(metrics.talking_about_count)}`);
+                } else {
+                  const bIdentity = dataObj.brand_identity || {};
+                  const wAnalysis = dataObj.website_analysis || {};
+                  const bInsights = dataObj.business_insights || {};
+                  const dQuality = dataObj.data_quality || {};
+
+                  if (bIdentity.market_positioning) positioning = bIdentity.market_positioning;
+                  if (dQuality.confidence_score) metricsList.push(`Confianza: ${Math.round(dQuality.confidence_score * 100)}%`);
+                  
+                  strengths = bInsights.main_strengths || strengths;
+                  weaknesses = bInsights.main_weaknesses || weaknesses;
+                  
+                  if (wAnalysis.content_focus) {
+                    metricsList.push(`Estrategia: ${wAnalysis.content_focus?.slice(0, 2).join(", ") || "N/D"}`);
+                  }
+                }
+
+                const strengthsHtml = Array.isArray(strengths) ? strengths.slice(0, 3).map((s: string) => `<li>${s}</li>`).join("") : `<li>${strengths}</li>`;
+                const weaknessesHtml = Array.isArray(weaknesses) ? weaknesses.slice(0, 3).map((w: string) => `<li>${w}</li>`).join("") : `<li>${weaknesses}</li>`;
+                const recsHtml = Array.isArray(recommendations) ? recommendations.slice(0, 3).map((r: string) => `<li>${r}</li>`).join("") : `<li>${recommendations}</li>`;
+
+                return `
+                  <tr>
+                    <td style="font-weight: bold; color: #1e3a8a; vertical-align: top; padding: 8px; border: 1px solid #e5e7eb;">
+                      ${card.label}
+                      <div style="font-size: 9px; color: #6b7280; font-weight: normal; margin-top: 2px; word-break: break-all;">
+                        ${card.url || "N/D"}
+                      </div>
+                    </td>
+                    <td style="vertical-align: top; padding: 8px; border: 1px solid #e5e7eb; font-size: 11px;">
+                      ${positioning || "N/D"}
+                    </td>
+                    <td style="vertical-align: top; padding: 8px; border: 1px solid #e5e7eb; font-size: 11px;">
+                      ${metricsList.length > 0 ? `<ul style="padding-left: 12px; margin: 0;">${metricsList.map(m => `<li>${m}</li>`).join("")}</ul>` : "N/D"}
+                    </td>
+                    <td style="vertical-align: top; padding: 8px; border: 1px solid #e5e7eb; font-size: 11px;">
+                      <div style="color: #166534; font-weight: bold;">Fortalezas:</div>
+                      <ul style="padding-left: 12px; margin-bottom: 4px;">${strengthsHtml || "<li>N/D</li>"}</ul>
+                      <div style="color: #991b1b; font-weight: bold;">Debilidades:</div>
+                      <ul style="padding-left: 12px; margin-bottom: 0;">${weaknessesHtml || "<li>N/D</li>"}</ul>
+                    </td>
+                    <td style="vertical-align: top; padding: 8px; border: 1px solid #e5e7eb; font-size: 11px;">
+                      <ul style="padding-left: 12px; margin: 0;">${recsHtml || "<li>N/D</li>"}</ul>
+                    </td>
+                  </tr>
+                `;
+              }).join("");
+
+              channelTableHtml = `
+                <div style="margin-top: 20px; page-break-inside: avoid;">
+                  <h4 style="color: #4b5563; font-size: 11px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase;">
+                    Detalle de Análisis de Canales - ${comp.name}
+                  </h4>
+                  <table style="width: 100%; border-collapse: collapse; margin-top: 2px; font-size: 11px; border: 1px solid #e5e7eb;">
+                    <thead>
+                      <tr style="background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
+                        <th style="padding: 8px; border: 1px solid #e5e7eb; text-align: left; width: 15%;">Canal</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb; text-align: left; width: 25%;">Posicionamiento</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb; text-align: left; width: 15%;">Métricas</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb; text-align: left; width: 25%;">Fortalezas / Debilidades</th>
+                        <th style="padding: 8px; border: 1px solid #e5e7eb; text-align: left; width: 20%;">Recomendaciones IA</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${rowsHtml}
+                    </tbody>
+                  </table>
+                </div>
+              `;
+            }
+
+            return `
+              <div class="competitor-diagnostic-block" style="margin-bottom: 45px; border-bottom: 2px solid #e2e8f0; padding-bottom: 30px; page-break-inside: avoid;">
+                <h3 style="color: #1e3a8a; border-bottom: 2px solid #dbeafe; padding-bottom: 6px; font-size: 18px; font-weight: 700; margin-bottom: 15px;">
+                  Competidor: ${comp.name}
+                </h3>
+                
+                ${compAnalysis ? `
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px;">
+                      <h4 style="color: #166534; margin: 0 0 8px 0; font-size: 13px;">Desempeño de Canales (Fortalezas)</h4>
+                      <ul>${formatList(compAnalysis.desempenoCanales)}</ul>
+                    </div>
+                    <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 15px; border-radius: 8px;">
+                      <h4 style="color: #991b1b; margin: 0 0 8px 0; font-size: 13px;">Debilidades y Brechas (Gaps)</h4>
+                      <ul>${formatList(compAnalysis.debilidadesGaps)}</ul>
+                    </div>
+                  </div>
+                  <div style="margin-top: 15px; background: #f5f3ff; border: 1px solid #ddd6fe; padding: 15px; border-radius: 8px;">
+                    <h4 style="color: #4f46e5; margin: 0 0 8px 0; font-size: 13px;">Plan de Acción Contramedida</h4>
+                    <ul>${formatList(compAnalysis.planContramedida)}</ul>
+                  </div>
+                ` : `
+                  <p style="color: #64748b; font-style: italic;">No hay diagnóstico estratégico disponible aún para este competidor.</p>
+                `}
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Análisis de Competidores - ${brandName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+            body {
+              font-family: 'Outfit', sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 40px;
+              line-height: 1.6;
+              background-color: #ffffff;
+            }
+            .header-container {
+              border-bottom: 3px solid #3b82f6;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header-container h1 {
+              margin: 0 0 10px 0;
+              font-size: 32px;
+              color: #1e1b4b;
+              font-weight: 800;
+              letter-spacing: -0.025em;
+            }
+            .metadata-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              font-size: 13px;
+              color: #64748b;
+            }
+            h2 {
+              color: #1e1b4b;
+              font-size: 22px;
+              border-bottom: 2px solid #f1f5f9;
+              padding-bottom: 8px;
+              margin-top: 0;
+              font-weight: 700;
+            }
+            h3 {
+              color: #1e3a8a;
+              font-size: 17px;
+              margin-bottom: 12px;
+              font-weight: 600;
+            }
+            .section-card-general {
+              background: linear-gradient(135deg, rgba(239, 246, 255, 0.4), #ffffff 50%, #ffffff);
+              border: 1px solid rgba(191, 219, 254, 0.8);
+              box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+              padding: 24px;
+              border-radius: 12px;
+              margin-bottom: 40px;
+            }
+            .section-card {
+              margin-bottom: 40px;
+            }
+            .executive-summary {
+              font-size: 15px;
+              line-height: 1.6;
+              color: #1e3a8a;
+              font-style: italic;
+              background: rgba(219, 234, 254, 0.3);
+              padding: 20px;
+              border-left: 4px solid #3b82f6;
+              border-radius: 8px;
+              margin-bottom: 25px;
+            }
+            .swot-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-top: 20px;
+              margin-bottom: 25px;
+            }
+            .swot-card {
+              padding: 18px;
+              border-radius: 12px;
+              border: 1px solid;
+            }
+            .swot-fortalezas { background: #f0fdf4; border-color: #bbf7d0; }
+            .swot-fortalezas h4 { color: #166534; margin: 0 0 10px 0; font-size: 14px; font-weight: 700; }
+            .swot-debilidades { background: #fef2f2; border-color: #fecaca; }
+            .swot-debilidades h4 { color: #991b1b; margin: 0 0 10px 0; font-size: 14px; font-weight: 700; }
+            
+            .sub-section {
+              margin-top: 25px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 15px;
+              font-size: 11px;
+            }
+            th {
+              background: #f8fafc;
+              text-align: left;
+              padding: 10px;
+              border: 1px solid #cbd5e1;
+              font-weight: 700;
+              color: #334155;
+            }
+            td {
+              padding: 10px;
+              border: 1px solid #cbd5e1;
+              color: #334155;
+              vertical-align: top;
+            }
+            ul {
+              padding-left: 15px;
+              margin: 0;
+            }
+            li {
+              margin-bottom: 5px;
+            }
+            @media print {
+              body {
+                padding: 20px;
+              }
+              .section-card {
+                page-break-inside: auto;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-container">
+            <h1>Análisis de Competencia - Negocio: ${brandName}</h1>
+            <div class="metadata-grid">
+              <div><strong>Fecha de Generación:</strong> ${dateStr}</div>
+              <div style="text-align: right;"><strong>Generado por:</strong> OB MarketHub (IA)</div>
+            </div>
+          </div>
+
+          ${consolidatedHtml}
+          ${tableHtml}
+          ${competitorsDiagnosticsHtml}
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const getFlatRecommendations = (reportData: any) => {
     if (!reportData) return [];
 
@@ -1299,16 +1973,27 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
               <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               Informe General de Competidores (IA)
             </CardTitle>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleGenerateReport}
-              disabled={generatingReport}
-              className="gap-2 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-slate-800 bg-blue-50 dark:bg-slate-900 hover:bg-blue-100 dark:hover:bg-slate-800"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${generatingReport ? 'animate-spin' : ''}`} />
-              {generatingReport ? 'Generando...' : 'Actualizar Informe'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                className="gap-2 text-blue-750 dark:text-blue-400 border-blue-200 dark:border-slate-800 bg-blue-50/50 dark:bg-slate-900 hover:bg-blue-100 dark:hover:bg-slate-800"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Descargar PDF
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleGenerateReport}
+                disabled={generatingReport}
+                className="gap-2 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-slate-800 bg-blue-50 dark:bg-slate-900 hover:bg-blue-100 dark:hover:bg-slate-800"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${generatingReport ? 'animate-spin' : ''}`} />
+                {generatingReport ? 'Generando...' : 'Actualizar Informe'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4 pb-4">
             <div className={`relative transition-all duration-500 ease-in-out overflow-hidden ${!showFullGeneralReport ? 'max-h-[380px]' : 'max-h-[5000px]'}`}>
@@ -1431,7 +2116,7 @@ export function CompetitorsAnalysisClient({ businessId, businessName, initialCom
                     disabled={generatingReport}
                     className="gap-1.5 text-xs text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-slate-800 bg-indigo-50/50 dark:bg-slate-900 hover:bg-indigo-100 dark:hover:bg-slate-800"
                   >
-                    <RefreshCw className={`h-3 w-3 ${generatingReport ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${generatingReport ? 'animate-spin' : ''}`} />
                     Actualizar Informe
                   </Button>
                 </div>

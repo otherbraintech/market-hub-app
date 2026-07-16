@@ -12,7 +12,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, Target, Users, Megaphone, Compass } from "lucide-react";
+import { Eye, Target, Users, Megaphone, Compass, Download } from "lucide-react";
+import { toast } from "sonner";
 
 interface ViewStrategyDialogProps {
   strategy: {
@@ -53,6 +54,332 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
   const funnelStages = safeParseJsonArray(strategy.funnelStages);
   const channels = safeParseJsonArray(strategy.channels);
 
+  const handleDownloadPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("El navegador bloqueó la ventana emergente. Por favor, permite ventanas emergentes para este sitio.");
+      return;
+    }
+
+    const brandName = strategy.business?.name || "Mi Negocio";
+    const strategyName = strategy.name || "Estrategia de Marketing";
+    const dateStr = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Objectives HTML
+    let objectivesHtml = "";
+    if (objectives && objectives.length > 0) {
+      objectivesHtml = `
+        <div class="section-card">
+          <h2>1. Objetivos SMART</h2>
+          <div class="objectives-grid">
+            ${objectives.map((obj: any) => `
+              <div class="card obj-card">
+                <div class="card-header">
+                  <div class="card-title">${obj.name || "Objetivo"}</div>
+                  <span class="badge ${obj.status === 'COMPLETED' ? 'badge-completed' : 'badge-pending'}">${obj.status || 'PENDIENTE'}</span>
+                </div>
+                <div class="card-body">
+                  <p><strong>Específico (S):</strong> ${obj.specific || ""}</p>
+                  <p><strong>Medible (M):</strong> ${obj.measurable || ""}</p>
+                  <p><strong>Meta:</strong> ${obj.targetValue || ""} ${obj.unit || ""}</p>
+                  <p><strong>Plazo:</strong> ${obj.deadline || ""}</p>
+                  ${obj.timeBound ? `<p><strong>Temporal (T):</strong> ${obj.timeBound}</p>` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    // Buyer Personas HTML
+    let personasHtml = "";
+    if (personas && personas.length > 0) {
+      personasHtml = `
+        <div class="section-card">
+          <h2>2. Público Objetivo (Buyer Personas)</h2>
+          <div class="personas-grid">
+            ${personas.map((p: any) => `
+              <div class="card persona-card">
+                <div class="card-header bg-accent">
+                  <div class="card-title">${p.name || "Persona"}</div>
+                  <span class="demographics">${p.demographics || ""}</span>
+                </div>
+                <div class="card-body">
+                  <p><strong>Objetivos y Deseos:</strong><br>${p.goals || "No definidos"}</p>
+                  <p><strong>Puntos de Dolor:</strong><br>${p.painPoints || "No definidos"}</p>
+                  ${p.communication ? `
+                    <div class="sub-info">
+                      ${p.communication.tone ? `<p><strong>Tono:</strong> ${p.communication.tone}</p>` : ""}
+                      ${p.communication.triggers ? `<p><strong>Triggers:</strong> ${p.communication.triggers}</p>` : ""}
+                      ${p.communication.topics ? `<p><strong>Temas de interés:</strong> ${p.communication.topics}</p>` : ""}
+                    </div>
+                  ` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    // Funnel Stages HTML
+    let funnelHtml = "";
+    if (funnelStages && funnelStages.length > 0) {
+      funnelHtml = `
+        <div class="section-card">
+          <h2>3. Fases del Funnel de Ventas</h2>
+          <div class="funnel-list">
+            ${funnelStages.map((stage: any, idx: number) => `
+              <div class="funnel-item">
+                <div class="funnel-number">${idx + 1}</div>
+                <div class="funnel-content">
+                  <div class="funnel-name">${stage.name || ""}</div>
+                  <div class="funnel-desc">${stage.description || ""}</div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    // Channels HTML
+    let channelsHtml = "";
+    if (channels && channels.length > 0) {
+      channelsHtml = `
+        <div class="section-card">
+          <h2>4. Plan de Canales y Frecuencia</h2>
+          <div class="channels-grid">
+            ${channels.map((ch: any) => `
+              <div class="card channel-card">
+                <div class="card-header">
+                  <div class="card-title">${ch.name || ""}</div>
+                  <span class="badge badge-channel">${ch.type || "SOCIAL"}</span>
+                </div>
+                <div class="card-body">
+                  ${ch.frequency ? `<p><strong>Frecuencia:</strong> ${ch.frequency}</p>` : ""}
+                  ${ch.notes ? `<p class="notes"><strong>Notas:</strong> <em>${ch.notes}</em></p>` : ""}
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${strategyName} - ${brandName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;750;800&display=swap');
+            body {
+              font-family: 'Outfit', sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 40px;
+              line-height: 1.5;
+              background-color: #ffffff;
+            }
+            .header-container {
+              border-bottom: 3px solid #8b5cf6;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .header-container h1 {
+              margin: 0 0 10px 0;
+              font-size: 28px;
+              color: #1e1b4b;
+              font-weight: 800;
+              letter-spacing: -0.025em;
+            }
+            .metadata-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              font-size: 13px;
+              color: #64748b;
+            }
+            h2 {
+              color: #1e1b4b;
+              font-size: 20px;
+              border-bottom: 2px solid #f1f5f9;
+              padding-bottom: 8px;
+              margin-top: 0;
+              margin-bottom: 20px;
+              font-weight: 700;
+            }
+            .description-box {
+              font-size: 14px;
+              line-height: 1.6;
+              color: #475569;
+              background: #f8fafc;
+              padding: 20px;
+              border-left: 4px solid #8b5cf6;
+              border-radius: 8px;
+              margin-bottom: 30px;
+            }
+            .section-card {
+              margin-bottom: 35px;
+              page-break-inside: avoid;
+            }
+            .card {
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              overflow: hidden;
+              background: #fff;
+              margin-bottom: 15px;
+            }
+            .card-header {
+              padding: 12px 16px;
+              background: #f8fafc;
+              border-bottom: 1px solid #e2e8f0;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .card-header.bg-accent {
+              background: #eef2ff;
+              border-bottom-color: #e0e7ff;
+            }
+            .card-title {
+              font-weight: 750;
+              font-size: 14px;
+              color: #1e1b4b;
+            }
+            .card-body {
+              padding: 16px;
+              font-size: 12px;
+              color: #334155;
+            }
+            .card-body p {
+              margin: 0 0 8px 0;
+            }
+            .card-body p:last-child {
+              margin-bottom: 0;
+            }
+            .badge {
+              padding: 3px 8px;
+              border-radius: 6px;
+              font-size: 9px;
+              font-weight: 700;
+              text-transform: uppercase;
+            }
+            .badge-completed { background: #dcfce7; color: #166534; }
+            .badge-pending { background: #fef3c7; color: #92400e; }
+            .badge-channel { background: #f1f5f9; color: #475569; }
+            .demographics {
+              font-size: 11px;
+              color: #4f46e5;
+              font-weight: 600;
+            }
+            .sub-info {
+              margin-top: 12px;
+              padding-top: 12px;
+              border-top: 1px dashed #e2e8f0;
+            }
+            .objectives-grid, .personas-grid, .channels-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 15px;
+            }
+            @media (max-width: 600px) {
+              .objectives-grid, .personas-grid, .channels-grid {
+                grid-template-columns: 1fr;
+              }
+            }
+            .funnel-list {
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+            }
+            .funnel-item {
+              display: flex;
+              gap: 15px;
+              padding: 15px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 10px;
+              align-items: flex-start;
+            }
+            .funnel-number {
+              width: 24px;
+              height: 24px;
+              background: #8b5cf6;
+              color: #fff;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 800;
+              font-size: 12px;
+              flex-shrink: 0;
+            }
+            .funnel-content {
+              font-size: 12px;
+            }
+            .funnel-name {
+              font-weight: 700;
+              color: #1e1b4b;
+              margin-bottom: 4px;
+            }
+            .funnel-desc {
+              color: #475569;
+            }
+            .notes {
+              color: #64748b;
+              background: #fafafa;
+              padding: 8px;
+              border-radius: 6px;
+              border-left: 2px solid #cbd5e1;
+            }
+            @media print {
+              body {
+                padding: 20px;
+              }
+              .section-card {
+                page-break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-container">
+            <h1>Plan Estratégico: ${strategyName}</h1>
+            <div class="metadata-grid">
+              <div><strong>Negocio:</strong> ${brandName}</div>
+              <div style="text-align: right;"><strong>Fecha:</strong> ${dateStr}</div>
+            </div>
+          </div>
+
+          ${strategy.description ? `
+            <div class="description-box">
+              <strong>Descripción General:</strong><br>
+              ${strategy.description.replace(/\n/g, '<br>')}
+            </div>
+          ` : ""}
+
+          ${objectivesHtml}
+          ${personasHtml}
+          ${funnelHtml}
+          ${channelsHtml}
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -75,6 +402,15 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
                 Estrategia de marketing para {strategy.business?.name || "tu negocio"}.
               </DialogDescription>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPDF}
+              className="gap-2 text-violet-750 dark:text-violet-400 border-violet-200 dark:border-slate-800 bg-violet-50/50 dark:bg-slate-900 hover:bg-violet-100 dark:hover:bg-slate-800 shrink-0 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Descargar PDF
+            </Button>
           </div>
         </DialogHeader>
 

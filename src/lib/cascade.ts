@@ -24,9 +24,13 @@ async function addAgentNotification(businessId: string, title: string, message: 
   }
 }
 
-// Función principal para disparar la generación en cascada en segundo plano
-export async function triggerCascadeGeneration(businessId: string, force = false, onlyStage?: 'STRATEGY' | 'CAMPAIGN') {
-  console.log(`[CASCADE] Iniciando generación en cascada para el negocio: ${businessId} (force: ${force}, onlyStage: ${onlyStage})`);
+export async function triggerCascadeGeneration(
+  businessId: string, 
+  force = false, 
+  onlyStage?: 'STRATEGY' | 'CAMPAIGN' | 'CALENDAR',
+  requestedStartDate?: string
+) {
+  console.log(`[CASCADE] Iniciando generación en cascada para el negocio: ${businessId} (force: ${force}, onlyStage: ${onlyStage}, requestedStartDate: ${requestedStartDate})`);
   try {
     // Registrar el inicio del proceso de consolidación de agentes
     await addAgentNotification(
@@ -117,7 +121,14 @@ export async function triggerCascadeGeneration(businessId: string, force = false
       "COMPLETED"
     );
 
-    // 2. Generar y guardar Estrategias de Marketing para alcanzar un mínimo de 3 sin borrar las existentes
+    // 2. Generar Estrategia de Marketing (limpieza aislada por etapa)
+    if (force && onlyStage === 'STRATEGY') {
+      console.log(`[CASCADE] Limpiando SOLO estrategias previas para el negocio ${businessId}...`);
+      await prisma.marketingStrategy.deleteMany({
+        where: { businessId }
+      });
+    }
+
     const existingStrategies = await prisma.marketingStrategy.findMany({
       where: { businessId }
     });
@@ -126,7 +137,7 @@ export async function triggerCascadeGeneration(businessId: string, force = false
 
     const needed = force ? 1 : (existingCount < 1 ? 1 - existingCount : 0);
 
-    if (onlyStage !== 'CAMPAIGN' && needed > 0) {
+    if (onlyStage !== 'CAMPAIGN' && onlyStage !== 'CALENDAR' && needed > 0) {
       console.log(`[CASCADE] Generando ${needed} estrategias...`);
       await addAgentNotification(
         businessId, 
@@ -136,6 +147,22 @@ export async function triggerCascadeGeneration(businessId: string, force = false
         "PROCESSING"
       );
       
+      // Obtener el reporte consolidado propio para extraer la propuesta de valor real
+      const consolidatedReport = await prisma.analysisReport.findFirst({
+        where: { type: 'MY_BUSINESS', entityId: businessId, channel: 'CONSOLIDATED', status: 'COMPLETED' }
+      });
+      let valueProp = "";
+      if (consolidatedReport && consolidatedReport.data) {
+        try {
+          const parsed = typeof consolidatedReport.data === 'string' 
+            ? JSON.parse(consolidatedReport.data) 
+            : consolidatedReport.data;
+          valueProp = parsed.marketPosition?.value_proposition || parsed.valueProposition || parsed.executiveSummary || "";
+        } catch (e) {
+          console.error("Error parsing consolidated report for value proposition:", e);
+        }
+      }
+
       // Obtener los reportes individuales y detalles de competidores
       const businessReports = await prisma.analysisReport.findMany({
         where: { type: 'MY_BUSINESS', entityId: businessId, status: 'COMPLETED', NOT: { channel: 'CONSOLIDATED' } }
@@ -174,16 +201,14 @@ export async function triggerCascadeGeneration(businessId: string, force = false
           description: business.description,
           industry: business.industry,
           website: business.website,
+          valueProposition: valueProp,
+          targetAudience: business.targetAudience,
         },
         products: business.products,
         myScrapedChannels: Array.from(businessReportsMap.entries()).map(([channel, report]) => {
           let dataObj = report.data;
           if (typeof report.data === 'string') {
-            try {
-              dataObj = JSON.parse(report.data);
-            } catch (e) {
-              console.error('Error parsing report data:', e);
-            }
+            try { dataObj = JSON.parse(report.data); } catch (e) {}
           }
           return {
             channel,
@@ -251,7 +276,72 @@ export async function triggerCascadeGeneration(businessId: string, force = false
       return;
     }
 
-    // 3. Generar Campañas de Marketing para alcanzar un mínimo de 3 sin borrar nada
+    // Si solo regeneramos CALENDARIO: saltar campaña y estrategia, solo limpiar y regenerar contenidos
+    if (onlyStage === 'CALENDAR') {
+      console.log(`[CASCADE] Regenerando SOLO el calendario de contenidos para el negocio: ${businessId}`);
+      
+      // Borrar solo los contenidos existentes
+      await prisma.content.deleteMany({
+        where: { campaign: { businessId } }
+      });
+
+      // Tomar campañas existentes
+      const existingCampaignsForCal = await prisma.campaign.findMany({
+        where: { businessId }
+      });
+
+      if (existingCampaignsForCal.length === 0) {
+        console.log(`[CASCADE] No hay campañas existentes para regenerar el calendario.`);
+        await addAgentNotification(businessId, "Agente Editorial", "No se encontraron campañas para generar el calendario. Genera una campaña primero.", "CALENDAR", "FAILED");
+        return;
+      }
+
+      await addAgentNotification(businessId, "Agente Editorial de Contenido", "Regenerando distribución de contenidos y publicaciones en el calendario multicanal...", "CALENDAR", "PROCESSING");
+
+      // Regenerar contenidos para cada campaña existente
+      for (const campaign of existingCampaignsForCal) {
+        const campaignChannels = Array.isArray(campaign.channels)
+          ? (campaign.channels as any[]).map((c: any) => c.platform || String(c))
+          : ['INSTAGRAM'];
+        
+        // Re-generar los contenidos de la campaña usando IA
+        const contentsData = await generateCalendarContentsCascade(business, savedStrategies, campaign);
+        
+        for (const post of contentsData) {
+          for (const chan of campaignChannels) {
+            const normalizedChannel = String(chan).toUpperCase();
+            await prisma.content.create({
+              data: {
+                campaignId: campaign.id,
+                type: (post.type as any) || "POST",
+                title: post.title,
+                body: post.body || '',
+                caption: post.caption || '',
+                promptUsed: post.promptUsed || '',
+                channel: (normalizedChannel as any) || "INSTAGRAM",
+                status: "SCHEDULED",
+                scheduledAt: new Date(post.scheduledAt),
+              }
+            });
+          }
+        }
+      }
+
+      await addAgentNotification(businessId, "Agente Editorial de Contenido", "Calendario editorial regenerado con éxito.", "CALENDAR", "COMPLETED");
+      return;
+    }
+
+    // 3. Generar Campañas de Marketing (limpieza aislada por etapa)
+    if (force && onlyStage === 'CAMPAIGN') {
+      console.log(`[CASCADE] Limpiando SOLO campañas y contenidos previos para el negocio ${businessId}...`);
+      await prisma.content.deleteMany({
+        where: { campaign: { businessId } }
+      });
+      await prisma.campaign.deleteMany({
+        where: { businessId }
+      });
+    }
+
     const existingCampaigns = await prisma.campaign.findMany({
       where: { businessId }
     });
@@ -271,12 +361,22 @@ export async function triggerCascadeGeneration(businessId: string, force = false
       );
 
       // Generar campañas adicionales mapeadas a las estrategias disponibles
-      const campaignsData = await generateCampaignsCascade(business, savedStrategies, neededCampaigns);
+      const campaignsData = await generateCampaignsCascade(business, savedStrategies, neededCampaigns, requestedStartDate);
 
       for (const camp of campaignsData) {
         // Mapear a cuál estrategia pertenece
         const matchedStrategy = savedStrategies.find(s => s.name.toLowerCase().includes((camp.strategyKeyword || '').toLowerCase()));
         const strategyId = matchedStrategy ? matchedStrategy.id : savedStrategies[0]?.id;
+
+        // Calcular fechas en base a la fecha de inicio solicitada por el usuario de forma segura contra desfasajes de zona horaria (UTC vs Local)
+        let finalStartDate: Date;
+        if (requestedStartDate) {
+          const [year, month, day] = requestedStartDate.split('-').map(Number);
+          finalStartDate = new Date(year, month - 1, day, 12, 0, 0);
+        } else {
+          finalStartDate = new Date(camp.startDate);
+        }
+        const finalEndDate = new Date(finalStartDate.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 días
 
         const createdCampaign = await prisma.campaign.create({
           data: {
@@ -286,8 +386,8 @@ export async function triggerCascadeGeneration(businessId: string, force = false
             slug: camp.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
             description: camp.description,
             objective: (camp.objective as any) || "AWARENESS",
-            startDate: new Date(camp.startDate),
-            endDate: new Date(camp.endDate),
+            startDate: finalStartDate,
+            endDate: finalEndDate,
             status: "ACTIVE",
             channels: (camp.channels || ['FACEBOOK', 'INSTAGRAM', 'TIKTOK']).map((chan: any) => {
               if (typeof chan === 'object' && chan !== null) return chan;
@@ -385,6 +485,8 @@ interface CascadeContext {
     description: string | null;
     industry: string | null;
     website: string | null;
+    valueProposition?: string | null;
+    targetAudience?: any;
   };
   products: unknown[];
   competitorScrapedDetails: unknown[];
@@ -456,16 +558,20 @@ async function generateStrategiesCascade(context: CascadeContext, count: number)
       system: `Eres un estratega digital de élite. Genera exactamente ${count} estrategias de marketing innovadoras, personalizadas y diferenciadas para el negocio en base al contexto dado.
 Reglas clave:
 1. El negocio tiene como objetivo primordial una de estas metas: Conversión (ventas / WhatsApp), Posicionamiento de marca (reconocimiento local) o Crecimiento en redes sociales.
-2. ${hasWebsite ? 'El negocio tiene sitio web.' : 'El negocio NO tiene sitio web. Queda estrictamente PROHIBIDO sugerir canales de sitio web, blogs o landing pages. Prioriza WhatsApp y canales de redes sociales (Facebook, Instagram, TikTok, LinkedIn, YouTube).'}
-3. Limita el análisis comparativo a máximo 3 competidores locales si los hay en el contexto.
-4. Cumple exactamente con el esquema de base de datos para evitar campos vacíos o 'PENDIENTE':
+2. REGLA ESTRICTA DE CANALES PERMITIDOS: Queda terminantemente prohibido sugerir o incluir canales de distribución como 'Sitio Web', 'Blog', 'Email Marketing', 'Google Ads' o similares en el array 'channels'. Cada estrategia generada DEBE proponer única y exclusivamente tres canales en el array 'channels': 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array de canales propuestos debe tener exactamente y únicamente estos 3 elementos, mapeándolos en minúsculas o mayúsculas de forma uniforme como FACEBOOK, INSTAGRAM y TIKTOK).
+3. Todas las recomendaciones deben estar dirigidas a pautas y contenidos orgánicos dentro de Facebook, Instagram y TikTok.
+4. Limita el análisis comparativo a máximo 3 competidores locales si los hay en el contexto.
+5. Cumple exactamente con el esquema de base de datos para evitar campos vacíos o 'PENDIENTE':
    - Cada objetivo SMART debe estar completamente redactado. Todos los campos (specific, measurable, achievable, relevant, timeBound) son obligatorios y deben ser descripciones detalladas de al menos 5 caracteres.
    - En personas, demographics, painPoints y goals son cadenas de texto simples (para painPoints y goals, ponlas separadas por comas en una única cadena).
    - En funnelStages, crea etapas de embudo estándar (ej. awareness, consideration, decision, retention).
-5. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Bajo ninguna circunstancia inventes, agregues, combines, asumas o sugieras productos, servicios o variaciones de los mismos que no estén expresamente mencionados en la descripción del negocio o en su lista de productos. Por ejemplo, si el negocio menciona 'panqueques de camote' o 'panqueques de banana', NO inventes 'panqueque de chuño' u otros sabores. Limítate única y exclusivamente a los productos reales proporcionados.`,
+6. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Bajo ninguna circunstancia inventes, agregues, combines, asumas o sugieras productos, servicios o variaciones de los mismos que no estén expresamente mencionados en la descripción del negocio o en su lista de productos. Limítate única y exclusivamente a los productos reales proporcionados.
+7. ALINEACIÓN FIEL DE BUYER PERSONA: En el array 'personas', los buyer personas generados NO deben ser aleatorios ni genéricos. Debes analizar detenidamente el 'Público Objetivo' (targetAudience) y la 'Propuesta de Valor' (valueProposition) del negocio que se te proveen, y derivar perfiles específicos, realistas y directamente relacionados con este público modelado y el sector. Si el usuario definió una demografía o psicografía particular, el buyer persona debe encajar y rankear directamente con esa definición.`,
       prompt: `Genera ${count} estrategias para el negocio: ${context.business.name}.
 Descripción: ${context.business.description}.
 Industria: ${context.business.industry}.
+Propuesta de Valor: ${context.business.valueProposition || "No definida"}.
+Público Objetivo Modelado (Demografía/Psicografía): ${JSON.stringify(context.business.targetAudience || "No definido")}.
 Productos: ${JSON.stringify(context.products)}.
 Detalles de Competidores analizados (máximo 3): ${JSON.stringify(context.competitorScrapedDetails)}.
 Responde estrictamente con JSON en el formato especificado.`,
@@ -478,9 +584,16 @@ Responde estrictamente con JSON en el formato especificado.`,
 }
 
 // Generar campañas adicionales basadas en las estrategias
-export async function generateCampaignsCascade(business: { name: string }, strategies: Strategy[], count: number) {
+export async function generateCampaignsCascade(
+  business: { name: string }, 
+  strategies: Strategy[], 
+  count: number,
+  startDateRequested?: string
+) {
   const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
   if (!openRouterKey) return getFallbackCampaigns(business, strategies, count);
+
+  const baseDateStr = startDateRequested || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Mañana por defecto
 
   try {
     const { object } = await generateObject({
@@ -511,20 +624,115 @@ export async function generateCampaignsCascade(business: { name: string }, strat
           }))
         }))
       }),
-      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener entre 3 y 5 publicaciones sugeridas de contenido planificado con fechas distribuidas durante el próximo mes.
+      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener exactamente 8 publicaciones sugeridas de contenido planificado distribuidas a lo largo del próximo mes.
 Reglas clave:
-1. Cada campaña generada debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas). Las fechas generadas deben estar situadas en el año ${new Date().getFullYear()}.
-2. Para cada publicación en 'contents', debes redactar un 'promptUsed' detallado en inglés de al menos 15 palabras para generadores de imágenes por IA como Midjourney o DALL-E, que describa la composición visual, estilo fotográfico premium y colores correspondientes.
-3. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, agregar, deducir o sugerir productos, servicios o variantes de productos que no estén explícitamente declarados en la información del negocio. No combines ingredientes ni inventes recetas nuevas (ej. no inventes 'panqueque de chuño'). Promociona única y exclusivamente los productos descritos.`,
+1. Cada campaña generada debe durar exactamente 30 días (1 mes completo). Establece la fecha de inicio ('startDate') en "${baseDateStr}" y la fecha de finalización ('endDate') exactamente 30 días después.
+2. Cada campaña debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas). Las fechas generadas deben estar situadas en el año ${new Date().getFullYear()}.
+3. Para cumplir con la Regla 60-25-15 en la frecuencia baja (8 publicaciones mensuales totales), debes generar exactamente 8 publicaciones de contenidos en el array 'contents'. Estas 8 publicaciones deben estar distribuidas equitativamente y espaciadas uniformemente a lo largo de los 30 días de duración de la campaña (por ejemplo, con una separación de 3 o 4 días entre cada publicación, comenzando desde "${baseDateStr}"):
+   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (equivalente al 60% de videos cortos)
+   - 2 publicaciones de tipo 'CAROUSEL' (equivalente al 25% de carruseles)
+   - 1 publicación de tipo 'POST' (equivalente al 15% de imágenes estáticas)
+4. Para cada publicación en 'contents', debes redactar un 'promptUsed' detallado en inglés de al menos 15 palabras para generadores de imágenes por IA como Midjourney o DALL-E, que describa la composición visual, estilo fotográfico premium y colores correspondientes.
+5. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, agregar, deducir o sugerir productos, servicios o variantes de productos que no estén explícitamente declarados en la información del negocio. No combines ingredientes ni inventes recetas nuevas (ej. no inventes 'panqueque de chuño'). Promociona única y exclusivamente los productos descritos.
+6. REGLA DE PRESUPUESTO REALISTA (BOLIVIA/LATAM): El presupuesto sugerido de publicidad ('budget') para cada campaña debe ser moderado y adaptado a pymes en Bolivia. Debe situarse estrictamente en un rango de entre $15 y $75 USD para toda la campaña (por ejemplo, $30, $45 o $60 USD), distribuyéndose proporcionalmente entre Facebook, Instagram y TikTok Ads. Evita presupuestos altos e irreales de $200, $300 o $500 USD.`,
       prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
-        `\nGenera fechas coherentes de planificación en formato ISO que inicien desde hoy (${new Date().toISOString().split('T')[0]}) en adelante, todas pertenecientes al año ${new Date().getFullYear()}.`,
+        `\nGenera exactamente 8 publicaciones (5 videos/reels, 2 carruseles y 1 post) con fechas coherentes de planificación en formato ISO que inicien exactamente desde "${baseDateStr}" en adelante, distribuidas a lo largo de 30 días en el año ${new Date().getFullYear()}.`,
     });
     return object.campaigns.slice(0, count);
   } catch (e) {
     console.error('[CASCADE] Error llamando a IA para campañas, usando fallback:', e);
     return getFallbackCampaigns(business, strategies, count);
   }
+}
+
+// Regenera SOLO los contenidos/publicaciones para una campaña existente (sin tocar la campaña)
+export async function generateCalendarContentsCascade(
+  business: { name: string },
+  strategies: Strategy[],
+  campaign: { id: string; name: string; description: string | null; channels: any; objective: string }
+) {
+  const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
+  
+  const campaignChannels = Array.isArray(campaign.channels)
+    ? (campaign.channels as any[]).map((c: any) => c.platform || String(c))
+    : ['INSTAGRAM'];
+
+  if (!openRouterKey) {
+    // Fallback: generar contenidos básicos
+    return getFallbackCalendarContents(business, campaign, campaignChannels);
+  }
+
+  try {
+    const { object } = await generateObject({
+      model: openrouter('google/gemini-2.5-flash'),
+      schema: z.object({
+        contents: z.array(z.object({
+          type: z.enum(['POST', 'STORY', 'REEL', 'VIDEO', 'CAROUSEL', 'EMAIL', 'AD']),
+          title: z.string(),
+          body: z.string(),
+          caption: z.string(),
+          promptUsed: z.string().describe("AI image generator prompt in English describing the visual design, style and composition"),
+          scheduledAt: z.string()
+        }))
+      }),
+      system: `Eres un Director Editorial y de Contenidos. Tu tarea es regenerar SOLO las publicaciones del calendario editorial para una campaña existente.
+Genera exactamente 8 publicaciones variadas distribuidas equitativamente a lo largo del próximo mes (30 días).
+Reglas clave:
+1. Para cumplir con la Regla 60-25-15 en la frecuencia baja (8 publicaciones mensuales totales), debes generar exactamente 8 publicaciones de contenidos. Las fechas de estas publicaciones deben distribuirse equitativamente a lo largo de los 30 días de la campaña (con una separación de aproximadamente 3 o 4 días entre posts):
+   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (60% de videos cortos)
+   - 2 publicaciones de tipo 'CAROUSEL' (25% de carruseles)
+   - 1 publicación de tipo 'POST' (15% de imágenes estáticas)
+2. Para cada publicación, redacta un 'promptUsed' detallado en inglés de al menos 15 palabras para Midjourney/DALL-E describiendo composición visual y estilo.
+3. NO inventes productos que no estén en la información del negocio.
+4. Las fechas deben empezar desde hoy (${new Date().toISOString().split('T')[0]}) en adelante, distribuidas en los próximos 30 días, año ${new Date().getFullYear()}.`,
+      prompt: `Regenera las publicaciones del calendario para:
+Negocio: ${business.name}
+Campaña: "${campaign.name}" - ${campaign.description || 'Sin descripción'}
+Objetivo de la campaña: ${campaign.objective}
+Canales activos: ${campaignChannels.join(', ')}
+${strategies.length > 0 ? `Estrategia base: "${strategies[0].name}" - ${strategies[0].description}` : ''}
+Genera exactamente 8 publicaciones (5 videos/reels, 2 carruseles y 1 post) distribuidas de forma espaciada durante los próximos 30 días para esta campaña.`,
+    });
+    return object.contents;
+  } catch (e) {
+    console.error('[CASCADE] Error llamando a IA para calendario, usando fallback:', e);
+    return getFallbackCalendarContents(business, campaign, campaignChannels);
+  }
+}
+
+function getFallbackCalendarContents(
+  business: { name: string },
+  campaign: { name: string; description: string | null },
+  channels: string[]
+) {
+  const today = new Date();
+  return [
+    {
+      type: 'POST' as const,
+      title: `Conoce lo mejor de ${business.name}`,
+      body: `Descubre nuestra selección especial en ${business.name}.`,
+      caption: `✨ Lo mejor de ${business.name} te espera. ¡No te lo pierdas! #${business.name.replace(/\s/g, '')}`,
+      promptUsed: `Professional product photography for ${business.name}, clean white background, premium lighting, commercial style`,
+      scheduledAt: new Date(today.getTime() + 2 * 86400000).toISOString()
+    },
+    {
+      type: 'STORY' as const,
+      title: `Detrás de escena de ${business.name}`,
+      body: `Un vistazo al proceso creativo.`,
+      caption: `👀 Así trabajamos en ${business.name}. ¿Te gusta lo que ves? #BehindTheScenes`,
+      promptUsed: `Behind the scenes candid shot of a small business workspace, warm ambient lighting, authentic feel, Instagram story format`,
+      scheduledAt: new Date(today.getTime() + 5 * 86400000).toISOString()
+    },
+    {
+      type: 'REEL' as const,
+      title: `Tips rápidos con ${business.name}`,
+      body: `Contenido dinámico y educativo.`,
+      caption: `🎬 Tips que no te puedes perder de ${business.name}. ¡Guarda este reel! #Tips #${business.name.replace(/\s/g, '')}`,
+      promptUsed: `Dynamic social media reel thumbnail, vibrant colors, bold text overlay, engaging visual for ${business.name}`,
+      scheduledAt: new Date(today.getTime() + 10 * 86400000).toISOString()
+    }
+  ];
 }
 
 function getFallbackStrategies(context: CascadeContext, count: number) {

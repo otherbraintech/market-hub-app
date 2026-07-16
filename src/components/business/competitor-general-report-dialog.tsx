@@ -66,7 +66,7 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
         <div className="space-y-3">
           {Object.entries(val).map(([key, value]) => (
             <div key={key} className="space-y-1 bg-muted/20 p-3 rounded-lg border">
-              <span className="text-xs font-bold text-foreground capitalize block border-b pb-1 mb-2">
+              <span className="text-[10px] font-bold text-foreground capitalize block border-b pb-1 mb-2">
                 {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}
               </span>
               {renderSectionContent(value)}
@@ -78,6 +78,8 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
     return String(val);
   };
 
+  const summaryObj = data.executiveSummary || {};
+
   // Detect structures
   const isSpanishKeysStructure = !!(
     data.panoramaGlobal || 
@@ -85,21 +87,30 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
     data.oportunidadesGaps || 
     data.estrategiaContenidos || 
     data.estrategiaPosicionamiento || 
-    data.tacticasConversionPrecios
+    data.tacticasConversionPrecios ||
+    summaryObj.panoramaGlobal ||
+    summaryObj.analisisCanales ||
+    summaryObj.oportunidadesGaps ||
+    summaryObj.estrategiaContenidos ||
+    summaryObj.estrategiaPosicionamiento ||
+    summaryObj.tacticasConversionPrecios
   );
 
   const competitors = Array.isArray(data.competitors) ? data.competitors : [];
   const metadata = data.metadata || {};
 
-  // Extract executiveSummary safely
+  // Extract panoramaGlobal safely for display as the global summary
   let executiveSummary = "No se ha generado un resumen ejecutivo.";
-  if (typeof data.executiveSummary === "string") {
+  const rawPanorama = data.panoramaGlobal || summaryObj.panoramaGlobal;
+  if (rawPanorama) {
+    if (typeof rawPanorama === "string") {
+      executiveSummary = rawPanorama;
+    } else if (typeof rawPanorama === "object") {
+      // Si es un objeto, extrae el campo resumen o consolida sus textos
+      executiveSummary = rawPanorama.resumen || rawPanorama.panorama || Object.values(rawPanorama).filter(v => typeof v === "string").join("\n") || JSON.stringify(rawPanorama);
+    }
+  } else if (typeof data.executiveSummary === "string") {
     executiveSummary = data.executiveSummary;
-  } else if (typeof data.panoramaGlobal === "string") {
-    executiveSummary = data.panoramaGlobal;
-  } else if (data.executiveSummary && typeof data.executiveSummary === "object") {
-    const values = Object.values(data.executiveSummary).filter(v => typeof v === "string");
-    if (values.length > 0) executiveSummary = values[0] as string;
   }
 
   return (
@@ -156,27 +167,27 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
 
               <Tabs defaultValue="analisisCanales" className="w-full">
                 <TabsList className="w-full flex justify-start overflow-x-auto bg-muted/30 p-1 mb-4 h-auto flex-wrap">
-                  {data.analisisCanales && (
+                  {(data.analisisCanales || summaryObj.analisisCanales) && (
                     <TabsTrigger value="analisisCanales" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
                       Análisis de Canales
                     </TabsTrigger>
                   )}
-                  {data.oportunidadesGaps && (
+                  {(data.oportunidadesGaps || summaryObj.oportunidadesGaps) && (
                     <TabsTrigger value="oportunidadesGaps" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
                       Oportunidades & Gaps
                     </TabsTrigger>
                   )}
-                  {data.estrategiaContenidos && (
+                  {(data.estrategiaContenidos || summaryObj.estrategiaContenidos) && (
                     <TabsTrigger value="estrategiaContenidos" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
                       Contenidos
                     </TabsTrigger>
                   )}
-                  {data.estrategiaPosicionamiento && (
+                  {(data.estrategiaPosicionamiento || summaryObj.estrategiaPosicionamiento) && (
                     <TabsTrigger value="estrategiaPosicionamiento" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
                       Posicionamiento
                     </TabsTrigger>
                   )}
-                  {data.tacticasConversionPrecios && (
+                  {(data.tacticasConversionPrecios || summaryObj.tacticasConversionPrecios) && (
                     <TabsTrigger value="tacticasConversionPrecios" className="text-xs px-3 py-1.5 rounded-lg data-[state=active]:bg-background cursor-pointer">
                       Conversión & Precios
                     </TabsTrigger>
@@ -184,19 +195,19 @@ export function CompetitorGeneralReportDialog({ reportData }: CompetitorGeneralR
                 </TabsList>
 
                 <TabsContent value="analisisCanales" className="mt-0 focus-visible:outline-none">
-                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.analisisCanales)}</CardContent></Card>
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.analisisCanales || summaryObj.analisisCanales)}</CardContent></Card>
                 </TabsContent>
                 <TabsContent value="oportunidadesGaps" className="mt-0 focus-visible:outline-none">
-                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.oportunidadesGaps)}</CardContent></Card>
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.oportunidadesGaps || summaryObj.oportunidadesGaps)}</CardContent></Card>
                 </TabsContent>
                 <TabsContent value="estrategiaContenidos" className="mt-0 focus-visible:outline-none">
-                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.estrategiaContenidos)}</CardContent></Card>
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.estrategiaContenidos || summaryObj.estrategiaContenidos)}</CardContent></Card>
                 </TabsContent>
                 <TabsContent value="estrategiaPosicionamiento" className="mt-0 focus-visible:outline-none">
-                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.estrategiaPosicionamiento)}</CardContent></Card>
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.estrategiaPosicionamiento || summaryObj.estrategiaPosicionamiento)}</CardContent></Card>
                 </TabsContent>
                 <TabsContent value="tacticasConversionPrecios" className="mt-0 focus-visible:outline-none">
-                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.tacticasConversionPrecios)}</CardContent></Card>
+                  <Card className="border-none shadow-none"><CardContent className="p-0">{renderSectionContent(data.tacticasConversionPrecios || summaryObj.tacticasConversionPrecios)}</CardContent></Card>
                 </TabsContent>
               </Tabs>
             </div>

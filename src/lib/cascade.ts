@@ -152,12 +152,14 @@ export async function triggerCascadeGeneration(
         where: { type: 'MY_BUSINESS', entityId: businessId, channel: 'CONSOLIDATED', status: 'COMPLETED' }
       });
       let valueProp = "";
+      let generatedBuyerPersonas: any[] = [];
       if (consolidatedReport && consolidatedReport.data) {
         try {
           const parsed = typeof consolidatedReport.data === 'string' 
             ? JSON.parse(consolidatedReport.data) 
             : consolidatedReport.data;
           valueProp = parsed.marketPosition?.value_proposition || parsed.valueProposition || parsed.executiveSummary || "";
+          generatedBuyerPersonas = parsed.buyerPersonas || [];
         } catch (e) {
           console.error("Error parsing consolidated report for value proposition:", e);
         }
@@ -204,6 +206,7 @@ export async function triggerCascadeGeneration(
           valueProposition: valueProp,
           targetAudience: business.targetAudience,
         },
+        buyerPersonas: generatedBuyerPersonas,
         products: business.products,
         myScrapedChannels: Array.from(businessReportsMap.entries()).map(([channel, report]) => {
           let dataObj = report.data;
@@ -566,9 +569,8 @@ Reglas clave:
    - En personas, demographics, painPoints y goals son cadenas de texto simples (para painPoints y goals, ponlas separadas por comas en una única cadena).
    - En funnelStages, crea etapas de embudo estándar (ej. awareness, consideration, decision, retention).
 6. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Bajo ninguna circunstancia inventes, agregues, combines, asumas o sugieras productos, servicios o variaciones de los mismos que no estén expresamente mencionados en la descripción del negocio o en su lista de productos. Limítate única y exclusivamente a los productos reales proporcionados.
-7. ALINEACIÓN FIEL Y ESTRICTA DEL BUYER PERSONA: En el array 'personas', debes crear perfiles de cliente ideal basados directamente en el 'Público Objetivo Modelado' (targetAudience) y la 'Propuesta de Valor' (valueProposition) provistos.
-   - Analiza el JSON de 'targetAudience' (su demografía, su comportamiento, etc.). Si el usuario definió que el público objetivo son, por ejemplo, 'mujeres jóvenes de 20-30 años interesadas en repostería fina' o 'padres de familia locales', el buyer persona DEBE reflejar exactamente este perfil demográfico y psicográfico.
-   - Los dolores ('painPoints') y metas ('goals') del buyer persona deben estar estrechamente conectados con los productos reales del negocio y su propuesta de valor. Por ejemplo, si vendes tortas personalizadas, el dolor del buyer persona debe ser 'Dificultad para encontrar tortas personalizadas de alta calidad y con entrega a tiempo en su zona' y no dolores genéricos no relacionados.
+7. REUTILIZACIÓN OBLIGATORIA DE BUYER PERSONAS DEL BANCO DE DATOS: Si en el prompt se proveen Buyer Personas pre-generados en el Banco de Datos (dentro de 'buyerPersonas'), debes reutilizar exactamente esos 4 perfiles en el array 'personas' de cada estrategia (manteniendo su nombre, demographics, goals, painPoints y communication tone/topics/triggers). Solo si no hay ninguno pre-generado, debes crearlos de cero en base al 'Público Objetivo Modelado' (targetAudience) y la 'Propuesta de Valor' (valueProposition) provistos.
+   - Los dolores ('painPoints') y metas ('goals') del buyer persona deben estar estrechamente conectados con los productos reales del negocio y su propuesta de valor.
    - No generes nombres de fantasía absurdos o no profesionales. Crea arquetipos creíbles e hiper-alineados con la geografía e industria del negocio.`,
       prompt: `Genera ${count} estrategias para el negocio: ${context.business.name}.
 Detalles del Negocio:
@@ -576,10 +578,11 @@ Detalles del Negocio:
 - Industria: ${context.business.industry || "No especificada"}.
 - Propuesta de Valor Real: ${context.business.valueProposition || "No definida"}.
 - Público Objetivo Configurado (Demografía y Psicografía a usar obligatoriamente): ${JSON.stringify(context.business.targetAudience || "No definido")}.
+- Buyer Personas Pre-generados en Banco de Datos (Reutilizar OBLIGATORIAMENTE si existen): ${JSON.stringify((context as any).buyerPersonas || [])}.
 - Catálogo de Productos Reales: ${JSON.stringify(context.products)}.
 - Datos e informes de competidores: ${JSON.stringify(context.competitorScrapedDetails)}.
 
-Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer personas asegurando que cada persona represente el segmento de mayor afinidad y similitud extraído del 'Público Objetivo Configurado' y que sus necesidades se solucionen directamente con el 'Catálogo de Productos Reales'. Responde estrictamente con JSON en el formato especificado.`,
+Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer personas. Si hay 'Buyer Personas Pre-generados', copia sus campos al pie de la letra para mantener consistencia absoluta entre la etapa de base de datos y la estrategia. Responde estrictamente con JSON en el formato especificado.`,
     });
     return object.strategies.slice(0, count);
   } catch (e) {

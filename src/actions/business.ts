@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { businessSchema } from "@/lib/schemas/business";
 import { z } from "zod";
 import { triggerAnalysis } from "@/lib/analysis-service";
@@ -486,7 +487,11 @@ export async function startScrapingStage(businessId: string) {
 
     // 1. Limpiar notificaciones y reportes viejos para reiniciar limpio
     await prisma.agentNotification.deleteMany({ where: { businessId } });
-    await prisma.analysisReport.deleteMany({ where: { entityId: businessId, NOT: { channel: "CONSOLIDATED" } } });
+    await prisma.analysisReport.deleteMany({ where: { entityId: businessId } });
+    await prisma.business.update({
+      where: { id: businessId },
+      data: { competitorGeneralReport: Prisma.DbNull, competitorGeneralReportGeneratedAt: null }
+    });
     
     const competitorIds = business.competitors.map(c => c.id);
     if (competitorIds.length > 0) {
@@ -561,8 +566,8 @@ export async function startScrapingStage(businessId: string) {
       }
     }
 
-    // Ejecutar asíncronamente
-    Promise.allSettled(promises);
+    // Await execution to prevent Next.js from terminating the context prematurely
+    await Promise.allSettled(promises);
 
     return { success: true };
   } catch (error) {

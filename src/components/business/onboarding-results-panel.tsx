@@ -160,6 +160,8 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
+  const [isTriggeredInSession, setIsTriggeredInSession] = useState(false);
 
   const [selectedCompetitorId, setSelectedCompetitorId] = useState<string>("");
 
@@ -176,7 +178,23 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   const [notifications, setNotifications] = useState<AgentNotification[]>([]);
 
   const handleStartScraping = async () => {
+    setIsDismissed(false);
+    setIsTriggeredInSession(true);
     setScrapingLoading(true);
+    if (data) {
+      setData((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          businessReports: [],
+          competitorReports: [],
+          businessInfo: {
+            ...prev.businessInfo,
+            competitorGeneralReport: null
+          }
+        };
+      });
+    }
     try {
       const res = await startScrapingStage(businessId);
       if (res.success) {
@@ -212,6 +230,8 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   };
 
   const handleStartStrategy = async () => {
+    setIsDismissed(false);
+    setIsTriggeredInSession(true);
     setStrategyLoading(true);
     try {
       const res = await startStrategyStage(businessId);
@@ -238,6 +258,8 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   }, []);
 
   const handleStartCampaign = async () => {
+    setIsDismissed(false);
+    setIsTriggeredInSession(true);
     setCampaignLoading(true);
     try {
       const res = await startCampaignStage(businessId, campaignStartDate || undefined);
@@ -256,6 +278,8 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   };
 
   const handleStartCalendar = async () => {
+    setIsDismissed(false);
+    setIsTriggeredInSession(true);
     setCalendarLoading(true);
     try {
       const res = await startCalendarStage(businessId);
@@ -444,10 +468,24 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   const isCalendarReady = campaigns.length > 0;
 
   const getStepStatus = (stepKey: string) => {
-    const stepNotifs = notifications.filter(n => n.step === stepKey);
+    if (stepKey === 'SCRAPING') {
+      if (individualBusinessReports.length > 0 || competitorReports.length > 0) {
+        return 'completed';
+      }
+    }
+
+    const stepNotifs = notifications
+      .filter(n => n.step === stepKey)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     if (stepNotifs.length > 0) {
       const latestNotif = stepNotifs[0];
       if (latestNotif.status === 'PROCESSING') {
+        const ageMs = Date.now() - new Date(latestNotif.createdAt).getTime();
+        const maxAgeMs = 15 * 60 * 1000; // 15 minutos
+        if (ageMs > maxAgeMs) {
+          return 'idle'; // Considerar estancado
+        }
         return 'processing';
       }
       if (latestNotif.status === 'FAILED') return 'failed';
@@ -493,71 +531,18 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   const scrapingStatus = getStepStatus("SCRAPING");
   const diagnosticStatus = getStepStatus("DIAGNOSTIC");
 
-  const isWaitModalOpen = 
-    (loading && !data) ||
-    ((scrapingStatus === "processing" || 
-      diagnosticStatus === "processing" || 
-      scrapingLoading || 
-      diagnosticLoading) && 
-     !(consolidatedReport && data?.businessInfo?.competitorGeneralReport));
 
-  const getDialogProgressContent = () => {
-    if (loading && !data) {
-      return {
-        stage: 1,
-        title: "Cargando Banco de Datos",
-        description: "Iniciando la conexión con los agentes de inteligencia artificial y recuperando el estado de tu negocio..."
-      };
-    }
-    if (scrapingStatus === "processing" || scrapingLoading) {
-      return {
-        stage: 1,
-        title: "Etapa 1: Extrayendo Información Digital",
-        description: "Nuestros agentes están recorriendo tu sitio web y tus perfiles de redes sociales y los de tus competidores para extraer publicaciones y datos clave del mercado."
-      };
-    }
-    if (diagnosticStatus === "processing" || diagnosticLoading) {
-      const hasSomeIndividualReports = individualBusinessReports.length > 0 || competitorReports.length > 0;
-      if (!hasSomeIndividualReports) {
-        return {
-          stage: 2,
-          title: "Etapa 2: Realizando Diagnóstico por Canal",
-          description: "La IA está analizando de forma independiente cada canal de comunicación digital y evaluando su frecuencia, tono, consistencia e interacción."
-        };
-      } else {
-        return {
-          stage: 3,
-          title: "Etapa 3: Consolidando Informe Competitivo (FODA)",
-          description: "El agente analista compila la información total, realiza la comparación y elabora la matriz FODA y el informe general de tus competidores locales."
-        };
-      }
-    }
-    return {
-      stage: 1,
-      title: "Cargando agentes...",
-      description: "Preparando los agentes de inteligencia artificial para el análisis."
-    };
-  };
 
   useEffect(() => {
     if (loading || !data) return;
 
-    if (
-      scrapingStatus === "idle" &&
-      diagnosticStatus === "idle" &&
-      individualBusinessReports.length === 0 &&
-      competitorReports.length === 0 &&
-      !scrapingLoading
-    ) {
-      handleStartScraping();
-    }
+    // Se eliminó la autoejecución al montar la pantalla para permitir inicio manual mediante botón en el diálogo.
 
     if (
       scrapingStatus === "completed" &&
       diagnosticStatus === "idle" &&
       !diagnosticLoading &&
-      !consolidatedReport &&
-      !data?.businessInfo?.competitorGeneralReport
+      (!consolidatedReport || !data?.businessInfo?.competitorGeneralReport)
     ) {
       handleStartDiagnostic();
     }
@@ -863,7 +848,7 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
       }
     }
 
-    if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.length === 0) {
+if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.length === 0) {
       return null;
     }
 
@@ -874,6 +859,184 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     };
   };
 
+  const hasReports = individualBusinessReports.length > 0 || competitorReports.length > 0;
+  const isCurrentlyProcessing = scrapingStatus === "processing" || diagnosticStatus === "processing" || scrapingLoading || diagnosticLoading;
+  const isAnalysisComplete = !!consolidatedReport && !!data?.businessInfo?.competitorGeneralReport;
+
+  const isStrategyProcessing = getStepStatus("STRATEGY") === "processing" || strategyLoading;
+
+  const isWaitModalOpen = 
+    !isDismissed && (
+      (loading && !data) ||
+      !isAnalysisComplete ||
+      isCurrentlyProcessing ||
+      isStrategyProcessing ||
+      isCampaignProcessing ||
+      isCalendarProcessing ||
+      isTriggeredInSession ||
+      scrapingStatus === "failed" ||
+      diagnosticStatus === "failed" ||
+      getStepStatus("STRATEGY") === "failed" ||
+      getStepStatus("CAMPAIGN") === "failed" ||
+      getStepStatus("CALENDAR") === "failed"
+    );
+
+  const getDialogProgressContent = () => {
+    if (loading && !data) {
+      return {
+        stage: 1,
+        title: "Cargando Banco de Datos",
+        description: "Iniciando la conexión con los agentes de inteligencia artificial y recuperando el estado de tu negocio..."
+      };
+    }
+    // Estados fallidos de todas las fases
+    if (scrapingStatus === "failed") {
+      return {
+        stage: -1,
+        title: "Fallo en la Extracción Digital",
+        description: "El Agente de Extracción ha reportado un problema de red o conexión al consultar tus canales digitales o los de tus competidores. Por favor, reintenta el proceso."
+      };
+    }
+    if (diagnosticStatus === "failed") {
+      return {
+        stage: -1,
+        title: "Fallo en el Diagnóstico FODA",
+        description: "El Agente de Inteligencia no pudo consolidar la información del mercado. Puedes intentar realizar el análisis de nuevo."
+      };
+    }
+    if (getStepStatus("STRATEGY") === "failed") {
+      return {
+        stage: -1,
+        title: "Fallo en la Estrategia de Growth",
+        description: "El Agente de Estrategia reportó un error al diseñar tus perfiles y objetivos. Por favor, reintenta."
+      };
+    }
+    if (getStepStatus("CAMPAIGN") === "failed") {
+      return {
+        stage: -1,
+        title: "Fallo en las Campañas de Marketing",
+        description: "El Agente de Campañas reportó un error al estructurar tu presupuesto y ofertas. Por favor, reintenta."
+      };
+    }
+    if (getStepStatus("CALENDAR") === "failed") {
+      return {
+        stage: -1,
+        title: "Fallo en el Calendario Editorial",
+        description: "El Agente Editorial reportó un error al redactar las publicaciones. Por favor, reintenta."
+      };
+    }
+
+    // Progresos activos de todas las fases
+    if (isStrategyProcessing) {
+      return {
+        stage: 2,
+        title: "Etapa 2: Diseñando Estrategia de Growth",
+        description: "El Agente Estratega está analizando los buyer personas de alta fidelidad sociocultural y priorizando tus objetivos de negocio."
+      };
+    }
+    if (isCampaignProcessing) {
+      return {
+        stage: 3,
+        title: "Etapa 3: Estructurando Campañas",
+        description: "El Agente de Campañas está configurando las metas comerciales, ofertas y canales ideales para capturar a tu cliente ideal."
+      };
+    }
+    if (isCalendarProcessing) {
+      return {
+        stage: 4,
+        title: "Etapa 4: Generando Calendario Editorial",
+        description: "El Agente Editorial está diseñando el cronograma de contenidos y redactando los copys persuasivos bajo la regla 60-25-15."
+      };
+    }
+
+    // Banco de datos listos/progresos
+    if (isAnalysisComplete) {
+      return {
+        stage: 3,
+        title: "Análisis Completado",
+        description: "¡Felicidades! Los agentes autónomos han finalizado de extraer la información de tus canales y la competencia, consolidando el FODA y el diagnóstico con éxito."
+      };
+    }
+    if (!hasReports && !isCurrentlyProcessing) {
+      return {
+        stage: 0,
+        title: "Banco de Datos Listo para Procesar",
+        description: "Nuestros agentes autónomos están listos para analizar tu presencia digital y la de tu competencia directa. Presiona el botón para disparar el reanálisis y la extracción en cascada."
+      };
+    }
+    if (diagnosticStatus === "processing" || diagnosticLoading) {
+      const hasSomeIndividualReports = individualBusinessReports.length > 0 || competitorReports.length > 0;
+      if (!hasSomeIndividualReports) {
+        return {
+          stage: 2,
+          title: "Etapa 2: Realizando Diagnóstico por Canal",
+          description: "La IA está analizando de forma independiente cada canal de comunicación digital y evaluando su frecuencia, tono, consistencia e interacción."
+        };
+      } else {
+        return {
+          stage: 3,
+          title: "Etapa 3: Consolidando Informe Competitivo (FODA)",
+          description: "El agente analista compila la información total, realiza la comparación y elabora la matriz FODA y el informe general de tus competidores locales."
+        };
+      }
+    }
+    if (scrapingStatus === "processing" || scrapingLoading) {
+      return {
+        stage: 1,
+        title: "Etapa 1: Extrayendo Información Digital",
+        description: "Nuestros agentes están recorriendo tu sitio web y tus perfiles de redes sociales y los de tus competidores para extraer publicaciones y datos clave del mercado."
+      };
+    }
+    return {
+      stage: 1,
+      title: "Cargando agentes...",
+      description: "Preparando los agentes de inteligencia artificial para el análisis."
+    };
+  };
+
+  const getDynamicWaitingText = () => {
+    if (scrapingStatus === "processing" || scrapingLoading) {
+      return "Analizando código fuente de sitios web e indexando publicaciones recientes en redes sociales...";
+    }
+    if (diagnosticStatus === "processing" || diagnosticLoading) {
+      const hasSomeIndividualReports = individualBusinessReports.length > 0 || competitorReports.length > 0;
+      if (!hasSomeIndividualReports) {
+        return "Evaluando engagement, frecuencia de publicación y coherencia visual en cada canal digital...";
+      } else {
+        return "Cruzando información del mercado, detectando debilidades competitivas y compilando matriz FODA...";
+      }
+    }
+    if (isStrategyProcessing) {
+      return "Modelando enfoque estratégico, definiendo metas comerciales SMART y perfilando Buyer Personas...";
+    }
+    if (isCampaignProcessing) {
+      return "Estructurando presupuestos ideales, definiendo ofertas de conversión y asignando canales de adquisición...";
+    }
+    if (isCalendarProcessing) {
+      return "Generando el plan de contenidos mensual y redactando copies con IA bajo la regla 60-25-15...";
+    }
+    return "Conectando con la red de agentes autónomos y preparando el procesamiento de datos...";
+  };
+
+  const currentProgress = getDialogProgressContent();
+
+  const handleManualTrigger = () => {
+    setIsDismissed(false);
+    handleStartScraping();
+  };
+
+  const tabOrder = ["bancodedatos", "estrategia", "campanas", "calendario"];
+  const currentIdx = tabOrder.indexOf(activeTab);
+  const prevTab = currentIdx > 0 ? tabOrder[currentIdx - 1] : null;
+  const nextTab = currentIdx < tabOrder.length - 1 ? tabOrder[currentIdx + 1] : null;
+
+  const nextLabels: Record<string, string> = {
+    estrategia: "Estrategias de Growth",
+    campanas: "Plan de Campañas",
+    calendario: "Calendario Editorial"
+  };
+
+  const isNextBlocked = nextTab ? isTabBlocked(nextTab) || (activeTab === "bancodedatos" && !hasScrolledToBottom) : false;
 
 
   return (
@@ -891,67 +1054,154 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
       <Dialog open={isWaitModalOpen} onOpenChange={() => {}}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-6 [&>button]:hidden">
           <div className="relative flex items-center justify-center h-20 w-20">
-            <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
-            <div className="relative h-16 w-16 bg-primary/10 rounded-2xl border border-primary/25 flex items-center justify-center text-primary">
-              <Bot className="h-8 w-8 animate-bounce-slow" />
-            </div>
+            {currentProgress.stage === -1 ? (
+              <div className="relative h-16 w-16 bg-rose-550/10 rounded-2xl border border-rose-500/25 flex items-center justify-center text-rose-600">
+                <AlertTriangle className="h-8 w-8 animate-pulse" />
+              </div>
+            ) : (
+              <>
+                {isCurrentlyProcessing && (
+                  <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
+                )}
+                <div className="relative h-16 w-16 bg-primary/10 rounded-2xl border border-primary/25 flex items-center justify-center text-primary">
+                  <Bot className={`h-8 w-8 ${isCurrentlyProcessing ? 'animate-bounce-slow' : ''}`} />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="space-y-2 w-full">
             <div className="flex items-center justify-center gap-1.5">
-              <span className="text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
-                {getDialogProgressContent().title}
+              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
+                currentProgress.stage === -1 
+                  ? "bg-rose-500/10 text-rose-700" 
+                  : "bg-primary/10 text-primary"
+              }`}>
+                {currentProgress.title}
               </span>
             </div>
-            <h3 className="text-lg font-bold text-foreground">Procesando Banco de Datos</h3>
+            <h3 className="text-lg font-bold text-foreground">
+              {currentProgress.stage === -1 ? "Error Detectado" : "Procesando Banco de Datos"}
+            </h3>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-sm font-medium mx-auto">
-              {getDialogProgressContent().description}
+              {currentProgress.description}
             </p>
           </div>
 
-          <div className="flex items-center justify-between w-full max-w-xs border-t pt-4">
-            <div className="flex flex-col items-center">
-              <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                getDialogProgressContent().stage >= 1 
-                  ? getDialogProgressContent().stage > 1 
-                    ? "bg-emerald-500 text-white" 
-                    : "bg-primary text-primary-foreground animate-pulse"
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {getDialogProgressContent().stage > 1 ? <Check className="h-3.5 w-3.5" /> : "1"}
-              </div>
-              <span className="text-[8px] font-bold text-muted-foreground mt-1">Extracción</span>
+          {currentProgress.stage === -1 ? (
+            <div className="w-full pt-2">
+              <Button
+                onClick={() => {
+                  if (getStepStatus("STRATEGY") === "failed") {
+                    handleStartStrategy();
+                  } else if (getStepStatus("CAMPAIGN") === "failed") {
+                    handleStartCampaign();
+                  } else if (getStepStatus("CALENDAR") === "failed") {
+                    handleStartCalendar();
+                  } else {
+                    handleManualTrigger();
+                  }
+                }}
+                className="w-full h-11 rounded-xl bg-rose-650 hover:bg-rose-750 text-white font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Reintentar Etapa Fallida
+              </Button>
             </div>
-            <div className="h-0.5 bg-muted flex-1 mx-2" />
-            <div className="flex flex-col items-center">
-              <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                getDialogProgressContent().stage >= 2 
-                  ? getDialogProgressContent().stage > 2 
-                    ? "bg-emerald-500 text-white" 
-                    : "bg-primary text-primary-foreground animate-pulse"
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                {getDialogProgressContent().stage > 2 ? <Check className="h-3.5 w-3.5" /> : "2"}
-              </div>
-              <span className="text-[8px] font-bold text-muted-foreground mt-1">Diagnóstico</span>
+          ) : !hasReports && !isCurrentlyProcessing ? (
+            <div className="w-full pt-2">
+              <Button
+                onClick={handleManualTrigger}
+                className="w-full h-11 rounded-xl bg-orange-650 hover:bg-orange-700 text-white font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <Cpu className="h-4 w-4 animate-spin-slow" />
+                Iniciar Extracción y Análisis Automático
+              </Button>
             </div>
-            <div className="h-0.5 bg-muted flex-1 mx-2" />
-            <div className="flex flex-col items-center">
-              <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                getDialogProgressContent().stage >= 3 
-                  ? "bg-primary text-primary-foreground animate-pulse" 
-                  : "bg-muted text-muted-foreground"
-              }`}>
-                3
+          ) : (
+            <>
+              <div className="flex items-center justify-between w-full max-w-xs border-t pt-4">
+                <div className="flex flex-col items-center">
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    currentProgress.stage >= 1 
+                      ? currentProgress.stage > 1 
+                        ? "bg-emerald-500 text-white" 
+                        : "bg-primary text-primary-foreground animate-pulse"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {currentProgress.stage > 1 ? <Check className="h-3.5 w-3.5" /> : "1"}
+                  </div>
+                  <span className="text-[8px] font-bold text-muted-foreground mt-1">Extracción</span>
+                </div>
+                <div className="h-0.5 bg-muted flex-1 mx-2" />
+                <div className="flex flex-col items-center">
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    currentProgress.stage >= 2 
+                      ? currentProgress.stage > 2 
+                        ? "bg-emerald-500 text-white" 
+                        : "bg-primary text-primary-foreground animate-pulse"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {currentProgress.stage > 2 ? <Check className="h-3.5 w-3.5" /> : "2"}
+                  </div>
+                  <span className="text-[8px] font-bold text-muted-foreground mt-1">Diagnóstico</span>
+                </div>
+                <div className="h-0.5 bg-muted flex-1 mx-2" />
+                <div className="flex flex-col items-center">
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                    isAnalysisComplete 
+                      ? "bg-emerald-500 text-white" 
+                      : currentProgress.stage >= 3 
+                        ? "bg-primary text-primary-foreground animate-pulse" 
+                        : "bg-muted text-muted-foreground"
+                  }`}>
+                    {isAnalysisComplete ? <Check className="h-3.5 w-3.5" /> : "3"}
+                  </div>
+                  <span className="text-[8px] font-bold text-muted-foreground mt-1">Consolidación</span>
+                </div>
               </div>
-              <span className="text-[8px] font-bold text-muted-foreground mt-1">Consolidación</span>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-semibold">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-            <span>Por favor, espera mientras la IA trabaja de fondo...</span>
-          </div>
+              <div className="flex flex-col items-center gap-3 w-full border-t pt-4">
+                {isCurrentlyProcessing ? (
+                  <>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-semibold px-4 text-center">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
+                      <span className="animate-pulse">{getDynamicWaitingText()}</span>
+                    </div>
+                    {!hasReports && (
+                      <Button
+                        variant="outline"
+                        onClick={handleManualTrigger}
+                        className="h-8 text-[10px] font-black uppercase rounded-xl border-dashed border-orange-500/40 text-orange-750 hover:bg-orange-500/5 mt-2 px-4"
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin-slow text-orange-600" />
+                        ¿Tarda demasiado? Forzar Re-intento
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <div className="w-full pt-2">
+                    <Button
+                      onClick={() => {
+                        setIsDismissed(true);
+                        setIsTriggeredInSession(false);
+                      }}
+                      className={`w-full h-11 rounded-xl font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
+                        isAnalysisComplete
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white animate-bounce-slow"
+                          : "bg-orange-600 hover:bg-orange-700 text-white"
+                      }`}
+                    >
+                      <Eye className="h-4 w-4" />
+                      {isAnalysisComplete
+                        ? "Ver Informe Completo"
+                        : "Ver Resultados Parciales"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1107,11 +1357,22 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
             {/* 1. INFORMACIÓN DE MI NEGOCIO */}
             {data?.businessInfo && (
               <section className="space-y-4">
-                <div className="flex items-center gap-2 border-b pb-2">
-                  <Database className="h-5 w-5 text-orange-600" />
-                  <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                    Información de Mi Negocio
-                  </h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <Database className="h-5 w-5 text-orange-600" />
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                      Información de Mi Negocio
+                    </h3>
+                  </div>
+                  <Button
+                    onClick={handleManualTrigger}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-[10px] font-black uppercase border-orange-500/30 text-orange-700 hover:bg-orange-500/5 rounded-xl gap-1.5"
+                  >
+                    <RefreshCw className="h-3 w-3 text-orange-600" />
+                    Reanalizar Banco de Datos
+                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1578,6 +1839,69 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                             </div>
                           </div>
                         )}
+
+                        {/* Buyer Personas Generados en el Banco de Datos */}
+                        {(!parsedCons.buyerPersonas || parsedCons.buyerPersonas.length === 0) ? (
+                          <div className="space-y-3 border-t pt-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 block flex items-center gap-1.5">
+                              <Users className="h-3.5 w-3.5 text-orange-600" /> Público Objetivo y Buyer Personas (Consolidado Banco de Datos)
+                            </span>
+                            <div className="p-5 bg-orange-500/5 border border-dashed border-orange-200 rounded-2xl text-center space-y-2 max-w-md mx-auto">
+                              <HelpCircle className="h-6 w-6 text-orange-500 mx-auto opacity-70" />
+                              <span className="text-xs font-bold text-slate-800 block">Requiere Reanálisis</span>
+                              <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                                Los perfiles de Buyer Personas se generan de forma integrada en el consolidado del Banco de Datos. Pulsa el botón <strong>"Reanalizar Banco de Datos"</strong> arriba para generarlos por primera vez con el prompt sociocultural.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 border-t pt-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 block flex items-center gap-1.5">
+                              <Users className="h-3.5 w-3.5 text-orange-600" /> Público Objetivo y Buyer Personas (Consolidado Banco de Datos)
+                            </span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                              {parsedCons.buyerPersonas.map((persona: any, index: number) => (
+                                <div key={index} className="p-4 bg-muted/10 rounded-2xl border space-y-3 flex flex-col justify-between">
+                                  <div className="space-y-2.5">
+                                    <div className="flex items-center justify-between border-b pb-2">
+                                      <div className="flex items-center gap-2">
+                                        <div className="h-7 w-7 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 text-orange-600 text-[10px] font-black shrink-0">
+                                          P{index + 1}
+                                        </div>
+                                        <span className="font-bold text-[11.5px] text-foreground">{persona.name || `Audiencia ${index + 1}`}</span>
+                                      </div>
+                                      {persona.demographics && (
+                                        <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-orange-500/5 text-orange-700">
+                                          {persona.demographics}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {persona.goals && (
+                                      <div className="text-[10px]">
+                                        <span className="font-black text-muted-foreground uppercase text-[8.5px] block mb-0.5">Objetivos y Deseos</span>
+                                        <p className="text-slate-650 dark:text-slate-350 leading-relaxed">{persona.goals}</p>
+                                      </div>
+                                    )}
+                                    {persona.painPoints && (
+                                      <div className="text-[10px]">
+                                        <span className="font-black text-rose-500 uppercase text-[8.5px] block mb-0.5 font-bold">Puntos de Dolor</span>
+                                        <p className="text-rose-650 dark:text-rose-350 leading-relaxed font-medium">{persona.painPoints}</p>
+                                      </div>
+                                    )}
+                                    {persona.communication && (
+                                      <div className="p-2.5 bg-background/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5 text-[9.5px]">
+                                        <span className="font-black text-orange-600 uppercase text-[8px] block">Guía de Comunicación</span>
+                                        {persona.communication.tone && <div><strong>Tono de Voz:</strong> {persona.communication.tone}</div>}
+                                        {persona.communication.triggers && <div><strong>Disparadores (Triggers):</strong> {persona.communication.triggers}</div>}
+                                        {persona.communication.topics && <div><strong>Temas clave:</strong> {persona.communication.topics}</div>}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -1617,15 +1941,17 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                       executiveSummary = parsedReport.executiveSummary;
                     }
 
+                    const execSummary = parsedReport.executiveSummary || {};
+
                     // Extraer brechas y oportunidades
-                    const gaps = parsedReport.oportunidadesGaps || parsedReport.opportunitiesGaps || {};
+                    const gaps = parsedReport.oportunidadesGaps || parsedReport.opportunitiesGaps || execSummary.oportunidadesGaps || execSummary.opportunitiesGaps || {};
                     const needs = gaps.necesidadesNoResueltas || gaps.unresolvedNeeds || [];
                     const formats = gaps.formatosDesatendidos || gaps.unattendedFormats || [];
                     const growthOpportunities = gaps.oportunidadesCrecimiento || gaps.growthOpportunities || [];
 
                     // Extraer pilares de contenido
-                    const contents = parsedReport.estrategiaContenidos || parsedReport.contentStrategy || {};
-                    const pillars = contents.pilaresSugeridos || contents.suggestedPillars || [];
+                    const contents = parsedReport.estrategiaContenidos || parsedReport.contentStrategy || execSummary.estrategiaContenidos || execSummary.contentStrategy || {};
+                    const pillars = contents.pilaresContenido || contents.pilaresSugeridos || contents.suggestedPillars || contents.contentPillars || [];
                     const frequencies = contents.frecuenciaCanal || contents.channelFrequencies || [];
 
                     return (
@@ -2051,152 +2377,155 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 animate-in fade-in duration-300">
-                <div className="p-4 bg-gradient-to-br from-purple-500/5 via-violet-500/3 to-indigo-500/5 rounded-2xl border border-purple-200/50 dark:border-purple-900/40 space-y-3">
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="space-y-1">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400">Estrategia Activa</span>
-                      <h6 className="text-sm font-bold text-foreground capitalize">{activeStrategy.name}</h6>
-                    </div>
-                    
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-7 text-[9px] font-black rounded-lg gap-1 border-purple-500/30 text-purple-700 hover:bg-purple-50/5">
-                          <EyeIcon className="h-3 w-3" /> Ver Plan Completo
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl rounded-2xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden bg-background">
-                        <DialogHeader className="p-6 pb-3 border-b shrink-0 bg-muted/20">
-                          <DialogTitle className="text-sm font-black uppercase tracking-wider text-purple-700 flex items-center gap-2">
-                            <Target className="h-4.5 w-4.5 text-purple-600" /> Plan Estratégico de Crecimiento
-                          </DialogTitle>
-                        </DialogHeader>
-
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-purple-200 scrollbar-track-transparent">
-                          <div className="p-4 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-indigo-500/10 rounded-2xl border border-purple-200/50 space-y-2">
-                            <span className="text-[9px] font-black uppercase tracking-widest text-purple-700 dark:text-purple-400">Concepto de la Estrategia</span>
-                            <h4 className="text-base font-bold text-foreground capitalize">{activeStrategy.name}</h4>
-                            {activeStrategy.description && (
-                              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                {activeStrategy.description}
-                              </p>
-                            )}
-                          </div>
-
-                          {parsedStrategyObj.personas.length > 0 && (
-                            <div className="space-y-2">
-                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
-                                <Users className="h-3.5 w-3.5 text-purple-500" /> Buyer Personas
-                              </span>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                {parsedStrategyObj.personas.map((persona: any, index: number) => (
-                                  <div key={index} className="p-3 bg-muted/30 rounded-xl border space-y-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className="h-6 w-6 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[9px] font-black shrink-0">
-                                        P{index + 1}
-                                      </div>
-                                      <span className="font-bold text-[10.5px] text-foreground">{persona.name || persona.nombre || `Audiencia ${index + 1}`}</span>
-                                    </div>
-                                    {(persona.description || persona.profile || persona.perfil) && (
-                                      <p className="text-[9.5px] text-muted-foreground leading-relaxed">{persona.description || persona.profile || persona.perfil}</p>
-                                    )}
-                                    <div className="flex flex-wrap gap-1">
-                                      {persona.age && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-purple-500/5">{persona.age}</Badge>}
-                                      {persona.edad && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-purple-500/5">{persona.edad}</Badge>}
-                                      {persona.gender && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-purple-500/5">{persona.gender}</Badge>}
-                                      {persona.location && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-blue-500/5">{persona.location}</Badge>}
-                                      {persona.ubicacion && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-blue-500/5">{persona.ubicacion}</Badge>}
-                                      {persona.income && <Badge variant="secondary" className="text-[7.5px] font-bold rounded-md bg-emerald-500/5">{persona.income}</Badge>}
-                                    </div>
-                                    {(persona.painPoints || persona.pain_points || persona.problemas) && (
-                                      <div>
-                                        <span className="text-[8px] font-black uppercase tracking-wider text-muted-foreground block mb-1">Puntos de Dolor</span>
-                                        <div className="flex flex-wrap gap-1">
-                                          {(Array.isArray(persona.painPoints || persona.pain_points || persona.problemas) 
-                                            ? (persona.painPoints || persona.pain_points || persona.problemas) 
-                                            : [persona.painPoints || persona.pain_points || persona.problemas]
-                                          ).map((p: any, i: number) => (
-                                            <Badge key={i} variant="outline" className="text-[7.5px] font-medium rounded-md bg-rose-500/5 border-rose-200/50 text-rose-700">
-                                              {typeof p === 'string' ? p : p.title || p.description || JSON.stringify(p)}
-                                            </Badge>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {parsedStrategyObj.objectives.length > 0 && (
-                            <div className="space-y-2">
-                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-purple-500" /> Objetivos Estratégicos
-                              </span>
-                              <div className="grid grid-cols-1 gap-2">
-                                {parsedStrategyObj.objectives.map((obj: any, index: number) => (
-                                  <div key={index} className="p-3 bg-muted/20 rounded-xl border space-y-1">
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-600 font-bold rounded-lg shrink-0 text-[9px]">
-                                        OBJ {index + 1}
-                                      </Badge>
-                                      <span className="font-bold text-[10px] text-foreground leading-tight">
-                                        {typeof obj === "string" ? obj : obj.title || obj.name || obj.objetivo || obj.description}
-                                      </span>
-                                    </div>
-                                    {typeof obj !== "string" && (obj.description || obj.details || obj.detalle || obj.kpi) && (
-                                      <p className="text-[9.5px] text-muted-foreground leading-relaxed pl-[52px]">
-                                        {obj.description || obj.details || obj.detalle}
-                                        {obj.kpi && <span className="font-bold text-purple-600 block mt-0.5">KPI: {obj.kpi}</span>}
-                                      </p>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {parsedStrategyObj.funnelStages.length > 0 && (
-                            <div className="space-y-2">
-                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
-                                <Network className="h-3.5 w-3.5 text-purple-500" /> Embudo de Conversión
-                              </span>
-                              <div className="flex flex-wrap gap-1.5">
-                                {parsedStrategyObj.funnelStages.map((stage: any, i: number) => (
-                                  <div key={i} className="flex items-center gap-1">
-                                    <Badge variant="outline" className="bg-violet-500/5 border-violet-300/40 text-violet-700 dark:text-violet-300 font-bold text-[9px] rounded-lg px-2.5 py-1">
-                                      {typeof stage === 'string' ? stage : stage.name || stage.stage || stage.etapa}
-                                    </Badge>
-                                    {i < parsedStrategyObj.funnelStages.length - 1 && <ArrowRight className="h-3 w-3 text-muted-foreground/40" />}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
+              <div className="space-y-6 animate-in fade-in duration-300">
+                {/* Concepto de la Estrategia */}
+                <div className="p-5 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-indigo-500/10 rounded-2xl border border-purple-200/50 space-y-2">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-purple-750 dark:text-purple-400">Concepto de la Estrategia</span>
+                  <h4 className="text-base font-bold text-foreground capitalize">{activeStrategy.name}</h4>
                   {activeStrategy.description && (
-                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
                       {activeStrategy.description}
                     </p>
                   )}
                 </div>
+                {parsedStrategyObj.funnelStages.length > 0 && (
+                  <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
+                      <Network className="h-3.5 w-3.5 text-purple-500" /> Fases del Funnel de Ventas
+                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                      {parsedStrategyObj.funnelStages.map((stage: any, idx: number) => (
+                        <div key={idx} className="p-3 bg-muted/10 rounded-xl border flex flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-purple-500/10 text-purple-650 flex items-center justify-center font-black text-[10px] shrink-0">
+                              {idx + 1}
+                            </div>
+                            <span className="font-bold text-[11px] text-foreground capitalize">
+                              {stage.name || stage.stage || stage.etapa}
+                            </span>
+                          </div>
+                          {(stage.description || stage.desc) && (
+                            <p className="text-[10px] text-muted-foreground leading-relaxed pl-7">
+                              {stage.description || stage.desc}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {parsedStrategyObj.personas.length > 0 && (
-                    <Badge variant="secondary" className="text-[9px] font-bold rounded-lg bg-purple-500/5 border border-purple-200/40 text-purple-700 gap-1">
-                      <Users className="h-3 w-3" /> {parsedStrategyObj.personas.length} Buyer Persona{parsedStrategyObj.personas.length > 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                  {parsedStrategyObj.objectives.length > 0 && (
-                    <Badge variant="secondary" className="text-[9px] font-bold rounded-lg bg-blue-500/5 border border-blue-200/40 text-blue-700 gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> {parsedStrategyObj.objectives.length} Objetivo{parsedStrategyObj.objectives.length > 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                </div>
+                {/* Objetivos SMART */}
+                {parsedStrategyObj.objectives.length > 0 && (
+                  <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-purple-500" /> Objetivos Estratégicos (SMART)
+                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      {parsedStrategyObj.objectives.map((obj: any, index: number) => (
+                        <div key={index} className="p-4 bg-muted/15 rounded-2xl border space-y-3">
+                          <div className="flex items-center justify-between border-b pb-2">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-650 font-bold rounded-lg shrink-0 text-[9px]">
+                                OBJ {index + 1}
+                              </Badge>
+                              <span className="font-bold text-[11px] text-foreground leading-tight">
+                                {obj.name || obj.objetivo || "Objetivo SMART"}
+                              </span>
+                            </div>
+                            {obj.status && (
+                              <Badge className={`text-[8px] font-bold ${obj.status === 'COMPLETED' ? 'bg-emerald-500/10 text-emerald-600 border-none' : 'bg-orange-500/10 text-orange-600 border-none'}`}>
+                                {obj.status}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 gap-1.5 text-[10px] leading-relaxed text-slate-650 dark:text-slate-355">
+                            {obj.specific && <div><strong>S (Específico):</strong> {obj.specific}</div>}
+                            {obj.measurable && <div><strong>M (Medible):</strong> {obj.measurable}</div>}
+                            {(obj.targetValue || obj.unit) && <div><strong>Meta:</strong> {obj.targetValue} {obj.unit}</div>}
+                            {obj.deadline && <div><strong>Plazo:</strong> {obj.deadline}</div>}
+                            {obj.timeBound && <div><strong>T (Temporal):</strong> {obj.timeBound}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Buyer Personas */}
+                {parsedStrategyObj.personas.length > 0 && (
+                  <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
+                      <Users className="h-3.5 w-3.5 text-purple-500" /> Público Objetivo (Buyer Personas)
+                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      {parsedStrategyObj.personas.map((persona: any, index: number) => (
+                        <div key={index} className="p-4 bg-muted/10 rounded-2xl border space-y-3 flex flex-col justify-between">
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between border-b pb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-7 w-7 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[10px] font-black shrink-0">
+                                  P{index + 1}
+                                </div>
+                                <span className="font-bold text-[11.5px] text-foreground">{persona.name || `Audiencia ${index + 1}`}</span>
+                              </div>
+                              {persona.demographics && (
+                                <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-purple-500/5 text-purple-650">
+                                  {persona.demographics}
+                                </Badge>
+                              )}
+                            </div>
+                            {persona.goals && (
+                              <div className="text-[10px]">
+                                <span className="font-black text-muted-foreground uppercase text-[8.5px] block mb-0.5">Objetivos y Deseos</span>
+                                <p className="text-slate-650 dark:text-slate-350 leading-relaxed">{persona.goals}</p>
+                              </div>
+                            )}
+                            {persona.painPoints && (
+                              <div className="text-[10px]">
+                                <span className="font-black text-rose-500 uppercase text-[8.5px] block mb-0.5 font-bold">Puntos de Dolor</span>
+                                <p className="text-rose-650 dark:text-rose-350 leading-relaxed font-medium">{persona.painPoints}</p>
+                              </div>
+                            )}
+                            {persona.communication && (
+                              <div className="p-2.5 bg-background/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5 text-[9.5px]">
+                                <span className="font-black text-purple-650 uppercase text-[8px] block">Guía de Comunicación</span>
+                                {persona.communication.tone && <div><strong>Tono de Voz:</strong> {persona.communication.tone}</div>}
+                                {persona.communication.triggers && <div><strong>Disparadores (Triggers):</strong> {persona.communication.triggers}</div>}
+                                {persona.communication.topics && <div><strong>Temas clave:</strong> {persona.communication.topics}</div>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Plan de Canales */}
+                {parsedStrategyObj.channels.length > 0 && (
+                  <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
+                      <Megaphone className="h-3.5 w-3.5 text-purple-500" /> Plan de Canales y Frecuencia
+                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                      {parsedStrategyObj.channels.map((ch: any, idx: number) => (
+                        <div key={idx} className="p-3.5 bg-muted/10 rounded-2xl border flex flex-col justify-between gap-2.5">
+                          <div className="flex items-center justify-between border-b pb-1.5">
+                            <span className="font-extrabold text-[11px] text-foreground">{ch.name}</span>
+                            <Badge variant="outline" className="text-[7.5px] font-black uppercase tracking-wider bg-purple-500/5 text-purple-650 border-purple-500/10">
+                              {ch.type || "SOCIAL"}
+                            </Badge>
+                          </div>
+                          <div className="space-y-1.5 text-[10px] leading-relaxed text-slate-650 dark:text-slate-350">
+                            {ch.frequency && <div><strong>Frecuencia:</strong> {ch.frequency}</div>}
+                            {ch.notes && <div className="italic text-muted-foreground"><strong>Notas:</strong> {ch.notes}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>

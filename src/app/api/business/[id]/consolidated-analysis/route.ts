@@ -251,8 +251,25 @@ function buildConsolidatedPrompt(context: any) {
   prompt += `    "channelPriorities": {"canal": "prioridad"},\n`;
   prompt += `    "contentStrategy": "estrategia de contenido por canal"\n`;
   prompt += `  },\n`;
+  prompt += `  "buyerPersonas": [\n`;
+  prompt += `    {\n`;
+  prompt += `      "name": "Nombre descriptivo y representativo del Buyer Persona (ej: María, la Mamá Tradicional)",\n`;
+  prompt += `      "demographics": "Edad, género, nivel de ingresos estimado, ocupación, ubicación en ${business.location || 'la ciudad local'}",\n`;
+  prompt += `      "goals": "Objetivos y deseos de compra principales del perfil respecto al negocio",\n`;
+  prompt += `      "painPoints": "Puntos de dolor socioculturales cotidianos, hábitos locales de consumo y objeciones de compra",\n`;
+  prompt += `      "communication": {\n`;
+  prompt += `        "tone": "Tono de comunicación recomendado (ej: Cálido, Profesional, Entusiasta)",\n`;
+  prompt += `        "triggers": "Momento desencadenante o evento de vida detonador local (ej: antojos de fin de semana, festejos locales, cumpleaños)",\n`;
+  prompt += `        "topics": "Temas clave de interés del contenido que resuenan con este perfil"\n`;
+  prompt += `      }\n`;
+  prompt += `    }\n`;
+  prompt += `  ],\n`;
   prompt += `  "nextSteps": ["pasos inmediatos a seguir"]\n`;
   prompt += `}\n\n`;
+  prompt += `PROMPT DE ANÁLISIS DE OPORTUNIDADES Y ENFOQUE SOCIOCULTURAL (MANDATORIO PARA GENERAR LAS BUYER PERSONAS):\n`;
+  prompt += `Analiza el contexto del negocio, descripción y catálogo de productos, en conjunto con las variables demográficas, nivel adquisitivo e idiosincrasia cultural de la ciudad de ${business.location || 'operación'}.\n`;
+  prompt += `Identifica patrones socioculturales específicos (hábitos de fin de semana, micro-dolores cotidianos de la población local, festividades tradicionales relevantes y modismos de consumo).\n`;
+  prompt += `Con esta base de oportunidades sociológicas, modela exactamente 4 Buyer Personas de alta fidelidad psicográfica en el array 'buyerPersonas'. Asegura que no solo definan edad y género, sino su estilo de vida real, disparadores emocionales locales, eventos de vida prioritarios (Ej. quincenas, cumpleaños, calor/invierno regional) y ganchos conversacionales que resuenen culturalmente con el target local.\n\n`;
   prompt += `Responde SOLO con el JSON, sin texto adicional. Sé específico y accionable.`;
   
   return prompt;
@@ -319,6 +336,52 @@ function generatePlaceholderAnalysis(context: any) {
       }, {}),
       contentStrategy: "Enfocarse en contenido visual de producto, testimonios de clientes, contenido educativo del sector y promociones exclusivas"
     },
+    buyerPersonas: [
+      {
+        "name": "María, la Mamá Tradicional",
+        "demographics": "Mujer, 35-45 años, casada con hijos, nivel de ingresos medio, vive en " + (business.location || "la zona local"),
+        "goals": "Encontrar productos deliciosos, frescos y tradicionales para el festejo familiar de fin de semana.",
+        "painPoints": "Falta de tiempo, quiere garantizar calidad y sabor casero, busca comodidad con entrega a domicilio.",
+        "communication": {
+          "tone": "Cálido y familiar",
+          "triggers": "Cumpleaños, reuniones familiares de domingo, antojos por la tarde",
+          "topics": "Sabores tradicionales, recetas caseras, packs familiares"
+        }
+      },
+      {
+        "name": "Carlos, el Joven Profesional",
+        "demographics": "Varón, 25-33 años, soltero, nivel de ingresos medio-alto, profesional independiente",
+        "goals": "Disfrutar de antojos rápidos y de alta calidad después del trabajo o durante el fin de semana.",
+        "painPoints": "Poco tiempo de cocina, valora la rapidez de compra a través de WhatsApp, prefiere delivery rápido.",
+        "communication": {
+          "tone": "Moderno, directo y entusiasta",
+          "triggers": "Salida de la oficina, antojos de media tarde, fines de semana con amigos",
+          "topics": "Combos rápidos, promociones del día, facilidad de pedido"
+        }
+      },
+      {
+        "name": "Sofía, la Buscadora de Novedades",
+        "demographics": "Mujer, 18-24 años, estudiante o joven trabajadora, activa en TikTok e Instagram",
+        "goals": "Probar sabores únicos, productos estéticamente atractivos para compartir en sus redes sociales.",
+        "painPoints": "Aburrimiento con productos comunes, busca experiencias visuales y sabores exóticos o tradicionales innovadores.",
+        "communication": {
+          "tone": "Alegre y dinámico",
+          "triggers": "Tendencias en redes, juntadas de tarde con amigas, eventos de vida estudiantiles",
+          "topics": "Detrás de escena (UGC), lanzamientos de productos nuevos, sorteos e interacción"
+        }
+      },
+      {
+        "name": "Roberto, el Cliente Corporativo",
+        "demographics": "Varón, 40-55 años, administrador o dueño de negocio, compras de volumen",
+        "goals": "Abastecer eventos corporativos y reuniones con productos confiables y de excelente presentación.",
+        "painPoints": "Exigencia de puntualidad extrema, requiere facturación y cotizaciones rápidas, teme fallas en el stock.",
+        "communication": {
+          "tone": "Profesional y seguro",
+          "triggers": "Reuniones de oficina, festejos de fin de año, catering para seminarios",
+          "topics": "Descuentos por volumen, testimonios corporativos, catálogo de catering especial"
+        }
+      }
+    ],
     nextSteps: [
       "Auditar presencia digital actual",
       "Definir calendario de contenido para 3 meses",

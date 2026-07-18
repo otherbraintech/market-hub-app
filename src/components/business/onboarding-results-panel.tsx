@@ -18,11 +18,12 @@ import {
   CheckCircle2, Loader2, Network, HelpCircle, ArrowRight, ArrowLeft,
   Database, Eye, EyeIcon, CalendarDays, Compass, MessageSquare,
   Play, RefreshCw, Check, X, Clock, Cpu, Bot, Sparkles, Layers, AlertTriangle,
-  Facebook, Instagram, Globe, Lock, Pencil, Lightbulb, BookOpen, Smile, Brain, Award, XCircle, Search, TrendingUp, ThumbsUp, Activity, MapPin, Briefcase, Star, ChevronRight
+  Facebook, Instagram, Globe, Lock, Pencil, Lightbulb, BookOpen, Smile, Brain, Award, XCircle, Search, TrendingUp, ThumbsUp, Activity, MapPin, Briefcase, Star, ChevronRight, Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { handleDownloadEstrategiaPDF as downloadEstrategiaPDF, handleDownloadBancoDeDatosPDF as downloadBancoDeDatosPDF } from "@/utils/print-utils";
 import {
   Dialog,
   DialogContent,
@@ -611,6 +612,17 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     funnelStages: parseJson(activeStrategy.funnelStages) || [],
     channels: parseJson(activeStrategy.channels) || []
   } : null;
+
+  const parsedCons = consolidatedReport ? (parseJson(consolidatedReport.data) || {}) : {};
+  const inferredValueProposition = parsedCons.marketPosition?.value_proposition || parsedCons.valueProposition || parsedCons.marketPosition?.competitiveAdvantage || null;
+
+  const handleDownloadEstrategiaPDF = () => {
+    downloadEstrategiaPDF(parsedStrategyObj, activeStrategy, data?.businessInfo?.name || "Mi Negocio");
+  };
+
+  const handleDownloadBancoDeDatosPDF = () => {
+    downloadBancoDeDatosPDF(data, businessReports, competitorReports, competitorsList, businessId);
+  };
 
   const shouldActionPulse = (tabName: string): boolean => {
     if (activeTab !== tabName) return false;
@@ -1364,15 +1376,28 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                       Información de Mi Negocio
                     </h3>
                   </div>
-                  <Button
-                    onClick={handleManualTrigger}
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-[10px] font-black uppercase border-orange-500/30 text-orange-700 hover:bg-orange-500/5 rounded-xl gap-1.5"
-                  >
-                    <RefreshCw className="h-3 w-3 text-orange-600" />
-                    Reanalizar Banco de Datos
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {data && (
+                      <Button
+                        onClick={handleDownloadBancoDeDatosPDF}
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-[10px] font-black uppercase border-orange-500/30 text-orange-700 hover:bg-orange-500/5 rounded-xl gap-1.5"
+                      >
+                        <Download className="h-3 w-3 text-orange-600" />
+                        Descargar PDF
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleManualTrigger}
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-[10px] font-black uppercase border-orange-500/30 text-orange-700 hover:bg-orange-500/5 rounded-xl gap-1.5"
+                    >
+                      <RefreshCw className="h-3 w-3 text-orange-600" />
+                      Reanalizar Banco de Datos
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1427,10 +1452,10 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                           <p className="font-medium text-foreground">{data.businessInfo.description}</p>
                         </div>
                       )}
-                      {data.businessInfo.valueProposition && (
+                      {inferredValueProposition && (
                         <div>
                           <span className="font-bold text-muted-foreground block text-[9px] uppercase">Propuesta de Valor</span>
-                          <p className="font-semibold text-orange-600 dark:text-orange-400 italic">"{data.businessInfo.valueProposition}"</p>
+                          <p className="font-semibold text-orange-600 dark:text-orange-400 italic">"{inferredValueProposition}"</p>
                         </div>
                       )}
                     </div>
@@ -2346,20 +2371,33 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 <Target className="h-3.5 w-3.5 text-purple-500" /> Estrategia Inteligente y Buyer Personas
               </h5>
               
-              <Button 
-                onClick={handleStartStrategy}
-                disabled={strategyLoading}
-                className={`h-8 text-xs font-bold gap-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white transition-all ${
-                  shouldActionPulse("estrategia") ? 'action-btn-pulse-purple scale-105' : ''
-                }`}
-              >
-                {strategyLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Play className="h-3 w-3 fill-current" />
+              <div className="flex items-center gap-2">
+                {parsedStrategyObj && (
+                  <Button
+                    onClick={handleDownloadEstrategiaPDF}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold gap-1 rounded-xl border-purple-500/30 text-purple-700 hover:bg-purple-500/5"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Descargar PDF
+                  </Button>
                 )}
-                {parsedStrategyObj ? "Regenerar" : "Generar Estrategia"}
-              </Button>
+                <Button 
+                  onClick={handleStartStrategy}
+                  disabled={strategyLoading}
+                  className={`h-8 text-xs font-bold gap-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white transition-all ${
+                    shouldActionPulse("estrategia") ? 'action-btn-pulse-purple scale-105' : ''
+                  }`}
+                >
+                  {strategyLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3 fill-current" />
+                  )}
+                  {parsedStrategyObj ? "Regenerar" : "Generar Estrategia"}
+                </Button>
+              </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-purple-500/5 p-3 rounded-xl border border-purple-100 dark:border-purple-850 mb-4">

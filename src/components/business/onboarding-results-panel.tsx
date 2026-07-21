@@ -1558,7 +1558,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                     const individualAnalysis = getSelectedCompetitorAnalysis(compWithMap);
                     
                     // Intentar extraer voz del competidor o deducirla
-                    const firstCompletedReport = cReports.find(r => r.status === 'COMPLETED' && r.data);
+                    const firstCompletedReport = cReports.find((r: any) => r.status === 'COMPLETED' && r.data);
                     let brandPersonality = ["Corporativa", "Comercial"];
                     let emotionalTone = ["Neutral"];
                     if (firstCompletedReport) {

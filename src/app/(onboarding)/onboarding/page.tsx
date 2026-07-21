@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { 
   Check, Users, ArrowRight, ArrowLeft, Globe, 
-  Facebook, Instagram, Loader2, Target, Bot, Sparkles, HelpCircle 
+  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info 
 } from "lucide-react";
 import { BusinessForm } from "@/components/business/business-form";
 import { saveMultipleCompetitorsAction } from "@/app/(dashboard)/business/[id]/competitor-actions";
@@ -494,12 +494,13 @@ function OnboardingContent() {
                 <TooltipProvider delayDuration={150}>
                   {/* Pregunta 1 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">1. Ubicación y Edad Objetivo</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">1. Ubicación y Edad Objetivo</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿En qué ciudad o zona se encuentran tus clientes y qué edad promedio tienen?</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                            <HelpCircle className="h-4 w-4" />
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
@@ -507,7 +508,6 @@ function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[13px] font-bold text-foreground leading-snug">¿En qué ciudad o zona se encuentran tus clientes y qué edad promedio tienen?</p>
                     <Input 
                       placeholder="Ej. Santa Cruz, entre 20 y 35 años" 
                       value={strategyValues.locationAge} 
@@ -518,12 +518,13 @@ function OnboardingContent() {
 
                   {/* Pregunta 2 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">2. Momento Desencadenante (Evento de Vida)</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">2. Momento Desencadenante (Evento de Vida)</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué momento o necesidad especial hace que la gente busque tu producto? (Ej: cumpleaños, antojos).</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                            <HelpCircle className="h-4 w-4" />
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
@@ -531,7 +532,6 @@ function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué momento o necesidad especial hace que la gente busque tu producto? (Ej: cumpleaños, antojos).</p>
                     <Input 
                       placeholder="Ej. Quincenas, Cumpleaños, Calor" 
                       value={strategyValues.lifeEvent} 
@@ -542,12 +542,13 @@ function OnboardingContent() {
 
                   {/* Pregunta 3 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">3. Personalidad del Negocio (Arquetipo)</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">3. Personalidad del Negocio (Arquetipo)</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">Si tu negocio fuera una persona, ¿cómo sería? (Ej: Tradicional, moderno, exclusivo).</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                            <HelpCircle className="h-4 w-4" />
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
@@ -555,7 +556,6 @@ function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[13px] font-bold text-foreground leading-snug">Si tu negocio fuera una persona, ¿cómo sería? (Ej: Tradicional, moderno, exclusivo).</p>
                     <Input 
                       placeholder="Ej. Para ti, Para regalar, De emergencia" 
                       value={strategyValues.archetype} 
@@ -566,12 +566,13 @@ function OnboardingContent() {
 
                   {/* Pregunta 4 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">4. Canal Crítico de Conversión</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">4. Canal Crítico de Conversión</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Por qué medio prefieren tus clientes cerrar la compra? (Ej: WhatsApp, DMs).</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                            <HelpCircle className="h-4 w-4" />
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
@@ -579,7 +580,6 @@ function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[13px] font-bold text-foreground leading-snug">¿Por qué medio prefieren tus clientes cerrar la compra? (Ej: WhatsApp, DMs).</p>
                     <Input 
                       placeholder="Ej. TikTok a WhatsApp" 
                       value={strategyValues.conversionChannel} 
@@ -590,12 +590,13 @@ function OnboardingContent() {
 
                   {/* Pregunta 5 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">5. Brechas de Dudas Comunes</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">5. Brechas de Dudas Comunes</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué es lo que más te preguntan los clientes antes de comprar?</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                            <HelpCircle className="h-4 w-4" />
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
@@ -603,7 +604,6 @@ function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué es lo que más te preguntan los clientes antes de comprar?</p>
                     <Input 
                       placeholder="Ej. Precios ocultos, Ubicación poco clara" 
                       value={strategyValues.informationGaps} 
@@ -614,12 +614,13 @@ function OnboardingContent() {
 
                   {/* Pregunta 6 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">6. Prueba Social (UGC)</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">6. Prueba Social (UGC)</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué comentarios tienen tus clientes sobre tu producto?</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                            <HelpCircle className="h-4 w-4" />
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
@@ -627,7 +628,6 @@ function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué comentarios tienen tus clientes sobre tu producto?</p>
                     <Input 
                       placeholder="Ej. Reposts de clientes en Stories" 
                       value={strategyValues.socialProof} 
@@ -638,12 +638,13 @@ function OnboardingContent() {
 
                   {/* Pregunta 7 */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">7. Ventaja Diferencial</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">7. Ventaja Diferencial</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Cuál es tu mayor ventaja frente a otros negocios similares?</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40">
-                            <HelpCircle className="h-4 w-4" />
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
@@ -651,7 +652,6 @@ function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <p className="text-[13px] font-bold text-foreground leading-snug">¿Cuál es tu mayor ventaja frente a otros negocios similares?</p>
                     <Input 
                       placeholder="Ej. Delivery en menos de 30 mins" 
                       value={strategyValues.differentialAdvantage} 

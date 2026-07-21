@@ -103,6 +103,7 @@ export async function createBusinessWithAI(data: {
   phoneNumbers?: string;
   location?: string;
   socialLinks?: Record<string, string | undefined>;
+  onboardingStrategy?: Record<string, string | undefined>;
 }, skipAnalysis = false) {
   try {
     // 1. Preparar datos completos iniciales de forma rápida
@@ -116,6 +117,7 @@ export async function createBusinessWithAI(data: {
       phoneNumbers: data.phoneNumbers || "",
       location: data.location || "",
       socialLinks: data.socialLinks || { facebook: "", instagram: "", tiktok: "" },
+      onboardingStrategy: data.onboardingStrategy,
     };
 
     // 2. Crear el negocio en la base de datos de inmediato

@@ -82,6 +82,7 @@ model Business {
   settings                           Json?
   competitorGeneralReport            Json?
   competitorGeneralReportGeneratedAt DateTime?
+  onboardingStrategy                 Json?
   agentNotifications                 AgentNotification[]
   user                               User?               @relation(fields: [userId], references: [id])
   campaigns                          Campaign[]

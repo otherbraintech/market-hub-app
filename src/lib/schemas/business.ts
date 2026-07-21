@@ -55,6 +55,23 @@ export const businessSchema = z.object({
     instagram: "",
     tiktok: "",
   }),
+  onboardingStrategy: z.object({
+    locationAge: z.string().default(""),
+    lifeEvent: z.string().default(""),
+    archetype: z.string().default(""),
+    conversionChannel: z.string().default(""),
+    informationGaps: z.string().default(""),
+    socialProof: z.string().default(""),
+    differentialAdvantage: z.string().default(""),
+  }).default({
+    locationAge: "",
+    lifeEvent: "",
+    archetype: "",
+    conversionChannel: "",
+    informationGaps: "",
+    socialProof: "",
+    differentialAdvantage: "",
+  }).optional(),
 });
 
 export type BusinessFormValues = z.infer<typeof businessSchema>;

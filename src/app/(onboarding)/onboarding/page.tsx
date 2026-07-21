@@ -139,7 +139,17 @@ function OnboardingContent() {
     setCompetitors(competitors.map((c, i) => i === index ? { ...c, [field]: value } : c));
   };
 
-  const handleFinishCompetitors = async () => {
+  const [strategyValues, setStrategyValues] = useState({
+    locationAge: "",
+    lifeEvent: "",
+    archetype: "",
+    conversionChannel: "",
+    informationGaps: "",
+    socialProof: "",
+    differentialAdvantage: ""
+  });
+
+  const handleFinishCompetitors = () => {
     const validList = competitors.filter(c => c.name.trim() !== "");
     if (validList.length === 0) {
       toast.error("Agrega al menos un competidor con nombre.");
@@ -148,6 +158,10 @@ function OnboardingContent() {
 
     // Cambiar inmediatamente al paso 3 sin esperar la red
     setCurrentStep(3);
+  };
+
+  const handleFinishStrategy = async () => {
+    setCurrentStep(4);
 
     // Ejecutar el proceso de creación y guardado en segundo plano
     const runCreationInBackground = async () => {
@@ -167,6 +181,7 @@ function OnboardingContent() {
             phoneNumbers: businessFormValues.phoneNumbers,
             location: businessFormValues.location,
             socialLinks: businessFormValues.socialLinks,
+            onboardingStrategy: strategyValues
           }, true);
 
           if (createRes.success && createRes.data?.id) {
@@ -178,9 +193,10 @@ function OnboardingContent() {
           }
         }
 
+        const validList = competitors.filter(c => c.name.trim() !== "");
         const res = await saveMultipleCompetitorsAction(activeBusinessId, validList, true);
         if (res.success) {
-          toast.success("¡Negocio y competidores registrados!");
+          toast.success("¡Negocio, estrategia y competidores registrados!");
         } else {
           toast.error(res.error || "Ocurrió un error al guardar los competidores");
         }
@@ -311,13 +327,31 @@ function OnboardingContent() {
 
         <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-violet-500/30 mx-2" />
 
+        <div className="flex items-center justify-between w-full md:w-auto md:justify-start gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep === 3 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105 border border-primary/20' : currentStep > 3 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
+              {currentStep > 3 ? <Check className="h-4.5 w-4.5 stroke-[3]" /> : "03"}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Estrategia Base</span>
+              <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 3 ? 'text-primary' : 'text-foreground/80'}`}>Configuración</span>
+            </div>
+          </div>
+
+          <div className="flex-1 md:hidden h-0.5 bg-muted mx-4 relative rounded-full">
+            <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${currentStep === 4 ? 'w-full' : 'w-0'}`} />
+          </div>
+        </div>
+
+        <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-violet-500/30 mx-2" />
+
         <div className="flex items-center justify-start w-full md:w-auto gap-3">
-          <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep === 3 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105 border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
-            03
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep === 4 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105 border border-primary/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
+            04
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Resultados IA</span>
-            <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 3 ? 'text-primary' : 'text-foreground/80'}`}>Monitoreo e Inteligencia</span>
+            <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 4 ? 'text-primary' : 'text-foreground/80'}`}>Monitoreo e Inteligencia</span>
           </div>
         </div>
       </div>
@@ -436,6 +470,131 @@ function OnboardingContent() {
         )}
 
         {currentStep === 3 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-blue-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl" />
+              <div className="flex items-start gap-4">
+                <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                  <Target className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <h5 className="text-base font-bold text-foreground">
+                    Configuración Estratégica Base
+                  </h5>
+                  <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                    Responde estas preguntas extra para tener más información sobre tu negocio. Así podremos armar una mejor estrategia, campaña y calendario.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
+              <CardContent className="pt-6 space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">1. Ubicación y Edad Objetivo</Label>
+                  <p className="text-[13px] font-bold text-foreground leading-snug">¿En qué ciudad o zona se encuentran tus clientes y qué edad promedio tienen?</p>
+                  <Input 
+                    placeholder="Ej. Santa Cruz, entre 20 y 35 años" 
+                    value={strategyValues.locationAge} 
+                    onChange={(e) => setStrategyValues({...strategyValues, locationAge: e.target.value})}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">2. Momento Desencadenante (Evento de Vida)</Label>
+                  <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué momento o necesidad especial hace que la gente busque tu producto? (Ej: cumpleaños, antojos).</p>
+                  <Input 
+                    placeholder="Ej. Quincenas, Cumpleaños, Calor" 
+                    value={strategyValues.lifeEvent} 
+                    onChange={(e) => setStrategyValues({...strategyValues, lifeEvent: e.target.value})}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">3. Personalidad del Negocio (Arquetipo)</Label>
+                  <p className="text-[13px] font-bold text-foreground leading-snug">Si tu negocio fuera una persona, ¿cómo sería? (Ej: Tradicional, moderno, exclusivo).</p>
+                  <Input 
+                    placeholder="Ej. Para ti, Para regalar, De emergencia" 
+                    value={strategyValues.archetype} 
+                    onChange={(e) => setStrategyValues({...strategyValues, archetype: e.target.value})}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">4. Canal Crítico de Conversión</Label>
+                  <p className="text-[13px] font-bold text-foreground leading-snug">¿Por qué medio prefieren tus clientes cerrar la compra? (Ej: WhatsApp, DMs).</p>
+                  <Input 
+                    placeholder="Ej. TikTok a WhatsApp" 
+                    value={strategyValues.conversionChannel} 
+                    onChange={(e) => setStrategyValues({...strategyValues, conversionChannel: e.target.value})}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">5. Brechas de Dudas Comunes</Label>
+                  <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué es lo que más te preguntan los clientes antes de comprar?</p>
+                  <Input 
+                    placeholder="Ej. Precios ocultos, Ubicación poco clara" 
+                    value={strategyValues.informationGaps} 
+                    onChange={(e) => setStrategyValues({...strategyValues, informationGaps: e.target.value})}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">6. Prueba Social (UGC)</Label>
+                  <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué comentarios tienen tus clientes sobre tu producto?</p>
+                  <Input 
+                    placeholder="Ej. Reposts de clientes en Stories" 
+                    value={strategyValues.socialProof} 
+                    onChange={(e) => setStrategyValues({...strategyValues, socialProof: e.target.value})}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">7. Ventaja Diferencial</Label>
+                  <p className="text-[13px] font-bold text-foreground leading-snug">¿Cuál es tu mayor ventaja frente a otros negocios similares?</p>
+                  <Input 
+                    placeholder="Ej. Delivery en menos de 30 mins" 
+                    value={strategyValues.differentialAdvantage} 
+                    onChange={(e) => setStrategyValues({...strategyValues, differentialAdvantage: e.target.value})}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setCurrentStep(2)} 
+                    className="rounded-xl h-11 px-6 font-bold"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
+                  </Button>
+
+                  <Button 
+                    type="button" 
+                    onClick={handleFinishStrategy} 
+                    disabled={loading}
+                    className="rounded-xl h-11 px-8 font-bold"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        Comenzar Análisis IA <ArrowRight className="h-4 w-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {currentStep === 4 && (
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-transparent border border-violet-200/50 p-6 shadow-sm">
               <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-xl" />

@@ -55,6 +55,15 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
         instagram: "",
         tiktok: "",
       },
+      onboardingStrategy: {
+        locationAge: "",
+        lifeEvent: "",
+        archetype: "",
+        conversionChannel: "",
+        informationGaps: "",
+        socialProof: "",
+        differentialAdvantage: "",
+      },
       brandVoice: {
         tone: [],
         personality: [],
@@ -77,6 +86,14 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
         setStep(2);
         return;
     }
+    if (useAI && step === 2 && !singleStep) {
+        setStep(3);
+        return;
+    }
+    if (useAI && step === 3 && !singleStep) {
+        setStep(4);
+        return;
+    }
 
     setLoading(true);
     try {
@@ -91,6 +108,7 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
           phoneNumbers: data.phoneNumbers,
           location: data.location,
           socialLinks: data.socialLinks,
+          onboardingStrategy: data.onboardingStrategy,
         });
       } else {
         result = await createBusiness(data);
@@ -171,19 +189,30 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                     </div>
                   </div>
                   <div className="flex-1 h-0.5 bg-muted mx-4 relative rounded-full">
-                    <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${step === 2 ? 'w-full' : 'w-0'}`} />
+                    <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${step >= 2 ? 'w-full' : 'w-0'}`} />
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${step === 2 ? 'bg-primary text-primary-foreground ring-4 ring-primary/20 scale-110 shadow-md' : 'bg-muted text-muted-foreground'}`}>
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${step === 2 ? 'bg-primary text-primary-foreground ring-4 ring-primary/20 scale-110 shadow-md' : step > 2 ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                       2
                     </div>
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paso 2</span>
-                      <span className={`text-[11px] font-bold transition-colors ${step === 2 ? 'text-primary' : 'text-muted-foreground'}`}>Contacto y Redes</span>
+                      <span className={`text-[11px] font-bold transition-colors ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>Contacto y Redes</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 h-0.5 bg-muted mx-4 relative rounded-full">
+                    <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${step >= 3 ? 'w-full' : 'w-0'}`} />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${step === 3 ? 'bg-primary text-primary-foreground ring-4 ring-primary/20 scale-110 shadow-md' : step > 3 ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      3
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paso 3</span>
+                      <span className={`text-[11px] font-bold transition-colors ${step === 3 ? 'text-primary' : 'text-muted-foreground'}`}>Identidad y Público</span>
                     </div>
                   </div>
                 </div>
-
                 {/* 2. Tarjeta premium del asistente de IA */}
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-purple-500/5 to-transparent border border-primary/20 p-5 shadow-inner animate-in fade-in duration-300">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-xl -z-10" />
@@ -195,16 +224,18 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black uppercase tracking-widest bg-primary/20 text-primary px-2.5 py-0.5 rounded-full">Asistente de Inicio</span>
                         <span className="text-xs font-bold text-muted-foreground">
-                          {step === 1 ? 'Paso 1 de 2' : 'Paso 2 de 2'}
+                          {step === 1 ? 'Paso 1 de 3' : step === 2 ? 'Paso 2 de 3' : 'Paso 3 de 3'}
                         </span>
                       </div>
                       <h5 className="text-sm font-bold text-foreground">
-                        {step === 1 ? 'Definir perfil e identidad de marca' : 'Vincular canales de contacto'}
+                        {step === 1 ? 'Definir perfil e identidad de marca' : step === 2 ? 'Vincular canales de contacto' : 'Definir identidad y público'}
                       </h5>
                       <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
                         {step === 1 
                           ? 'Ingresa el nombre de tu negocio y una descripción de tu marca. La IA analizará la descripción para generar la estrategia y el perfil del negocio automáticamente.'
-                          : 'Completa los teléfonos, ubicación, sitio web y redes sociales de tu marca. Cuando termines, dale click a Generar con IA y Crear para finalizar y activar tu panel.'}
+                          : step === 2 
+                            ? 'Completa los teléfonos, ubicación, sitio web y redes sociales de tu marca.'
+                            : 'Define el tono de voz, la personalidad y el tipo de público al que te diriges para orientar mejor los copies y contenidos.'}
                       </p>
                     </div>
                   </div>
@@ -444,6 +475,84 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                 </div>
               </div>
             ) : null}
+
+            {!singleStep && step === 3 ? (
+              <div className="space-y-4 relative animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                      control={form.control}
+                      name="brandVoice.tone"
+                      render={({ field }) => (
+                      <FormItem>
+                          <LabelHelp label="Tono de Marca" help="Ej. Alegre, Formal, Informativo." />
+                          <FormControl>
+                          <Input 
+                              placeholder="Ej. Profesional, Cercano (separado por comas)" 
+                              value={Array.isArray(field.value) ? field.value.join(", ") : ""}
+                              onChange={(e) => field.onChange(e.target.value.split(",").map((s: string) => s.trim()))}
+                              className="h-11 rounded-xl"
+                          />
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                  <FormField
+                      control={form.control}
+                      name="brandVoice.personality"
+                      render={({ field }) => (
+                      <FormItem>
+                          <LabelHelp label="Personalidad" help="Ej. Innovadora, Confiable." />
+                          <FormControl>
+                          <Input 
+                              placeholder="Ej. Experto, Amigable" 
+                              value={Array.isArray(field.value) ? field.value.join(", ") : ""}
+                              onChange={(e) => field.onChange(e.target.value.split(",").map((s: string) => s.trim()))}
+                              className="h-11 rounded-xl"
+                          />
+                          </FormControl>
+                          <FormMessage />
+                      </FormItem>
+                      )}
+                  />
+                </div>
+                <FormField
+                    control={form.control}
+                    name="targetAudience.demographics"
+                    render={({ field }) => (
+                    <FormItem>
+                        <LabelHelp label="Demografía" help="Edad, ubicación, género." />
+                        <FormControl>
+                        <Textarea 
+                            placeholder="Ej. Mujeres de 25 a 45 años en la ciudad de Lima..." 
+                            className="resize-none h-24 rounded-xl"
+                            {...field} 
+                        />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="targetAudience.psychographics"
+                    render={({ field }) => (
+                    <FormItem>
+                        <LabelHelp label="Psicografía" help="Intereses, valores y hábitos." />
+                        <FormControl>
+                        <Textarea 
+                            placeholder="Ej. Valoran los productos ecológicos, tienen rutinas apresuradas..." 
+                            className="resize-none h-24 rounded-xl"
+                            {...field} 
+                        />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+              </div>
+            ) : null}
+
           </div>
         ) : (
           <Tabs defaultValue="basic" className="w-full">
@@ -673,11 +782,11 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
           </Tabs>
         )}
         <DialogFooter className="mt-8 gap-2 sm:gap-0">
-          {useAI && step === 2 && !singleStep && (
+          {useAI && (step === 2 || step === 3 || step === 4) && !singleStep && (
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => setStep(1)} 
+                onClick={() => setStep(step - 1)} 
                 disabled={loading} 
                 className="rounded-xl h-11 px-6"
               >
@@ -700,7 +809,7 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                 {singleStep ? (
                     <>Siguiente <ChevronRight className="h-4 w-4 ml-1" /></>
                 ) : useAI && !isEditing ? (
-                    (step === 1) ? (
+                    (step === 1 || step === 2 || step === 3) ? (
                         <>Siguiente <ChevronRight className="h-4 w-4 ml-1" /></>
                     ) : (
                         <><Sparkles className="h-4 w-4" /> Generar con IA y Crear</>

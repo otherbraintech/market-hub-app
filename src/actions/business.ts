@@ -209,6 +209,27 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
   }
 }
 
+export async function saveOnboardingStrategyAction(businessId: string, onboardingStrategy: Record<string, any>) {
+  try {
+    const { getSession } = await import("@/lib/auth");
+    const session = await getSession();
+    if (!session || !session.user?.id) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    await prisma.business.update({
+      where: { id: businessId },
+      data: { onboardingStrategy }
+    });
+
+    revalidatePath(`/business/${businessId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error al guardar la estrategia de onboarding:", error);
+    return { success: false, error: "Error al guardar la estrategia de onboarding" };
+  }
+}
+
 export async function deleteBusiness(id: string) {
   try {
     const { getSession } = await import("@/lib/auth");

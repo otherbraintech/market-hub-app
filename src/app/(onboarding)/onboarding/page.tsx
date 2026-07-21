@@ -18,7 +18,7 @@ import { OnboardingResultsPanel } from "@/components/business/onboarding-results
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 import { BusinessFormValues } from "@/lib/schemas/business";
-import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors } from "@/actions/business";
+import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction } from "@/actions/business";
 
 function OnboardingContent() {
   const router = useRouter();
@@ -55,10 +55,18 @@ function OnboardingContent() {
         const business = await getBusinessWithCompetitors(businessId);
         if (business) {
           setBusinessName(business.name);
-          // If competitors are already registered, decide step or redirect
-          if (business.competitors && business.competitors.length > 0) {
+          if (business.onboardingStrategy && typeof business.onboardingStrategy === "object") {
+            setStrategyValues((prev) => ({
+              ...prev,
+              ...(business.onboardingStrategy as any)
+            }));
+          }
+          if (forceStep) {
+            setCurrentStep(parseInt(forceStep));
+          } else if (business.competitors && business.competitors.length > 0) {
             if (isPreview) {
-              setCurrentStep(3);
+              const hasStrategy = business.onboardingStrategy && Object.keys(business.onboardingStrategy as object).length > 0;
+              setCurrentStep(hasStrategy ? 4 : 3);
             } else {
               router.push(`/business/${businessId}?skipOnboarding=true`);
             }
@@ -71,7 +79,7 @@ function OnboardingContent() {
       }
     };
     fetchBusiness();
-  }, [businessId, isPreview, router]);
+  }, [businessId, isPreview, forceStep, router]);
 
   // Auto-detect existing business if user already created one
   useEffect(() => {
@@ -82,12 +90,24 @@ function OnboardingContent() {
         if (list && list.length > 0) {
           const latestBusiness = list[0];
           
+          if (latestBusiness.onboardingStrategy && typeof latestBusiness.onboardingStrategy === "object") {
+            setStrategyValues((prev) => ({
+              ...prev,
+              ...(latestBusiness.onboardingStrategy as any)
+            }));
+          }
+
           // If the existing business already has competitors
           if (latestBusiness.competitors && latestBusiness.competitors.length > 0) {
             if (isPreview) {
               setBusinessId(latestBusiness.id);
               setBusinessName(latestBusiness.name);
-              setCurrentStep(3);
+              if (forceStep) {
+                setCurrentStep(parseInt(forceStep));
+              } else {
+                const hasStrategy = latestBusiness.onboardingStrategy && Object.keys(latestBusiness.onboardingStrategy as object).length > 0;
+                setCurrentStep(hasStrategy ? 4 : 3);
+              }
             } else {
               router.push(`/business/${latestBusiness.id}?skipOnboarding=true`);
             }
@@ -103,7 +123,7 @@ function OnboardingContent() {
       }
     };
     checkExistingBusiness();
-  }, [businessId, isPreview, router]);
+  }, [businessId, isPreview, forceStep, router]);
 
   const TikTokIcon = ({ className }: { className?: string }) => (
     <svg
@@ -164,6 +184,11 @@ function OnboardingContent() {
   const handleFinishStrategy = async () => {
     setCurrentStep(4);
 
+    // Actualizar la URL de forma síncrona para reflejar el paso 4 y que la recarga de página (F5) no vuelva al paso 3
+    if (businessId) {
+      router.replace(`/onboarding?businessId=${businessId}&preview=true&forceStep=4`);
+    }
+
     // Ejecutar el proceso de creación y guardado en segundo plano
     const runCreationInBackground = async () => {
       try {
@@ -188,18 +213,29 @@ function OnboardingContent() {
           if (createRes.success && createRes.data?.id) {
             activeBusinessId = createRes.data.id;
             setBusinessId(activeBusinessId);
+            router.replace(`/onboarding?businessId=${activeBusinessId}&preview=true&forceStep=4`);
           } else {
             toast.error(createRes.error || "Ocurrió un error al registrar el negocio");
             return;
           }
+        } else {
+          // Si el negocio ya existe, guardar onboardingStrategy en la base de datos
+          const saveRes = await saveOnboardingStrategyAction(activeBusinessId, strategyValues);
+          if (!saveRes.success) {
+            toast.error(saveRes.error || "Ocurrió un error al guardar las preguntas estratégicas.");
+          }
         }
 
         const validList = competitors.filter(c => c.name.trim() !== "");
-        const res = await saveMultipleCompetitorsAction(activeBusinessId, validList, true);
-        if (res.success) {
-          toast.success("¡Negocio, estrategia y competidores registrados!");
+        if (validList.length > 0) {
+          const res = await saveMultipleCompetitorsAction(activeBusinessId, validList, true);
+          if (res.success) {
+            toast.success("¡Negocio, estrategia y competidores guardados correctamente!");
+          } else {
+            toast.error(res.error || "Ocurrió un error al guardar los competidores");
+          }
         } else {
-          toast.error(res.error || "Ocurrió un error al guardar los competidores");
+          toast.success("¡Configuración estratégica del negocio guardada!");
         }
       } catch (error) {
         console.error("Error en el guardado asíncrono:", error);

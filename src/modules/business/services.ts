@@ -211,6 +211,7 @@ export async function updateBusiness(
       targetAudience: input.targetAudience as any,
       settings: input.settings as any,
       socialLinks: input.socialLinks as any,
+      onboardingStrategy: input.onboardingStrategy as any,
     },
   })
 

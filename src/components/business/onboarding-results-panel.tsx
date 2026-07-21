@@ -1101,23 +1101,25 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
           </div>
 
           {currentProgress.stage === -1 ? (
-            <div className="w-full pt-2">
+            <div className="w-full pt-2 space-y-2">
               <Button
                 onClick={() => {
-                  if (getStepStatus("STRATEGY") === "failed") {
-                    handleStartStrategy();
-                  } else if (getStepStatus("CAMPAIGN") === "failed") {
-                    handleStartCampaign();
-                  } else if (getStepStatus("CALENDAR") === "failed") {
-                    handleStartCalendar();
-                  } else {
-                    handleManualTrigger();
-                  }
+                  handleManualTrigger();
                 }}
-                className="w-full h-11 rounded-xl bg-rose-650 hover:bg-rose-750 text-white font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2"
+                className="w-full h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
-                Reintentar Etapa Fallida
+                Reanalizar Banco de Datos
+              </Button>
+
+              <Button
+                onClick={() => {
+                  setIsDismissed(true);
+                }}
+                variant="ghost"
+                className="w-full h-9 rounded-xl text-xs text-muted-foreground hover:text-foreground font-semibold"
+              >
+                Cerrar y explorar panel
               </Button>
             </div>
           ) : !hasReports && !isCurrentlyProcessing ? (

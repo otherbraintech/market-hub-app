@@ -102,6 +102,7 @@ export interface CreateBusinessInput {
   phoneNumbers?: string
   location?: string
   socialLinks?: SocialLinks
+  onboardingStrategy?: Record<string, string | undefined>
   userId?: string
 }
 

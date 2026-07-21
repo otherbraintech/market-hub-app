@@ -205,6 +205,7 @@ export async function triggerCascadeGeneration(
           website: business.website,
           valueProposition: valueProp,
           targetAudience: business.targetAudience,
+          onboardingStrategy: business.onboardingStrategy,
         },
         buyerPersonas: generatedBuyerPersonas,
         products: business.products,
@@ -578,11 +579,12 @@ Detalles del Negocio:
 - Industria: ${context.business.industry || "No especificada"}.
 - Propuesta de Valor Real: ${context.business.valueProposition || "No definida"}.
 - Público Objetivo Configurado (Demografía y Psicografía a usar obligatoriamente): ${JSON.stringify(context.business.targetAudience || "No definido")}.
+${(context.business as any).onboardingStrategy ? `- ESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA): Utiliza estos datos como los pilares base para los objetivos y personas generadas: ${JSON.stringify((context.business as any).onboardingStrategy)}.` : ""}
 - Buyer Personas Pre-generados en Banco de Datos (Reutilizar OBLIGATORIAMENTE si existen): ${JSON.stringify((context as any).buyerPersonas || [])}.
 - Catálogo de Productos Reales: ${JSON.stringify(context.products)}.
 - Datos e informes de competidores: ${JSON.stringify(context.competitorScrapedDetails)}.
 
-Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer personas. Si hay 'Buyer Personas Pre-generados', copia sus campos al pie de la letra para mantener consistencia absoluta entre la etapa de base de datos y la estrategia. Responde estrictamente con JSON en el formato especificado.`,
+Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer personas basándote fielmente en la ESTRATEGIA DIRECTA DEL CLIENTE si existe. Si hay 'Buyer Personas Pre-generados', copia sus campos al pie de la letra para mantener consistencia absoluta entre la etapa de base de datos y la estrategia. Responde estrictamente con JSON en el formato especificado.`,
     });
     return object.strategies.slice(0, count);
   } catch (e) {
@@ -593,7 +595,7 @@ Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer
 
 // Generar campañas adicionales basadas en las estrategias
 export async function generateCampaignsCascade(
-  business: { name: string }, 
+  business: { name: string; onboardingStrategy?: any }, 
   strategies: Strategy[], 
   count: number,
   startDateRequested?: string
@@ -645,6 +647,7 @@ Reglas clave:
 6. REGLA DE PRESUPUESTO REALISTA (BOLIVIA/LATAM): El presupuesto sugerido de publicidad ('budget') para cada campaña debe ser moderado y adaptado a pymes en Bolivia. Debe situarse estrictamente en un rango de entre $15 y $75 USD para toda la campaña (por ejemplo, $30, $45 o $60 USD), distribuyéndose proporcionalmente entre Facebook, Instagram y TikTok Ads. Evita presupuestos altos e irreales de $200, $300 o $500 USD.`,
       prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
+        (business.onboardingStrategy ? `\nESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA - usar como base para targeting, canales de conversión y tono de copies):\n${JSON.stringify(business.onboardingStrategy)}` : '') +
         `\nGenera exactamente 8 publicaciones (5 videos/reels, 2 carruseles y 1 post) con fechas coherentes de planificación en formato ISO que inicien exactamente desde "${baseDateStr}" en adelante, distribuidas a lo largo de 30 días en el año ${new Date().getFullYear()}.`,
     });
     return object.campaigns.slice(0, count);
@@ -656,7 +659,7 @@ Reglas clave:
 
 // Regenera SOLO los contenidos/publicaciones para una campaña existente (sin tocar la campaña)
 export async function generateCalendarContentsCascade(
-  business: { name: string },
+  business: { name: string; onboardingStrategy?: any },
   strategies: Strategy[],
   campaign: { id: string; name: string; description: string | null; channels: any; objective: string }
 ) {
@@ -700,6 +703,7 @@ Campaña: "${campaign.name}" - ${campaign.description || 'Sin descripción'}
 Objetivo de la campaña: ${campaign.objective}
 Canales activos: ${campaignChannels.join(', ')}
 ${strategies.length > 0 ? `Estrategia base: "${strategies[0].name}" - ${strategies[0].description}` : ''}
+${business.onboardingStrategy ? `ESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA - alinear tono, targeting y copies con estos datos):\n${JSON.stringify(business.onboardingStrategy)}` : ''}
 Genera exactamente 8 publicaciones (5 videos/reels, 2 carruseles y 1 post) distribuidas de forma espaciada durante los próximos 30 días para esta campaña.`,
     });
     return object.contents;

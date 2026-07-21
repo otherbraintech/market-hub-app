@@ -91,6 +91,7 @@ export async function runGenerateGeneralReport(businessId: string) {
       select: {
         id: true,
         name: true,
+        onboardingStrategy: true,
       }
     });
 
@@ -221,7 +222,17 @@ ATENCIÓN: NO generes propuestas de campañas de marketing/publicidad concretas 
 DATOS DE LOS COMPETIDORES DISPONIBLES:
 ${competitorData}
 
-IMPORTANTE SOBRE LOS CANALES Y DATOS DISPONIBLES:
+${business.onboardingStrategy ? (() => { const st = business.onboardingStrategy as any; return `ESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA):
+Utiliza estos datos clave provistos por el usuario como pilar fundamental para contrastar la competencia:
+${st.locationAge ? `- Perfil Demográfico Clave: ${st.locationAge}` : ''}
+${st.lifeEvent ? `- Evento de Vida / Dolor Principal: ${st.lifeEvent}` : ''}
+${st.archetype ? `- Arquetipo de Marca / Tono: ${st.archetype}` : ''}
+${st.conversionChannel ? `- Canal de Conversión Principal: ${st.conversionChannel}` : ''}
+${st.informationGaps ? `- Vacío de Información detectado en el mercado: ${st.informationGaps}` : ''}
+${st.socialProof ? `- Elemento de Prueba Social: ${st.socialProof}` : ''}
+${st.differentialAdvantage ? `- Ventaja Diferencial Única: ${st.differentialAdvantage}` : ''}
+
+`; })() : ''}IMPORTANTE SOBRE LOS CANALES Y DATOS DISPONIBLES:
 - El análisis debe ser independiente de qué canales han sido scrapeados.
 - Si solo hay datos de un único canal (por ejemplo, únicamente el Sitio Web), el informe debe generarse con base en ese canal.
 - Si un canal NO está presente en los datos adjuntos, NO inventes ni alucines información para dicho canal. Concéntrate únicamente en lo que esté disponible.

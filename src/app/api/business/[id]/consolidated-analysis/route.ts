@@ -20,6 +20,7 @@ export async function runBusinessConsolidatedAnalysis(id: string) {
         phoneNumbers: true,
         location: true,
         socialLinks: true,
+        onboardingStrategy: true,
       }
     });
 
@@ -61,6 +62,7 @@ export async function runBusinessConsolidatedAnalysis(id: string) {
         targetAudience: business.targetAudience,
         brandVoice: business.brandVoice,
         socialLinks: business.socialLinks,
+        onboardingStrategy: business.onboardingStrategy,
       },
       businessAnalysis: normalizedBusinessReports.map((r: any) => ({
         channel: r.channel,
@@ -206,6 +208,19 @@ function buildConsolidatedPrompt(context: any) {
   prompt += `- Sitio web: ${business.website || 'No especificado'}\n`;
   prompt += `- Descripción: ${business.description || 'No especificada'}\n`;
   prompt += `- Audiencia objetivo: ${JSON.stringify(business.targetAudience) || 'No especificada'}\n\n`;
+  
+  if (business.onboardingStrategy) {
+    prompt += `ESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA):\n`;
+    prompt += `Utiliza estos datos clave provistos por el usuario como pilar fundamental para formular tus conclusiones y alinear el reporte:\n`;
+    const st = business.onboardingStrategy;
+    if (st.locationAge) prompt += `- Perfil Demográfico Clave: ${st.locationAge}\n`;
+    if (st.lifeEvent) prompt += `- Evento de Vida / Dolor Principal: ${st.lifeEvent}\n`;
+    if (st.archetype) prompt += `- Arquetipo de Marca / Tono: ${st.archetype}\n`;
+    if (st.conversionChannel) prompt += `- Canal de Conversión Principal: ${st.conversionChannel}\n`;
+    if (st.informationGaps) prompt += `- Vacío de Información detectado en el mercado: ${st.informationGaps}\n`;
+    if (st.socialProof) prompt += `- Elemento de Prueba Social: ${st.socialProof}\n`;
+    if (st.differentialAdvantage) prompt += `- Ventaja Diferencial Única: ${st.differentialAdvantage}\n\n`;
+  }
   
   if (businessAnalysis.length > 0) {
     prompt += `ANÁLISIS DE CANALES DIGITALES:\n`;

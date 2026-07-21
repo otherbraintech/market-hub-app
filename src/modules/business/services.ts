@@ -77,6 +77,7 @@ export async function createBusiness(
       phoneNumbers: input.phoneNumbers,
       location: input.location,
       socialLinks: input.socialLinks as Prisma.JsonObject | undefined,
+      onboardingStrategy: input.onboardingStrategy as Prisma.JsonObject | undefined,
       userId: input.userId,
     },
   })

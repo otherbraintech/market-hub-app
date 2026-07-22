@@ -19,6 +19,7 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/comp
 
 import { BusinessFormValues } from "@/lib/schemas/business";
 import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction } from "@/actions/business";
+import { getIndustryPlaceholders } from "@/lib/industry-suggestions";
 
 function OnboardingContent() {
   const router = useRouter();
@@ -35,6 +36,12 @@ function OnboardingContent() {
   const [businessName, setBusinessName] = useState("");
   const [businessFormValues, setBusinessFormValues] = useState<BusinessFormValues | null>(null);
   const [maxCompetitorsLimit, setMaxCompetitorsLimit] = useState(3);
+
+  const industryPlaceholders = getIndustryPlaceholders(
+    businessFormValues?.industry,
+    businessFormValues?.description,
+    businessName || businessFormValues?.name
+  );
 
   // Fetch user limits on mount
   useEffect(() => {
@@ -55,11 +62,34 @@ function OnboardingContent() {
         const business = await getBusinessWithCompetitors(businessId);
         if (business) {
           setBusinessName(business.name);
+          // Hidratar businessFormValues para que el paso 1 muestre datos al volver
+          setBusinessFormValues({
+            name: business.name,
+            description: business.description || "",
+            industry: business.industry || "",
+            website: business.website || "",
+            phoneNumbers: business.phoneNumbers || "",
+            location: (business.location as any) || "",
+            brandVoice: (business.brandVoice as any) || { tone: [], personality: [], values: [] },
+            targetAudience: (business.targetAudience as any) || { demographics: "", psychographics: "" },
+            socialLinks: (business.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
+          });
+          // Hidratar strategyValues para que el paso 3 muestre datos al volver
           if (business.onboardingStrategy && typeof business.onboardingStrategy === "object") {
             setStrategyValues((prev) => ({
               ...prev,
               ...(business.onboardingStrategy as any)
             }));
+          }
+          // Hidratar competidores para que el paso 2 muestre datos al volver
+          if (business.competitors && business.competitors.length > 0) {
+            setCompetitors(business.competitors.map((c: any) => ({
+              name: c.name || "",
+              website: c.website || "",
+              facebook: c.facebook || "",
+              instagram: c.instagram || "",
+              tiktok: c.tiktok || "",
+            })));
           }
           if (forceStep) {
             setCurrentStep(parseInt(forceStep));
@@ -329,15 +359,15 @@ function OnboardingContent() {
       {/* Indicador de pasos estilo Premium Glass */}
       <div className="bg-card/45 backdrop-blur-md border border-slate-100 dark:border-slate-800/80 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center justify-between w-full md:w-auto md:justify-start gap-4">
-          <div className="flex items-center gap-3">
+          <button type="button" onClick={() => currentStep > 1 && setCurrentStep(1)} className={`flex items-center gap-3 ${currentStep > 1 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
             <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep === 1 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105 border border-primary/20' : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'}`}>
               {currentStep > 1 ? <Check className="h-4.5 w-4.5 stroke-[3]" /> : "01"}
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col text-left">
               <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Etapa Inicial</span>
               <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 1 ? 'text-primary' : 'text-foreground/80'}`}>Mi Negocio</span>
             </div>
-          </div>
+          </button>
 
           <div className="flex-1 md:hidden h-0.5 bg-muted mx-4 relative rounded-full">
             <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${currentStep >= 2 ? 'w-full' : 'w-0'}`} />
@@ -347,15 +377,15 @@ function OnboardingContent() {
         <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-emerald-500/30 to-slate-200 dark:to-slate-800 mx-2" />
 
         <div className="flex items-center justify-between w-full md:w-auto md:justify-start gap-4">
-          <div className="flex items-center gap-3">
+          <button type="button" onClick={() => currentStep > 2 && setCurrentStep(2)} className={`flex items-center gap-3 ${currentStep > 2 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
             <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep === 2 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105 border border-primary/20' : currentStep > 2 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
               {currentStep > 2 ? <Check className="h-4.5 w-4.5 stroke-[3]" /> : "02"}
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col text-left">
               <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Etapa de Análisis</span>
               <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 2 ? 'text-primary' : 'text-foreground/80'}`}>Competidores</span>
             </div>
-          </div>
+          </button>
 
           <div className="flex-1 md:hidden h-0.5 bg-muted mx-4 relative rounded-full">
             <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${currentStep === 3 ? 'w-full' : 'w-0'}`} />
@@ -365,15 +395,15 @@ function OnboardingContent() {
         <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-violet-500/30 mx-2" />
 
         <div className="flex items-center justify-between w-full md:w-auto md:justify-start gap-4">
-          <div className="flex items-center gap-3">
+          <button type="button" onClick={() => currentStep > 3 && setCurrentStep(3)} className={`flex items-center gap-3 ${currentStep > 3 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
             <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${currentStep === 3 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-105 border border-primary/20' : currentStep > 3 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
               {currentStep > 3 ? <Check className="h-4.5 w-4.5 stroke-[3]" /> : "03"}
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col text-left">
               <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Estrategia Base</span>
               <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 3 ? 'text-primary' : 'text-foreground/80'}`}>Configuración</span>
             </div>
-          </div>
+          </button>
 
           <div className="flex-1 md:hidden h-0.5 bg-muted mx-4 relative rounded-full">
             <div className={`absolute inset-y-0 left-0 bg-primary transition-all duration-500 rounded-full ${currentStep === 4 ? 'w-full' : 'w-0'}`} />
@@ -510,17 +540,24 @@ function OnboardingContent() {
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-blue-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
               <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl" />
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
-                  <Target className="h-5 w-5" />
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                    <Target className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-base font-bold text-foreground">
+                      Configuración Estratégica Base
+                    </h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                      Responde estas preguntas extra para tener más información sobre tu negocio. Así podremos armar una mejor estrategia, campaña y calendario.
+                    </p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h5 className="text-base font-bold text-foreground">
-                    Configuración Estratégica Base
-                  </h5>
-                  <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
-                    Responde estas preguntas extra para tener más información sobre tu negocio. Así podremos armar una mejor estrategia, campaña y calendario.
-                  </p>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse shrink-0" />
+                  <span>Rubro detectado: <strong>{industryPlaceholders.industryLabel}</strong></span>
                 </div>
               </div>
             </div>
@@ -545,11 +582,26 @@ function OnboardingContent() {
                       </Tooltip>
                     </div>
                     <Input 
-                      placeholder="Ej. Santa Cruz, entre 20 y 35 años" 
+                      placeholder={industryPlaceholders.locationAge.placeholder} 
                       value={strategyValues.locationAge} 
                       onChange={(e) => setStrategyValues({...strategyValues, locationAge: e.target.value})}
                       className="h-11 rounded-xl"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {industryPlaceholders.locationAge.chips.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, locationAge: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Pregunta 2 */}
@@ -569,11 +621,26 @@ function OnboardingContent() {
                       </Tooltip>
                     </div>
                     <Input 
-                      placeholder="Ej. Quincenas, Cumpleaños, Calor" 
+                      placeholder={industryPlaceholders.lifeEvent.placeholder} 
                       value={strategyValues.lifeEvent} 
                       onChange={(e) => setStrategyValues({...strategyValues, lifeEvent: e.target.value})}
                       className="h-11 rounded-xl"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {industryPlaceholders.lifeEvent.chips.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, lifeEvent: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Pregunta 3 */}
@@ -593,11 +660,26 @@ function OnboardingContent() {
                       </Tooltip>
                     </div>
                     <Input 
-                      placeholder="Ej. Para ti, Para regalar, De emergencia" 
+                      placeholder={industryPlaceholders.archetype.placeholder} 
                       value={strategyValues.archetype} 
                       onChange={(e) => setStrategyValues({...strategyValues, archetype: e.target.value})}
                       className="h-11 rounded-xl"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {industryPlaceholders.archetype.chips.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, archetype: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Pregunta 4 */}
@@ -617,11 +699,26 @@ function OnboardingContent() {
                       </Tooltip>
                     </div>
                     <Input 
-                      placeholder="Ej. TikTok a WhatsApp" 
+                      placeholder={industryPlaceholders.conversionChannel.placeholder} 
                       value={strategyValues.conversionChannel} 
                       onChange={(e) => setStrategyValues({...strategyValues, conversionChannel: e.target.value})}
                       className="h-11 rounded-xl"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {industryPlaceholders.conversionChannel.chips.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, conversionChannel: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Pregunta 5 */}
@@ -641,11 +738,26 @@ function OnboardingContent() {
                       </Tooltip>
                     </div>
                     <Input 
-                      placeholder="Ej. Precios ocultos, Ubicación poco clara" 
+                      placeholder={industryPlaceholders.informationGaps.placeholder} 
                       value={strategyValues.informationGaps} 
                       onChange={(e) => setStrategyValues({...strategyValues, informationGaps: e.target.value})}
                       className="h-11 rounded-xl"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {industryPlaceholders.informationGaps.chips.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, informationGaps: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Pregunta 6 */}
@@ -665,11 +777,26 @@ function OnboardingContent() {
                       </Tooltip>
                     </div>
                     <Input 
-                      placeholder="Ej. Reposts de clientes en Stories" 
+                      placeholder={industryPlaceholders.socialProof.placeholder} 
                       value={strategyValues.socialProof} 
                       onChange={(e) => setStrategyValues({...strategyValues, socialProof: e.target.value})}
                       className="h-11 rounded-xl"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {industryPlaceholders.socialProof.chips.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, socialProof: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Pregunta 7 */}
@@ -689,11 +816,26 @@ function OnboardingContent() {
                       </Tooltip>
                     </div>
                     <Input 
-                      placeholder="Ej. Delivery en menos de 30 mins" 
+                      placeholder={industryPlaceholders.differentialAdvantage.placeholder} 
                       value={strategyValues.differentialAdvantage} 
                       onChange={(e) => setStrategyValues({...strategyValues, differentialAdvantage: e.target.value})}
                       className="h-11 rounded-xl"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {industryPlaceholders.differentialAdvantage.chips.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, differentialAdvantage: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </TooltipProvider>
 

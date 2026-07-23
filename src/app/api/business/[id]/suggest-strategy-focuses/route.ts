@@ -26,6 +26,7 @@ export async function POST(
         industry: true,
         website: true,
         socialLinks: true,
+        onboardingStrategy: true,
         competitorGeneralReport: true,
       }
     });
@@ -83,6 +84,7 @@ export async function POST(
         industry: business.industry,
         website: business.website,
         socialLinks: business.socialLinks,
+        onboardingStrategy: business.onboardingStrategy,
       },
       products: products,
       myScrapedChannels: Array.from(businessReportsMap.entries()).map(([channel, data]) => ({
@@ -151,7 +153,21 @@ function buildFocusPrompt(context: any) {
   prompt += `NEGOCIO:\n`;
   prompt += `- Nombre: ${business.name}\n`;
   prompt += `- Descripción: ${business.description || 'No especificada'}\n`;
-  prompt += `- Industria: ${business.industry || 'No especificada'}\n\n`;
+  prompt += `- Industria: ${business.industry || 'No especificada'}\n`;
+
+  if (business.onboardingStrategy && typeof business.onboardingStrategy === 'object') {
+    const st = business.onboardingStrategy as any;
+    prompt += `\nONBOARDING Y ESTRATEGIA DEL USUARIO:\n`;
+    if (st.conversionChannel) {
+      prompt += `- Canal Crítico de Conversión Selección Usuario: ${st.conversionChannel}\n`;
+      prompt += `  * CONTEXTO Y DEFINICIONES DE CANALES DE CONVERSIÓN:\n`;
+      prompt += `    - Canal Moderno: Grandes cadenas con autoservicio y compras automatizadas (Supermercados/Hipermercados como Hipermaxi, Ketal, Walmart; Tiendas de conveniencia como OXXO, Tambo; Micromercados/Hard Discount).\n`;
+      prompt += `    - Canal Tradicional: Comercios independientes atendidos por sus dueños (Tiendas de barrio/Almacenes, Carnicerías/Charcuterías, Fruterías/Verdulerías, Panaderías de zona).\n`;
+      prompt += `    - Puntos de Venta (PDV): Espacio físico exacto de interacción y pago (La góndola/estante, el mostrador/vitrina, la caja de cobro/zona caliente por impulso, islas promocionales).\n`;
+      prompt += `    - Canal Retail / Minorista: Venta al detalle directa al consumidor final (B2C).\n`;
+    }
+  }
+  prompt += `\n`;
   
   if (products.length > 0) {
     prompt += `PRODUCTOS REGISTRADOS:\n`;

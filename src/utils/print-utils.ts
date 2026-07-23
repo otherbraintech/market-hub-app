@@ -290,19 +290,19 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
   let objectivesHtml = "";
   if (parsedStrategyObj.objectives && parsedStrategyObj.objectives.length > 0) {
     objectivesHtml = `
-      <div class="mb-10 page-break-inside-avoid">
-        <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2 mb-6 flex items-center gap-2">
+      <div class="mb-6 section-card">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
           <span>🎯</span> 1. Objetivos SMART
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           ${parsedStrategyObj.objectives.map((obj: any) => `
-            <div class="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm flex flex-col justify-between gap-4">
+            <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm flex flex-col justify-between gap-3 page-break-inside-avoid">
               <div>
-                <div class="flex justify-between items-center border-b pb-2.5 mb-3.5">
-                  <span class="font-extrabold text-slate-800 text-sm">${obj.name || "Objetivo"}</span>
-                  <span class="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${obj.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">${obj.status || 'PENDIENTE'}</span>
+                <div class="flex justify-between items-center border-b pb-2 mb-2.5">
+                  <span class="font-extrabold text-slate-800 text-xs">${obj.name || "Objetivo"}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${obj.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${obj.status || 'PENDIENTE'}</span>
                 </div>
-                <div class="space-y-2 text-xs text-slate-650">
+                <div class="space-y-1.5 text-xs text-slate-650">
                   <p><strong>S (Específico):</strong> ${obj.specific || ""}</p>
                   <p><strong>M (Medible):</strong> ${obj.measurable || ""}</p>
                   <p><strong>Meta:</strong> ${obj.targetValue || ""} ${obj.unit || ""}</p>
@@ -320,27 +320,27 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
   let personasHtml = "";
   if (parsedStrategyObj.personas && parsedStrategyObj.personas.length > 0) {
     personasHtml = `
-      <div class="mb-10 page-break-inside-avoid">
-        <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2 mb-6 flex items-center gap-2">
+      <div class="mb-6 section-card">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
           <span>👥</span> 2. Público Objetivo (Buyer Personas)
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           ${parsedStrategyObj.personas.map((p: any, idx: number) => `
-            <div class="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm space-y-4 flex flex-col justify-between">
-              <div class="space-y-3">
-                <div class="flex justify-between items-center border-b pb-2.5">
+            <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-3 flex flex-col justify-between page-break-inside-avoid">
+              <div class="space-y-2.5">
+                <div class="flex justify-between items-center border-b pb-2">
                   <div class="flex items-center gap-2">
-                    <span class="h-6 w-6 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-black">P${idx + 1}</span>
-                    <span class="font-extrabold text-slate-800 text-sm">${p.name || "Persona"}</span>
+                    <span class="h-5 w-5 rounded-md bg-purple-100 text-purple-700 flex items-center justify-center text-[11px] font-black">P${idx + 1}</span>
+                    <span class="font-extrabold text-slate-800 text-xs">${p.name || "Persona"}</span>
                   </div>
-                  <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 uppercase tracking-wider">${p.demographics || ""}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-50 text-purple-700 border border-purple-200 uppercase tracking-wider">${p.demographics || ""}</span>
                 </div>
-                <div class="space-y-2 text-xs text-slate-650">
-                  <p class="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100"><strong>Objetivos:</strong><br>${p.goals || "No definidos"}</p>
-                  <p class="bg-rose-50/20 p-2.5 rounded-xl border border-rose-100/50 text-rose-800"><strong>Puntos de Dolor:</strong><br>${p.painPoints || "No definidos"}</p>
+                <div class="space-y-1.5 text-xs text-slate-655">
+                  <p class="bg-slate-50 p-2 rounded-xl border border-slate-100"><strong>Objetivos:</strong> ${p.goals || "No definidos"}</p>
+                  <p class="bg-rose-50/40 p-2 rounded-xl border border-rose-100 text-rose-900"><strong>Puntos de Dolor:</strong> ${p.painPoints || "No definidos"}</p>
                   ${p.communication ? `
-                    <div class="bg-purple-50/30 p-3 rounded-xl border border-purple-100/50 space-y-1">
-                      <strong class="text-purple-900 block text-[10px] uppercase font-black">Guía de Comunicación:</strong>
+                    <div class="bg-purple-50/50 p-2.5 rounded-xl border border-purple-100 space-y-0.5">
+                      <strong class="text-purple-900 block text-[9px] uppercase font-black">Guía de Comunicación:</strong>
                       ${p.communication.tone ? `<div><strong>Tono:</strong> ${p.communication.tone}</div>` : ""}
                       ${p.communication.triggers ? `<div><strong>Triggers:</strong> ${p.communication.triggers}</div>` : ""}
                       ${p.communication.topics ? `<div><strong>Temas:</strong> ${p.communication.topics}</div>` : ""}
@@ -358,17 +358,17 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
   let funnelHtml = "";
   if (parsedStrategyObj.funnelStages && parsedStrategyObj.funnelStages.length > 0) {
     funnelHtml = `
-      <div class="mb-10 page-break-inside-avoid">
-        <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2 mb-6 flex items-center gap-2">
+      <div class="mb-6 section-card">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
           <span>⚙️</span> 3. Fases del Funnel de Ventas
         </h2>
-        <div class="flex flex-col gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           ${parsedStrategyObj.funnelStages.map((stage: any, idx: number) => `
-            <div class="flex gap-4 items-start bg-white border border-slate-100 p-5 rounded-3xl shadow-sm">
-              <div class="h-8 w-8 rounded-full bg-purple-600 text-white flex items-center justify-center font-black shrink-0 shadow-sm">${idx + 1}</div>
+            <div class="flex gap-3 items-start bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm page-break-inside-avoid">
+              <div class="h-7 w-7 rounded-full bg-purple-600 text-white flex items-center justify-center font-black shrink-0 text-xs shadow-sm">${idx + 1}</div>
               <div>
-                <div class="font-extrabold text-slate-800 text-sm mb-1">${stage.name || ""}</div>
-                <div class="text-xs text-slate-500 leading-relaxed">${stage.description || ""}</div>
+                <div class="font-extrabold text-slate-800 text-xs mb-0.5">${stage.name || ""}</div>
+                <div class="text-[11px] text-slate-600 leading-snug">${stage.description || ""}</div>
               </div>
             </div>
           `).join("")}
@@ -380,20 +380,20 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
   let channelsHtml = "";
   if (parsedStrategyObj.channels && parsedStrategyObj.channels.length > 0) {
     channelsHtml = `
-      <div class="mb-10 page-break-inside-avoid">
-        <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 border-b pb-2 mb-6 flex items-center gap-2">
+      <div class="mb-6 section-card">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
           <span>📢</span> 4. Plan de Canales y Frecuencia
         </h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           ${parsedStrategyObj.channels.map((ch: any) => `
-            <div class="bg-white border border-slate-100 p-5 rounded-3xl shadow-sm flex flex-col justify-between gap-3">
-              <div class="flex justify-between items-center border-b pb-2 mb-2">
-                <span class="font-extrabold text-slate-800 text-sm">${ch.name || ""}</span>
-                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-550/10 text-purple-700">${ch.type || "SOCIAL"}</span>
+            <div class="bg-white border border-slate-200 p-3.5 rounded-2xl shadow-sm flex flex-col justify-between gap-2 page-break-inside-avoid">
+              <div class="flex justify-between items-center border-b pb-1.5 mb-1">
+                <span class="font-extrabold text-slate-800 text-xs">${ch.name || ""}</span>
+                <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-100 text-purple-700 border border-purple-200">${ch.type || "SOCIAL"}</span>
               </div>
               <div class="text-xs text-slate-655 space-y-1">
                 ${ch.frequency ? `<div><strong>Frecuencia:</strong> ${ch.frequency}</div>` : ""}
-                ${ch.notes ? `<div class="italic text-slate-400 mt-2"><strong>Notas:</strong> ${ch.notes}</div>` : ""}
+                ${ch.notes ? `<div class="italic text-slate-500 mt-1"><strong>Notas:</strong> ${ch.notes}</div>` : ""}
               </div>
             </div>
           `).join("")}
@@ -422,32 +422,48 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
           }
         </script>
         <style>
+          @page {
+            margin: 10mm 10mm;
+            size: A4 portrait;
+          }
           body {
             font-family: 'Outfit', sans-serif;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          @page {
-            margin: 20mm 15mm;
-          }
           .page-break-inside-avoid {
-            page-break-inside: avoid;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .section-card {
+            page-break-inside: auto !important;
+            break-inside: auto !important;
+          }
+          h1, h2, h3, h4 {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+          @media print {
+            body {
+              padding: 0 !important;
+              background-color: #ffffff !important;
+            }
           }
         </style>
       </head>
-      <body class="bg-slate-50 text-slate-800 p-10 leading-relaxed">
-        <div class="bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-pink-500/10 border border-purple-200/40 p-6 rounded-3xl shadow-sm mb-8 flex justify-between items-center">
+      <body class="bg-slate-50 text-slate-800 p-6 leading-relaxed">
+        <div class="bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-pink-500/10 border border-purple-200/60 p-4 rounded-2xl shadow-sm mb-5 flex justify-between items-center page-break-inside-avoid">
           <div>
             <span class="text-[9px] font-black uppercase tracking-widest text-purple-700">OB MarketHub - Growth Strategy</span>
-            <h1 class="text-2xl font-black text-slate-800 tracking-tight">${strategyName}</h1>
+            <h1 class="text-xl font-black text-slate-800 tracking-tight">${strategyName}</h1>
           </div>
-          <div class="text-right text-xs text-slate-400 font-bold">
+          <div class="text-right text-xs text-slate-500 font-bold">
             Negocio: ${brandName} | Generación: ${dateStr}
           </div>
         </div>
 
         ${activeStrategy.description ? `
-          <div class="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm text-xs text-slate-600 mb-8 leading-relaxed italic border-l-4 border-l-purple-600">
+          <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm text-xs text-slate-650 mb-5 leading-relaxed italic border-l-4 border-l-purple-600 page-break-inside-avoid">
             ${activeStrategy.description}
           </div>
         ` : ""}

@@ -176,22 +176,28 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
           <title>${strategyName} - ${brandName}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;750;800&display=swap');
+            @page {
+              margin: 10mm 10mm;
+              size: A4 portrait;
+            }
             body {
               font-family: 'Outfit', sans-serif;
               color: #1e293b;
               margin: 0;
-              padding: 40px;
-              line-height: 1.5;
+              padding: 20px;
+              line-height: 1.45;
               background-color: #ffffff;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
             .header-container {
-              border-bottom: 3px solid #8b5cf6;
-              padding-bottom: 20px;
-              margin-bottom: 30px;
+              border-bottom: 2px solid #8b5cf6;
+              padding-bottom: 12px;
+              margin-bottom: 20px;
             }
             .header-container h1 {
-              margin: 0 0 10px 0;
-              font-size: 28px;
+              margin: 0 0 6px 0;
+              font-size: 22px;
               color: #1e1b4b;
               font-weight: 800;
               letter-spacing: -0.025em;
@@ -199,41 +205,47 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
             .metadata-grid {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              font-size: 13px;
+              font-size: 12px;
               color: #64748b;
             }
             h2 {
               color: #1e1b4b;
-              font-size: 20px;
+              font-size: 16px;
               border-bottom: 2px solid #f1f5f9;
-              padding-bottom: 8px;
+              padding-bottom: 6px;
               margin-top: 0;
-              margin-bottom: 20px;
+              margin-bottom: 14px;
               font-weight: 700;
+              page-break-after: avoid;
+              break-after: avoid;
             }
             .description-box {
-              font-size: 14px;
-              line-height: 1.6;
+              font-size: 12px;
+              line-height: 1.5;
               color: #475569;
               background: #f8fafc;
-              padding: 20px;
+              padding: 14px 18px;
               border-left: 4px solid #8b5cf6;
               border-radius: 8px;
-              margin-bottom: 30px;
+              margin-bottom: 20px;
+              page-break-inside: avoid;
             }
             .section-card {
-              margin-bottom: 35px;
-              page-break-inside: avoid;
+              margin-bottom: 22px;
+              page-break-inside: auto;
+              break-inside: auto;
             }
             .card {
               border: 1px solid #e2e8f0;
-              border-radius: 12px;
+              border-radius: 10px;
               overflow: hidden;
               background: #fff;
-              margin-bottom: 15px;
+              margin-bottom: 12px;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
             .card-header {
-              padding: 12px 16px;
+              padding: 10px 14px;
               background: #f8fafc;
               border-bottom: 1px solid #e2e8f0;
               display: flex;
@@ -246,24 +258,24 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
             }
             .card-title {
               font-weight: 750;
-              font-size: 14px;
+              font-size: 13px;
               color: #1e1b4b;
             }
             .card-body {
-              padding: 16px;
-              font-size: 12px;
+              padding: 12px 14px;
+              font-size: 11px;
               color: #334155;
             }
             .card-body p {
-              margin: 0 0 8px 0;
+              margin: 0 0 6px 0;
             }
             .card-body p:last-child {
               margin-bottom: 0;
             }
             .badge {
-              padding: 3px 8px;
-              border-radius: 6px;
-              font-size: 9px;
+              padding: 2px 7px;
+              border-radius: 4px;
+              font-size: 8.5px;
               font-weight: 700;
               text-transform: uppercase;
             }
@@ -271,19 +283,19 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
             .badge-pending { background: #fef3c7; color: #92400e; }
             .badge-channel { background: #f1f5f9; color: #475569; }
             .demographics {
-              font-size: 11px;
+              font-size: 10px;
               color: #4f46e5;
               font-weight: 600;
             }
             .sub-info {
-              margin-top: 12px;
-              padding-top: 12px;
+              margin-top: 8px;
+              padding-top: 8px;
               border-top: 1px dashed #e2e8f0;
             }
             .objectives-grid, .personas-grid, .channels-grid {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              gap: 15px;
+              gap: 12px;
             }
             @media (max-width: 600px) {
               .objectives-grid, .personas-grid, .channels-grid {
@@ -291,22 +303,24 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
               }
             }
             .funnel-list {
-              display: flex;
-              flex-direction: column;
+              display: grid;
+              grid-template-columns: 1fr 1fr;
               gap: 10px;
             }
             .funnel-item {
               display: flex;
-              gap: 15px;
-              padding: 15px;
+              gap: 10px;
+              padding: 12px;
               background: #f8fafc;
               border: 1px solid #e2e8f0;
-              border-radius: 10px;
+              border-radius: 8px;
               align-items: flex-start;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
             .funnel-number {
-              width: 24px;
-              height: 24px;
+              width: 22px;
+              height: 22px;
               background: #8b5cf6;
               color: #fff;
               border-radius: 50%;
@@ -314,16 +328,16 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
               align-items: center;
               justify-content: center;
               font-weight: 800;
-              font-size: 12px;
+              font-size: 11px;
               flex-shrink: 0;
             }
             .funnel-content {
-              font-size: 12px;
+              font-size: 11px;
             }
             .funnel-name {
               font-weight: 700;
               color: #1e1b4b;
-              margin-bottom: 4px;
+              margin-bottom: 2px;
             }
             .funnel-desc {
               color: #475569;
@@ -331,16 +345,17 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
             .notes {
               color: #64748b;
               background: #fafafa;
-              padding: 8px;
+              padding: 6px 8px;
               border-radius: 6px;
               border-left: 2px solid #cbd5e1;
             }
             @media print {
               body {
-                padding: 20px;
+                padding: 0 !important;
               }
               .section-card {
-                page-break-inside: avoid;
+                page-break-inside: auto !important;
+                break-inside: auto !important;
               }
             }
           </style>

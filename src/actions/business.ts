@@ -590,7 +590,34 @@ export async function startScrapingStage(businessId: string) {
     }
 
     // Await execution to prevent Next.js from terminating the context prematurely
-    await Promise.allSettled(promises);
+    const results = await Promise.allSettled(promises);
+
+    const fulfilledCount = results.filter(r => r.status === "fulfilled").length;
+    const totalCount = promises.length;
+
+    if (totalCount > 0 && fulfilledCount > 0) {
+      await prisma.agentNotification.create({
+        data: {
+          businessId,
+          title: "Agente de Extracción",
+          message: fulfilledCount === totalCount
+            ? "Extracción iniciada en todos los canales configurados."
+            : `Extracción iniciada en ${fulfilledCount} de ${totalCount} canales configurados.`,
+          step: "SCRAPING",
+          status: "PROCESSING"
+        }
+      });
+    } else if (totalCount > 0 && fulfilledCount === 0) {
+      await prisma.agentNotification.create({
+        data: {
+          businessId,
+          title: "Agente de Extracción",
+          message: "No se pudo establecer conexión con los canales digitales configurados.",
+          step: "SCRAPING",
+          status: "FAILED"
+        }
+      });
+    }
 
     return { success: true };
   } catch (error) {

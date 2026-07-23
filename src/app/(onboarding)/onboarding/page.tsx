@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { 
   Check, Users, ArrowRight, ArrowLeft, Globe, 
-  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info 
+  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info, Phone, Store
 } from "lucide-react";
 import { BusinessForm } from "@/components/business/business-form";
 import { saveMultipleCompetitorsAction } from "@/app/(dashboard)/business/[id]/competitor-actions";
@@ -30,6 +30,7 @@ interface MultiSelectQuestionProps {
   onChange: (newValue: string) => void;
   maxLimit?: number;
   otherPlaceholder?: string;
+  defaultPhoneNumber?: string;
 }
 
 function MultiSelectQuestion({
@@ -40,7 +41,8 @@ function MultiSelectQuestion({
   value,
   onChange,
   maxLimit,
-  otherPlaceholder = "Escribe otra opción personalizada..."
+  otherPlaceholder = "Escribe otra opción personalizada...",
+  defaultPhoneNumber = ""
 }: MultiSelectQuestionProps) {
   const selectedItems = React.useMemo(() => {
     if (!value) return [];
@@ -48,14 +50,65 @@ function MultiSelectQuestion({
   }, [value]);
 
   const selectedPresetChips = chips.filter(chip => selectedItems.includes(chip));
-  const customOtrosItems = selectedItems.filter(item => !chips.includes(item));
+  const customOtrosItems = selectedItems.filter(item => !chips.includes(item) && !item.includes(":"));
   const isOtrosActive = selectedItems.includes("Otros") || customOtrosItems.length > 0;
   const otrosText = customOtrosItems.filter(item => item !== "Otros").join(", ");
 
   const totalCount = selectedPresetChips.length + (isOtrosActive ? 1 : 0);
 
+  const isWhatsAppSelected = selectedItems.some(item => item.toLowerCase().includes("whatsapp"));
+  const showModernoCard = selectedItems.some(i => i.toLowerCase().includes("moderno"));
+  const showTradicionalCard = selectedItems.some(i => i.toLowerCase().includes("tradicional"));
+  const isRetailOrPhysicalSelected = showModernoCard || showTradicionalCard;
+
+  const findPrefixText = (prefix: string) => {
+    const item = selectedItems.find(i => i.startsWith(prefix));
+    if (!item) return "";
+    return item.replace(`${prefix}: `, "").trim();
+  };
+
+  const [modernoText, setModernoText] = useState(() => findPrefixText("Cadenas Canal Moderno"));
+  const [tradicionalText, setTradicionalText] = useState(() => findPrefixText("Comercios Canal Tradicional"));
+  const [waNumber, setWaNumber] = useState(() => {
+    const existing = findPrefixText("Número WhatsApp");
+    if (existing) return existing;
+    return defaultPhoneNumber || "";
+  });
+
+  const updatePrefixItem = (prefix: string, text: string) => {
+    const filtered = selectedItems.filter(i => !i.startsWith(prefix));
+    if (text.trim()) {
+      filtered.push(`${prefix}: ${text.trim()}`);
+    }
+    onChange(filtered.join(", "));
+  };
+
+  // Pre-llenar teléfono de WhatsApp cuando la opción esté seleccionada y se disponga de un número por defecto
+  useEffect(() => {
+    if (isWhatsAppSelected && defaultPhoneNumber && !findPrefixText("Número WhatsApp")) {
+      setWaNumber(defaultPhoneNumber);
+      updatePrefixItem("Número WhatsApp", defaultPhoneNumber);
+    }
+  }, [isWhatsAppSelected, defaultPhoneNumber]);
+
+  const toggleSubOption = (subOption: string) => {
+    const isAlready = selectedItems.includes(subOption);
+    let nextSelected: string[];
+    if (isAlready) {
+      nextSelected = selectedItems.filter(i => i !== subOption);
+    } else {
+      nextSelected = [...selectedItems, subOption];
+    }
+    onChange(nextSelected.join(", "));
+  };
+
   const updateStrategyValue = (newPresetChips: string[], otrosEnabled: boolean, newOtrosText: string) => {
     const combined: string[] = [...newPresetChips];
+    const prefixItems = selectedItems.filter(i => i.includes(": "));
+    prefixItems.forEach(p => {
+      if (!combined.includes(p)) combined.push(p);
+    });
+
     if (otrosEnabled) {
       if (newOtrosText.trim()) {
         combined.push(newOtrosText.trim());
@@ -97,6 +150,46 @@ function MultiSelectQuestion({
     updateStrategyValue(selectedPresetChips, true, text);
   };
 
+  const getChipTooltip = (chip: string) => {
+    const lower = chip.toLowerCase();
+    if (lower.includes("moderno")) {
+      return {
+        title: "Canal Moderno",
+        description: "Establecimientos estructurados, generalmente pertenecientes a grandes cadenas, con procesos de compra automatizados y autoservicio.",
+        examples: "Supermercados e Hipermercados (Walmart, Carrefour, Mercadona, Ketal, Hipermaxi), Conveniencia (OXXO, Tambo, 7-Eleven), Micromercados / Hard Discount (Aldi, Lidl, Tiendas D1)."
+      };
+    }
+    if (lower.includes("tradicional")) {
+      return {
+        title: "Canal Tradicional",
+        description: "Comercios independientes, habitualmente atendidos por sus propios dueños, con un trato más cercano y vecinal.",
+        examples: "Tiendas de barrio (Almacenes, bodegas, pulperías, abarrotes), Carnicerías y Charcuterías, Fruterías y Verdulerías, Panaderías de zona."
+      };
+    }
+    if (lower.includes("whatsapp")) {
+      return {
+        title: "Canal WhatsApp Directo",
+        description: "Atención personalizada 1 a 1 por mensajería instantánea para cerrar pedidos, consultas o ventas.",
+        examples: "WhatsApp Business, catálogos digitales por chat, atención sin intermediarios."
+      };
+    }
+    if (lower.includes("menú") || lower.includes("web") || lower.includes("online") || lower.includes("catálogo")) {
+      return {
+        title: "Canal Web / Menú Digital",
+        description: "Plataforma digital propia para pedidos automatizados, carrito de compras o menú interactivo.",
+        examples: "Tienda online, Menú con código QR, Checkout web directo."
+      };
+    }
+    if (lower.includes("demo") || lower.includes("zoom") || lower.includes("cita") || lower.includes("presencial")) {
+      return {
+        title: "Venta Consultiva / Citas",
+        description: "Agendamiento de reuniones presenciales, virtuales o citas de evaluación técnica.",
+        examples: "Reuniones por Zoom, Demos en vivo, Citas diagnósticas presenciales."
+      };
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-3 p-4 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/40 transition-all">
       <div className="flex items-center justify-between">
@@ -133,9 +226,10 @@ function MultiSelectQuestion({
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {chips.map((chip, idx) => {
           const isSelected = selectedPresetChips.includes(chip);
-          return (
+          const info = getChipTooltip(chip);
+
+          const chipButton = (
             <button
-              key={idx}
               type="button"
               onClick={() => toggleChip(chip)}
               className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all duration-150 flex items-center gap-1.5 ${
@@ -151,6 +245,27 @@ function MultiSelectQuestion({
               </div>
               {chip}
             </button>
+          );
+
+          if (!info) {
+            return <React.Fragment key={idx}>{chipButton}</React.Fragment>;
+          }
+
+          return (
+            <Tooltip key={idx}>
+              <TooltipTrigger asChild>
+                {chipButton}
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs bg-slate-900 text-slate-100 p-3 rounded-2xl shadow-2xl border border-slate-800 space-y-1.5 z-50">
+                <div className="font-black text-indigo-300 uppercase tracking-wider text-[10px] flex items-center gap-1">
+                  <span>✨</span> {info.title}
+                </div>
+                <p className="text-slate-200 leading-relaxed font-medium text-[11px]">{info.description}</p>
+                <div className="pt-1 border-t border-slate-800/80 text-[10px] text-slate-400 leading-snug">
+                  <strong className="text-slate-300">Ejemplos:</strong> {info.examples}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           );
         })}
 
@@ -179,8 +294,142 @@ function MultiSelectQuestion({
             value={otrosText}
             onChange={(e) => handleOtrosInputChange(e.target.value)}
             className="h-10 text-xs rounded-xl bg-background border-indigo-200 dark:border-indigo-800 focus-visible:ring-indigo-500"
-            autoFocus
           />
+        </div>
+      )}
+
+      {/* Campo de Número de WhatsApp si WhatsApp está seleccionado */}
+      {isWhatsAppSelected && (
+        <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200 space-y-1.5 p-3 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+            <Phone className="h-3.5 w-3.5" /> Número de WhatsApp para ventas / atención de clientes:
+          </div>
+          <Input
+            placeholder="Ej. +591 70000000"
+            value={waNumber}
+            onChange={(e) => {
+              setWaNumber(e.target.value);
+              updatePrefixItem("Número WhatsApp", e.target.value);
+            }}
+            className="h-9 text-xs rounded-xl bg-background border-emerald-300 dark:border-emerald-800 focus-visible:ring-emerald-500 font-mono"
+          />
+        </div>
+      )}
+
+      {/* Panel Detallado para Canal Retail, Tradicional y Moderno */}
+      {isRetailOrPhysicalSelected && (
+        <div className="mt-3 p-4 bg-indigo-50/40 dark:bg-slate-950/80 text-foreground rounded-2xl border border-indigo-200 dark:border-indigo-900/60 shadow-md space-y-3.5 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 border-b border-indigo-100 dark:border-slate-800 pb-2">
+            <Store className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <h4 className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+              Desglose Estratégico de Distribución Comercial
+            </h4>
+          </div>
+
+          {/* 1. Canal Moderno */}
+          {showModernoCard && (
+            <div className="space-y-2.5 bg-background dark:bg-slate-900/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                  🛒 Canal Moderno
+                </span>
+                <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                  Establecimientos estructurados, generalmente pertenecientes a grandes cadenas, con procesos de compra automatizados y autoservicio.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  "Supermercados e Hipermercados (Walmart, Carrefour, Mercadona, Ketal, Hipermaxi)",
+                  "Tiendas de Conveniencia (OXXO, 7-Eleven, Tambo, Circle K)",
+                  "Micromercados / Hard Discount (Aldi, Lidl, Tiendas D1, Ara)"
+                ].map((sub, sIdx) => {
+                  const isSubSel = selectedItems.includes(sub);
+                  return (
+                    <button
+                      key={sIdx}
+                      type="button"
+                      onClick={() => toggleSubOption(sub)}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all text-left ${
+                        isSubSel 
+                          ? 'bg-emerald-600 dark:bg-emerald-500 text-white border-emerald-600 dark:border-emerald-400 font-bold shadow-sm' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {isSubSel ? "✓ " : "+ "} {sub}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Input de supermercados/cadenas específicas */}
+              <div className="pt-2 space-y-1">
+                <label className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                  <span>✏️</span> Especifica el nombre de los supermercados o cadenas exactas donde vendes:
+                </label>
+                <Input
+                  placeholder="Ej. Hipermaxi, Ketal, Fidalga, Walmart, OXXO, Tambo..."
+                  value={modernoText}
+                  onChange={(e) => {
+                    setModernoText(e.target.value);
+                    updatePrefixItem("Cadenas Canal Moderno", e.target.value);
+                  }}
+                  className="h-8 text-[11px] rounded-lg bg-background border-slate-200 dark:border-slate-700 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-emerald-500 font-medium"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 2. Canal Tradicional */}
+          {showTradicionalCard && (
+            <div className="space-y-2.5 bg-background dark:bg-slate-900/90 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                  🏪 Canal Tradicional
+                </span>
+                <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                  Comercios independientes, habitualmente atendidos por sus propios dueños, con un trato más cercano y vecinal.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  "Tiendas de Barrio (Almacenes, bodegas, pulperías o abarrotes)",
+                  "Carnicerías y Charcuterías (Cortes locales y embutidos)",
+                  "Fruterías y Verdulerías (Puestos de mercado local o independientes)",
+                  "Panaderías de Zona (Establecimientos artesanales independientes)"
+                ].map((sub, sIdx) => {
+                  const isSubSel = selectedItems.includes(sub);
+                  return (
+                    <button
+                      key={sIdx}
+                      type="button"
+                      onClick={() => toggleSubOption(sub)}
+                      className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all text-left ${
+                        isSubSel 
+                          ? 'bg-amber-600 dark:bg-amber-500 text-white border-amber-600 dark:border-amber-400 font-bold shadow-sm' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {isSubSel ? "✓ " : "+ "} {sub}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Input de comercios/zonas tradicionales específicas */}
+              <div className="pt-2 space-y-1">
+                <label className="text-[11px] font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                  <span>✏️</span> Especifica los mercados de barrio, pulperías o zonas exactas:
+                </label>
+                <Input
+                  placeholder="Ej. Tiendas de barrio Equipetrol, Mercado Abasto, Carnicería Doña Rosa..."
+                  value={tradicionalText}
+                  onChange={(e) => {
+                    setTradicionalText(e.target.value);
+                    updatePrefixItem("Comercios Canal Tradicional", e.target.value);
+                  }}
+                  className="h-8 text-[11px] rounded-lg bg-background border-slate-200 dark:border-slate-700 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-amber-500 font-medium"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -415,7 +664,10 @@ function OnboardingContent() {
             return;
           }
         } else {
-          // Si el negocio ya existe, guardar onboardingStrategy en la base de datos
+          // Si el negocio ya existe, actualizar sus datos del perfil (paso 1) y guardar onboardingStrategy en la base de datos
+          if (businessFormValues) {
+            await updateBusiness(activeBusinessId, businessFormValues);
+          }
           const saveRes = await saveOnboardingStrategyAction(activeBusinessId, strategyValues);
           if (!saveRes.success) {
             toast.error(saveRes.error || "Ocurrió un error al guardar las preguntas estratégicas.");
@@ -616,9 +868,12 @@ function OnboardingContent() {
                 hideStepHeader={true}
                 singleStep={true}
                 defaultValues={businessFormValues || undefined}
-                onSubmitOverride={(data) => {
+                onSubmitOverride={async (data) => {
                   setBusinessFormValues(data);
                   setBusinessName(data.name);
+                  if (businessId) {
+                    await updateBusiness(businessId, data);
+                  }
                   setCurrentStep(2);
                 }}
               />
@@ -824,11 +1079,12 @@ function OnboardingContent() {
                   <MultiSelectQuestion
                     label="4. Canal Crítico de Conversión"
                     question="¿Por qué medio prefieren tus clientes cerrar la compra?"
-                    tooltipText="Indica por dónde prefieren cerrar la compra tus clientes (ej. WhatsApp, DMs de Instagram, Sitio Web) para priorizar los llamados a la acción (CTAs)."
+                    tooltipText="Indica por dónde prefieren cerrar la compra tus clientes (ej. WhatsApp, Canal Moderno, Canal Tradicional, Sitio Web) para priorizar los llamados a la acción (CTAs)."
                     chips={industryPlaceholders.conversionChannel.chips}
                     value={strategyValues.conversionChannel}
                     onChange={(val) => setStrategyValues({...strategyValues, conversionChannel: val})}
                     otherPlaceholder="Especifica otro canal de conversión..."
+                    defaultPhoneNumber={businessFormValues?.phoneNumbers || ""}
                   />
 
                   {/* Pregunta 5 */}

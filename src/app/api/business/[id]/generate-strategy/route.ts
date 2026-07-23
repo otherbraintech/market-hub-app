@@ -79,6 +79,7 @@ export async function POST(
         targetAudience: true,
         brandVoice: true,
         location: true,
+        onboardingStrategy: true,
         competitorGeneralReport: true,
       }
     });
@@ -123,6 +124,7 @@ export async function POST(
         targetAudience: business.targetAudience,
         brandVoice: business.brandVoice,
         socialLinks: business.socialLinks,
+        onboardingStrategy: business.onboardingStrategy,
       },
       myScrapedChannels: Array.from(businessReportsMap.entries()).map(([channel, report]) => {
         let dataObj = report.data;
@@ -190,6 +192,25 @@ function buildStrategyPrompt(context: any) {
   prompt += `- Industria: ${business.industry || 'No especificada'}\n`;
   prompt += `- Ubicación: ${business.location || 'No especificada'}\n`;
   if (business.brandVoice) prompt += `- Tono de Marca sugerido: ${JSON.stringify(business.brandVoice)}\n`;
+  
+  if (business.onboardingStrategy && typeof business.onboardingStrategy === 'object') {
+    const st = business.onboardingStrategy as any;
+    prompt += `\nRESPUESTAS ESTRATÉGICAS DEL NEGOCIO (ONBOARDING - ALTA PRIORIDAD):\n`;
+    if (st.locationAge) prompt += `- Segmentación Demográfica/Ubicación: ${st.locationAge}\n`;
+    if (st.lifeEvent) prompt += `- Momento de Compra / Evento de Vida: ${st.lifeEvent}\n`;
+    if (st.archetype) prompt += `- Arquetipo de Marca: ${st.archetype}\n`;
+    if (st.conversionChannel) {
+      prompt += `- Canal Crítico de Conversión Selección Usuario: ${st.conversionChannel}\n`;
+      prompt += `  * GUÍA EXPLÍCITA Y DEFINICIONES DE CANALES DE CONVERSIÓN:\n`;
+      prompt += `    - Canal Moderno: Establecimientos estructurados de grandes cadenas con autoservicio y compras automatizadas (Supermercados/Hipermercados como Hipermaxi, Ketal, Walmart, Carrefour; Tiendas de Conveniencia como OXXO, Tambo; Micromercados / Hard Discount).\n`;
+      prompt += `    - Canal Tradicional: Comercios independientes atendidos por sus dueños con trato vecinal (Tiendas de Barrio/Almacenes/Bodegas, Carnicerías y Charcuterías, Fruterías/Verdulerías, Panaderías de zona).\n`;
+      prompt += `    - Puntos de Venta (PDV): Espacio físico exacto de interacción y pago (La góndola/estante del supermercado, el mostrador/vitrina de carnicería, la caja de cobro/zona caliente por impulso, islas promocionales).\n`;
+      prompt += `    - Canal Retail / Minorista: Venta al detalle dirigida al consumidor final (B2C).\n`;
+    }
+    if (st.informationGaps) prompt += `- Obscuridades/Dudas antes de comprar: ${st.informationGaps}\n`;
+    if (st.socialProof) prompt += `- Prueba Social Clave: ${st.socialProof}\n`;
+    if (st.differentialAdvantage) prompt += `- Ventaja Diferencial Única: ${st.differentialAdvantage}\n`;
+  }
   prompt += `\n`;
 
   if (context.selectedFocusName) {

@@ -29,8 +29,13 @@ const GASTRO_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Artesanal y Apasionado", "Moderno y Juvenil", "Tradicional y Familiar", "Gourmet y Exclusivo"]
   },
   conversionChannel: {
-    placeholder: "Ej. Instagram DM para reservas y WhatsApp / PedidosYa para delivery directo",
-    chips: ["WhatsApp directo para Delivery", "Instagram DM para Reservas", "Botón de Menú Digital / Web"]
+    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Menú Web",
+    chips: [
+      "WhatsApp directo para pedidos / delivery",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Botón de Menú Digital / Web"
+    ]
   },
   informationGaps: {
     placeholder: "Ej. Zonas y costo de delivery, menú con precios, opciones vegetarianas/keto y reservas",
@@ -69,8 +74,13 @@ const MODA_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Chic y Vanguardista", "Minimalista y Elegante", "Urbano y Audaz", "Fresco y Accesible"]
   },
   conversionChannel: {
-    placeholder: "Ej. TikTok/Instagram directo a asesoría por WhatsApp o Tienda Online",
-    chips: ["WhatsApp con asesoría de imagen", "Instagram DM directo", "Tienda online / Catálogo web"]
+    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Tienda Online",
+    chips: [
+      "WhatsApp directo con atención personalizada",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Tienda Online / Catálogo Web"
+    ]
   },
   informationGaps: {
     placeholder: "Ej. Tabla de tallas exactas, material de la prenda, políticas de cambio y costo de envío",
@@ -108,8 +118,13 @@ const TECH_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Innovador y Tecnológico", "Confiable y Profesional", "Ágil y Orientado a Resultados", "Cercano y Educador"]
   },
   conversionChannel: {
-    placeholder: "Ej. Agendamiento de Demo en vivo o WhatsApp directo con un especialista",
-    chips: ["Agendamiento de Demo en Vivo", "WhatsApp directo de ventas B2B", "Prueba gratuita en plataforma web"]
+    placeholder: "Ej. WhatsApp directo, Agendamiento de Demo o Plataforma Web",
+    chips: [
+      "WhatsApp directo de ventas B2B",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Agendamiento de Demo / Web"
+    ]
   },
   informationGaps: {
     placeholder: "Ej. Facilidad de integración con sistemas actuales, precios de suscripción y soporte técnico",
@@ -128,7 +143,7 @@ const TECH_PRESETS: IndustryPlaceholdersMap = {
   },
   differentialAdvantage: {
     placeholder: "Ej. Puesta en marcha en 24 horas con soporte en español 1 a 1 y garantía de satisfacción",
-    chips: ["Implementación express en 24 horas", "Soporte dedicado en español por WhatsApp", "Plataforma todo-en-uno más intuitiva"]
+    chips: ["Implementación express en 24 horas", "Soporte dedicated en español por WhatsApp", "Plataforma todo-en-uno más intuitiva"]
   }
 };
 
@@ -147,8 +162,13 @@ const SALUD_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Empático y Humano", "Científico y Riguroso", "Exclusivo y Relajante", "Motivador y Enérgico"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo para agendar primera cita de evaluación diagnóstica",
-    chips: ["Agendamiento rápido por WhatsApp", "Llamada a recepción central", "Formulario web de citas"]
+    placeholder: "Ej. WhatsApp directo, Canal Moderno o Formulario Web",
+    chips: [
+      "WhatsApp para agendamiento directo",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Llamada a recepción / Formulario Web"
+    ]
   },
   informationGaps: {
     placeholder: "Ej. Si los tratamientos duelen, costo de la primera cita y experiencia de los profesionales",
@@ -186,8 +206,13 @@ const SERVICIOS_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Experto y Líder de Opinión", "Mentor Cercano y Práctico", "Analítico y Transparente", "Prestigioso y Exclusivo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo para recibir la propuesta/dossier o agendar una llamada",
-    chips: ["WhatsApp con un asesor especializado", "Descarga de dossier / temario web", "Reunión por Zoom / Presencial"]
+    placeholder: "Ej. WhatsApp directo, Canal Moderno o Reunión Presencial/Web",
+    chips: [
+      "WhatsApp con un asesor especializado",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Reunión Presencial / Zoom"
+    ]
   },
   informationGaps: {
     placeholder: "Ej. Precios de servicios, certificación u homologación, tiempos de entrega y metodología",
@@ -225,8 +250,13 @@ const GENERAL_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Cercano y Servicial", "Eficiente y Práctico", "Moderno y Confiable", "Innovador y Directo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp Business, mensajes directos en redes sociales o tienda física",
-    chips: ["WhatsApp directo de atención", "Visita a tienda física / local", "Catálogo digital en web/redes"]
+    placeholder: "Ej. WhatsApp Business, Canal Moderno, Canal Tradicional o Tienda Web",
+    chips: [
+      "WhatsApp directo de atención",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Catálogo Digital / Tienda Web"
+    ]
   },
   informationGaps: {
     placeholder: "Ej. Precios actualizados, formas de pago aceptadas (QR, tarjeta) y tiempos de entrega",

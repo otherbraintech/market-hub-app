@@ -216,7 +216,10 @@ function buildConsolidatedPrompt(context: any) {
     if (st.locationAge) prompt += `- Perfil Demográfico Clave: ${st.locationAge}\n`;
     if (st.lifeEvent) prompt += `- Evento de Vida / Dolor Principal: ${st.lifeEvent}\n`;
     if (st.archetype) prompt += `- Arquetipo de Marca / Tono: ${st.archetype}\n`;
-    if (st.conversionChannel) prompt += `- Canal de Conversión Principal: ${st.conversionChannel}\n`;
+    if (st.conversionChannel) {
+      prompt += `- Canal de Conversión Principal: ${st.conversionChannel}\n`;
+      prompt += `  (Guía: Canal Moderno = Grandes cadenas con autoservicio/supermercados/tiendas de conveniencia; Canal Tradicional = Tiendas de barrio, carnicerías, fruterías, panaderías locales; PDV = Espacio físico exacto: góndola, mostrador, caja de cobro, islas promocionales; Retail = Venta al detalle B2C)\n`;
+    }
     if (st.informationGaps) prompt += `- Vacío de Información detectado en el mercado: ${st.informationGaps}\n`;
     if (st.socialProof) prompt += `- Elemento de Prueba Social: ${st.socialProof}\n`;
     if (st.differentialAdvantage) prompt += `- Ventaja Diferencial Única: ${st.differentialAdvantage}\n\n`;

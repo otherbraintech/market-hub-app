@@ -227,7 +227,8 @@ Utiliza estos datos clave provistos por el usuario como pilar fundamental para c
 ${st.locationAge ? `- Perfil Demográfico Clave: ${st.locationAge}` : ''}
 ${st.lifeEvent ? `- Evento de Vida / Dolor Principal: ${st.lifeEvent}` : ''}
 ${st.archetype ? `- Arquetipo de Marca / Tono: ${st.archetype}` : ''}
-${st.conversionChannel ? `- Canal de Conversión Principal: ${st.conversionChannel}` : ''}
+${st.conversionChannel ? `- Canal de Conversión Principal: ${st.conversionChannel}
+  (Guía: Canal Moderno = Cadenas con autoservicio/supermercados/tiendas conveniencia; Canal Tradicional = Tiendas de barrio, carnicerías, fruterías, panaderías locales; PDV = Espacio físico exacto: góndola, mostrador, caja de cobro, islas promocionales; Retail = Venta al detalle B2C)` : ''}
 ${st.informationGaps ? `- Vacío de Información detectado en el mercado: ${st.informationGaps}` : ''}
 ${st.socialProof ? `- Elemento de Prueba Social: ${st.socialProof}` : ''}
 ${st.differentialAdvantage ? `- Ventaja Diferencial Única: ${st.differentialAdvantage}` : ''}

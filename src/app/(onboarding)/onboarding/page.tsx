@@ -21,6 +21,172 @@ import { BusinessFormValues } from "@/lib/schemas/business";
 import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction } from "@/actions/business";
 import { getIndustryPlaceholders } from "@/lib/industry-suggestions";
 
+interface MultiSelectQuestionProps {
+  label: string;
+  question: string;
+  tooltipText: string;
+  chips: string[];
+  value: string;
+  onChange: (newValue: string) => void;
+  maxLimit?: number;
+  otherPlaceholder?: string;
+}
+
+function MultiSelectQuestion({
+  label,
+  question,
+  tooltipText,
+  chips,
+  value,
+  onChange,
+  maxLimit,
+  otherPlaceholder = "Escribe otra opción personalizada..."
+}: MultiSelectQuestionProps) {
+  const selectedItems = React.useMemo(() => {
+    if (!value) return [];
+    return value.split(",").map(s => s.trim()).filter(Boolean);
+  }, [value]);
+
+  const selectedPresetChips = chips.filter(chip => selectedItems.includes(chip));
+  const customOtrosItems = selectedItems.filter(item => !chips.includes(item));
+  const isOtrosActive = selectedItems.includes("Otros") || customOtrosItems.length > 0;
+  const otrosText = customOtrosItems.filter(item => item !== "Otros").join(", ");
+
+  const totalCount = selectedPresetChips.length + (isOtrosActive ? 1 : 0);
+
+  const updateStrategyValue = (newPresetChips: string[], otrosEnabled: boolean, newOtrosText: string) => {
+    const combined: string[] = [...newPresetChips];
+    if (otrosEnabled) {
+      if (newOtrosText.trim()) {
+        combined.push(newOtrosText.trim());
+      } else {
+        combined.push("Otros");
+      }
+    }
+    onChange(combined.join(", "));
+  };
+
+  const toggleChip = (chip: string) => {
+    const isSelected = selectedPresetChips.includes(chip);
+    if (isSelected) {
+      const nextPresets = selectedPresetChips.filter(c => c !== chip);
+      updateStrategyValue(nextPresets, isOtrosActive, otrosText);
+    } else {
+      if (maxLimit && totalCount >= maxLimit) {
+        toast.info(`Solo puedes seleccionar un máximo de ${maxLimit} opciones.`);
+        return;
+      }
+      const nextPresets = [...selectedPresetChips, chip];
+      updateStrategyValue(nextPresets, isOtrosActive, otrosText);
+    }
+  };
+
+  const toggleOtros = () => {
+    if (isOtrosActive) {
+      updateStrategyValue(selectedPresetChips, false, "");
+    } else {
+      if (maxLimit && totalCount >= maxLimit) {
+        toast.info(`Solo puedes seleccionar un máximo de ${maxLimit} opciones.`);
+        return;
+      }
+      updateStrategyValue(selectedPresetChips, true, "");
+    }
+  };
+
+  const handleOtrosInputChange = (text: string) => {
+    updateStrategyValue(selectedPresetChips, true, text);
+  };
+
+  return (
+    <div className="space-y-3 p-4 bg-indigo-50/30 dark:bg-indigo-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/40 transition-all">
+      <div className="flex items-center justify-between">
+        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">{label}</Label>
+        {maxLimit ? (
+          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full transition-colors ${
+            totalCount >= maxLimit 
+              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' 
+              : 'bg-indigo-100/80 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300'
+          }`}>
+            {totalCount} / {maxLimit} seleccionadas (máx. 3)
+          </span>
+        ) : (
+          <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-full">
+            Multiselección ({totalCount})
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <p className="text-[13px] font-bold text-foreground leading-snug">{question}</p>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+              <Info className="h-4 w-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
+            {tooltipText}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {chips.map((chip, idx) => {
+          const isSelected = selectedPresetChips.includes(chip);
+          return (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => toggleChip(chip)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all duration-150 flex items-center gap-1.5 ${
+                isSelected
+                  ? 'bg-primary text-primary-foreground border-primary shadow-sm scale-[1.02]'
+                  : 'bg-background hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 text-foreground border-slate-200 dark:border-slate-800'
+              }`}
+            >
+              <div className={`h-3.5 w-3.5 rounded flex items-center justify-center border transition-colors ${
+                isSelected ? 'bg-primary-foreground text-primary border-transparent' : 'border-muted-foreground/40'
+              }`}>
+                {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+              </div>
+              {chip}
+            </button>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={toggleOtros}
+          className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-all duration-150 flex items-center gap-1.5 ${
+            isOtrosActive
+              ? 'bg-primary text-primary-foreground border-primary shadow-sm scale-[1.02]'
+              : 'bg-background hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 text-foreground border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <div className={`h-3.5 w-3.5 rounded flex items-center justify-center border transition-colors ${
+            isOtrosActive ? 'bg-primary-foreground text-primary border-transparent' : 'border-muted-foreground/40'
+          }`}>
+            {isOtrosActive && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+          </div>
+          Otros...
+        </button>
+      </div>
+
+      {isOtrosActive && (
+        <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+          <Input
+            placeholder={otherPlaceholder}
+            value={otrosText}
+            onChange={(e) => handleOtrosInputChange(e.target.value)}
+            className="h-10 text-xs rounded-xl bg-background border-indigo-200 dark:border-indigo-800 focus-visible:ring-indigo-500"
+            autoFocus
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -608,7 +774,7 @@ function OnboardingContent() {
                   <div className="space-y-2">
                     <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">2. Momento Desencadenante (Evento de Vida)</Label>
                     <div className="flex items-center gap-1.5">
-                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué momento o necesidad especial hace que la gente busque tu producto? (Ej: cumpleaños, antojos).</p>
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué momento o necesidad especial hace que la gente busque tu producto?</p>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
@@ -643,83 +809,27 @@ function OnboardingContent() {
                     </div>
                   </div>
 
-                  {/* Pregunta 3 */}
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">3. Personalidad del Negocio (Arquetipo)</Label>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-[13px] font-bold text-foreground leading-snug">Si tu negocio fuera una persona, ¿cómo sería? (Ej: Tradicional, moderno, exclusivo).</p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
-                          Define el tono de voz (divertido, refinado, directo, cercano) con el que la IA redactará las publicaciones y guiones de Reels.
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Input 
-                      placeholder={industryPlaceholders.archetype.placeholder} 
-                      value={strategyValues.archetype} 
-                      onChange={(e) => setStrategyValues({...strategyValues, archetype: e.target.value})}
-                      className="h-11 rounded-xl"
-                    />
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
-                      </span>
-                      {industryPlaceholders.archetype.chips.map((chip, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setStrategyValues({...strategyValues, archetype: chip})}
-                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
-                        >
-                          + {chip}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Pregunta 3 (Multiselección) */}
+                  <MultiSelectQuestion
+                    label="3. Personalidad del Negocio (Arquetipo)"
+                    question="Si tu negocio fuera una persona, ¿cómo sería?"
+                    tooltipText="Define el tono de voz (divertido, refinado, directo, cercano) con el que la IA redactará las publicaciones y guiones de Reels."
+                    chips={industryPlaceholders.archetype.chips}
+                    value={strategyValues.archetype}
+                    onChange={(val) => setStrategyValues({...strategyValues, archetype: val})}
+                    otherPlaceholder="Especifica otra personalidad o arquetipo..."
+                  />
 
-                  {/* Pregunta 4 */}
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">4. Canal Crítico de Conversión</Label>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Por qué medio prefieren tus clientes cerrar la compra? (Ej: WhatsApp, DMs).</p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
-                          Indica por dónde prefieren cerrar la compra tus clientes (ej. WhatsApp, DMs de Instagram, Sitio Web) para priorizar los llamados a la acción (CTAs).
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Input 
-                      placeholder={industryPlaceholders.conversionChannel.placeholder} 
-                      value={strategyValues.conversionChannel} 
-                      onChange={(e) => setStrategyValues({...strategyValues, conversionChannel: e.target.value})}
-                      className="h-11 rounded-xl"
-                    />
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
-                      </span>
-                      {industryPlaceholders.conversionChannel.chips.map((chip, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setStrategyValues({...strategyValues, conversionChannel: chip})}
-                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
-                        >
-                          + {chip}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Pregunta 4 (Multiselección) */}
+                  <MultiSelectQuestion
+                    label="4. Canal Crítico de Conversión"
+                    question="¿Por qué medio prefieren tus clientes cerrar la compra?"
+                    tooltipText="Indica por dónde prefieren cerrar la compra tus clientes (ej. WhatsApp, DMs de Instagram, Sitio Web) para priorizar los llamados a la acción (CTAs)."
+                    chips={industryPlaceholders.conversionChannel.chips}
+                    value={strategyValues.conversionChannel}
+                    onChange={(val) => setStrategyValues({...strategyValues, conversionChannel: val})}
+                    otherPlaceholder="Especifica otro canal de conversión..."
+                  />
 
                   {/* Pregunta 5 */}
                   <div className="space-y-2">
@@ -760,44 +870,17 @@ function OnboardingContent() {
                     </div>
                   </div>
 
-                  {/* Pregunta 6 */}
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">6. Prueba Social (UGC)</Label>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué comentarios tienen tus clientes sobre tu producto?</p>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
-                            <Info className="h-4 w-4" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
-                          Menciona testimonios, reseñas o acreditaciones destacadas de tus clientes. El sistema los integrará para generar confianza inmediata en tus anuncios.
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    <Input 
-                      placeholder={industryPlaceholders.socialProof.placeholder} 
-                      value={strategyValues.socialProof} 
-                      onChange={(e) => setStrategyValues({...strategyValues, socialProof: e.target.value})}
-                      className="h-11 rounded-xl"
-                    />
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
-                      </span>
-                      {industryPlaceholders.socialProof.chips.map((chip, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setStrategyValues({...strategyValues, socialProof: chip})}
-                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
-                        >
-                          + {chip}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Pregunta 6 (Multiselección - Máximo 3 opciones) */}
+                  <MultiSelectQuestion
+                    label="6. Prueba Social (UGC)"
+                    question="¿Qué comentarios tienen tus clientes sobre tu producto?"
+                    tooltipText="Menciona testimonios, reseñas o acreditaciones destacadas de tus clientes. El sistema los integrará para generar confianza inmediata en tus anuncios."
+                    chips={industryPlaceholders.socialProof.chips}
+                    value={strategyValues.socialProof}
+                    onChange={(val) => setStrategyValues({...strategyValues, socialProof: val})}
+                    maxLimit={3}
+                    otherPlaceholder="Especifica otro testimonio o prueba social..."
+                  />
 
                   {/* Pregunta 7 */}
                   <div className="space-y-2">

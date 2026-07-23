@@ -37,8 +37,16 @@ const GASTRO_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Tiempo y zonas de delivery", "Menú con precios actualizados", "Opciones vegetarianas o keto", "Reservas de mesas"]
   },
   socialProof: {
-    placeholder: "Ej. Historias etiquetadas de clientes felices en Instagram y 4.8 estrellas en Google Maps",
-    chips: ["Reposts de clientes en Instagram Stories", "Reseñas 5★ en Google Maps / Facebook", "Menciones de foodies e influencers"]
+    placeholder: "Ej. Fotos de clientes felices y 5 estrellas en Google Maps",
+    chips: [
+      "Fotos o historias que comparten los clientes en redes",
+      "Reseñas y 5 estrellas en Google o Facebook",
+      "Mensajes de agradecimiento por WhatsApp",
+      "Recomendaciones boca a boca de clientes frecuentes",
+      "Menciones de influencers o creadores locales",
+      "Buenas notas y opiniones en apps de delivery",
+      "Fotos reales de platos y pedidos entregados"
+    ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Ingredientes 100% artesanales y frescos con delivery express calientito en <30 mins",
@@ -69,8 +77,15 @@ const MODA_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Tabla de tallas y medidas exactas", "Políticas de cambio o devolución", "Costo y tiempo de envío nacional", "Fotos reales puestas"]
   },
   socialProof: {
-    placeholder: "Ej. Fotos de clientas reales vistiendo las prendas y reseñas positivas de compras",
-    chips: ["Fotos y videos de clientas con los outfits", "Testimonios de atención rápida en WhatsApp", "Hauls y menciones de creadoras de contenido"]
+    placeholder: "Ej. Fotos de clientas vistiendo las prendas y reseñas de compra",
+    chips: [
+      "Fotos y videos de clientas vistiendo las prendas",
+      "Mensajes de agradecimiento y felicitaciones por WhatsApp",
+      "Recomendaciones y menciones de creadoras de contenido",
+      "Calificaciones de 5 estrellas en Facebook o Google",
+      "Comentarios positivos sobre el envío rápido",
+      "Años de trayectoria y marca reconocida"
+    ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Diseños de edición limitada (pocas unidades) y asesoría de imagen personalizada gratis",
@@ -101,8 +116,15 @@ const TECH_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Integración con herramientas actuales", "Precios y planes de suscripción", "Facilidad de uso y capacitación", "Seguridad de datos y soporte 24/7"]
   },
   socialProof: {
-    placeholder: "Ej. Casos de éxito comprobados (+35% ventas) y logos de empresas que confían en nosotros",
-    chips: ["Casos de éxito con datos métricos reales", "Logos de empresas líderes que lo usan", "Testimonios en video de CEOs/Gerentes"]
+    placeholder: "Ej. Casos de éxito comprobados y empresas reconocidas que confían en nosotros",
+    chips: [
+      "Casos de éxito con resultados reales y métricas",
+      "Empresas reconocidas que confían en el servicio",
+      "Testimonios en video de gerentes o clientes",
+      "Calificaciones y opiniones positivas en internet",
+      "Mensajes de felicitación del equipo de soporte",
+      "Certificaciones e hitos de calidad"
+    ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Puesta en marcha en 24 horas con soporte en español 1 a 1 y garantía de satisfacción",
@@ -133,8 +155,15 @@ const SALUD_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Si el tratamiento genera dolor/reposo", "Precio de la primera evaluación", "Acreditación y experiencia médica", "Facilidades de pago por sesiones"]
   },
   socialProof: {
-    placeholder: "Ej. Casos de transformación (antes y después) y testimonios reales de pacientes",
-    chips: ["Casos reales de antes y después", "Testimonios en video de pacientes", "Años de experiencia y especializaciones"]
+    placeholder: "Ej. Fotos de antes y después y testimonios reales de pacientes",
+    chips: [
+      "Fotos de cambios reales (antes y después)",
+      "Testimonios en video de pacientes satisfechos",
+      "Títulos, especializaciones y licencias médicas",
+      "Reseñas y 5 estrellas en Google Maps",
+      "Mensajes de agradecimiento por WhatsApp",
+      "Años de experiencia atendiendo a miles de pacientes"
+    ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Tecnología de punta sin dolor, atención puntual sin filas y seguimiento personalizado",
@@ -165,8 +194,15 @@ const SERVICIOS_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Certificación y validez oficial", "Precios y facilidades de pago", "Tiempos de ejecución / entrega", "Acompañamiento post-servicio"]
   },
   socialProof: {
-    placeholder: "Ej. Testimonios de clientes/alumnos satisfechos y casos de éxito reales respaldados",
-    chips: ["Testimonios verificados de clientes", "Casos de éxito profesional reales", "Reseñas y recomendaciones directas"]
+    placeholder: "Ej. Testimonios de clientes satisfechos y casos de éxito reales",
+    chips: [
+      "Testimonios de clientes o alumnos satisfechos",
+      "Casos de éxito reales con resultados comprobados",
+      "Reseñas y 5 estrellas en Google o redes",
+      "Mensajes de agradecimiento por WhatsApp o correo",
+      "Certificados oficiales y convenios institucionales",
+      "Proyectos ejecutados y empresas que nos recomiendan"
+    ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Metodología 100% práctica enfocada en resultados inmediatos con garantía de calidad",
@@ -197,8 +233,15 @@ const GENERAL_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Precios y stock disponible", "Formas de pago (QR, transferencia, tarjeta)", "Ubicación exacta y horarios de atención"]
   },
   socialProof: {
-    placeholder: "Ej. Calificaciones positivas de clientes en redes y fotos de productos/servicios entregados",
-    chips: ["Fotos de entregas a clientes satisfechos", "Opiniones positivas en Facebook y Google", "Recomendaciones de clientes habituales"]
+    placeholder: "Ej. Calificaciones positivas de clientes en redes y fotos de entregas",
+    chips: [
+      "Fotos de entregas a clientes satisfechos",
+      "Reseñas y 5 estrellas en Google o Facebook",
+      "Mensajes de agradecimiento por WhatsApp",
+      "Recomendaciones boca a boca de clientes habituales",
+      "Publicaciones o fotos compartidas por compradores",
+      "Años de atención y local físico abierto"
+    ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Excelente relación calidad-precio y atención inmediata personalizada por WhatsApp",

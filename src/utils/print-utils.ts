@@ -1155,7 +1155,6 @@ export const handleDownloadBancoDeDatosPDF = (
 
         ${businessInfoHtml}
         ${competitorsHtml}
-        ${scrapingProgressSectionHtml}
         ${fodaHtml}
         ${competitiveIntelHtml}
 

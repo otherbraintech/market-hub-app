@@ -29,12 +29,12 @@ const GASTRO_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Artesanal y Apasionado", "Moderno y Juvenil", "Tradicional y Familiar", "Gourmet y Exclusivo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Menú Web",
+    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Sitio Web",
     chips: [
-      "WhatsApp directo para pedidos / delivery",
+      "WhatsApp directo",
       "Canal Moderno",
       "Canal Tradicional",
-      "Botón de Menú Digital / Web"
+      "Sitio Web / Tienda Online"
     ]
   },
   informationGaps: {
@@ -76,10 +76,10 @@ const MODA_PRESETS: IndustryPlaceholdersMap = {
   conversionChannel: {
     placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Tienda Online",
     chips: [
-      "WhatsApp directo con atención personalizada",
+      "WhatsApp directo",
       "Canal Moderno",
       "Canal Tradicional",
-      "Tienda Online / Catálogo Web"
+      "Sitio Web / Tienda Online"
     ]
   },
   informationGaps: {
@@ -118,12 +118,12 @@ const TECH_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Innovador y Tecnológico", "Confiable y Profesional", "Ágil y Orientado a Resultados", "Cercano y Educador"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Agendamiento de Demo o Plataforma Web",
+    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Plataforma Web",
     chips: [
-      "WhatsApp directo de ventas B2B",
+      "WhatsApp directo",
       "Canal Moderno",
       "Canal Tradicional",
-      "Agendamiento de Demo / Web"
+      "Sitio Web / Tienda Online"
     ]
   },
   informationGaps: {
@@ -143,7 +143,7 @@ const TECH_PRESETS: IndustryPlaceholdersMap = {
   },
   differentialAdvantage: {
     placeholder: "Ej. Puesta en marcha en 24 horas con soporte en español 1 a 1 y garantía de satisfacción",
-    chips: ["Implementación express en 24 horas", "Soporte dedicated en español por WhatsApp", "Plataforma todo-en-uno más intuitiva"]
+    chips: ["Implementación express en 24 horas", "Soporte dedicado en español por WhatsApp", "Plataforma todo-en-uno más intuitiva"]
   }
 };
 
@@ -162,12 +162,12 @@ const SALUD_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Empático y Humano", "Científico y Riguroso", "Exclusivo y Relajante", "Motivador y Enérgico"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Canal Moderno o Formulario Web",
+    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Formulario Web",
     chips: [
-      "WhatsApp para agendamiento directo",
+      "WhatsApp directo",
       "Canal Moderno",
       "Canal Tradicional",
-      "Llamada a recepción / Formulario Web"
+      "Sitio Web / Tienda Online"
     ]
   },
   informationGaps: {
@@ -206,12 +206,12 @@ const SERVICIOS_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Experto y Líder de Opinión", "Mentor Cercano y Práctico", "Analítico y Transparente", "Prestigioso y Exclusivo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Canal Moderno o Reunión Presencial/Web",
+    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Sitio Web",
     chips: [
-      "WhatsApp con un asesor especializado",
+      "WhatsApp directo",
       "Canal Moderno",
       "Canal Tradicional",
-      "Reunión Presencial / Zoom"
+      "Sitio Web / Tienda Online"
     ]
   },
   informationGaps: {
@@ -250,12 +250,12 @@ const GENERAL_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Cercano y Servicial", "Eficiente y Práctico", "Moderno y Confiable", "Innovador y Directo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp Business, Canal Moderno, Canal Tradicional o Tienda Web",
+    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Tienda Web",
     chips: [
-      "WhatsApp directo de atención",
+      "WhatsApp directo",
       "Canal Moderno",
       "Canal Tradicional",
-      "Catálogo Digital / Tienda Web"
+      "Sitio Web / Tienda Online"
     ]
   },
   informationGaps: {

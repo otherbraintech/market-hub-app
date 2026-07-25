@@ -18,7 +18,7 @@ import { OnboardingResultsPanel } from "@/components/business/onboarding-results
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 import { BusinessFormValues } from "@/lib/schemas/business";
-import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction } from "@/actions/business";
+import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction, updateBusiness } from "@/actions/business";
 import { getIndustryPlaceholders } from "@/lib/industry-suggestions";
 
 interface MultiSelectQuestionProps {
@@ -46,13 +46,19 @@ function MultiSelectQuestion({
 }: MultiSelectQuestionProps) {
   const selectedItems = React.useMemo(() => {
     if (!value) return [];
-    return value.split(",").map(s => s.trim()).filter(Boolean);
+    return value.split(",").map(s => s.trimStart()).filter(Boolean);
   }, [value]);
 
-  const selectedPresetChips = chips.filter(chip => selectedItems.includes(chip));
-  const customOtrosItems = selectedItems.filter(item => !chips.includes(item) && !item.includes(":"));
-  const isOtrosActive = selectedItems.includes("Otros") || customOtrosItems.length > 0;
-  const otrosText = customOtrosItems.filter(item => item !== "Otros").join(", ");
+  const selectedPresetChips = chips.filter(chip => selectedItems.map(s => s.trim()).includes(chip));
+  const customOtrosItems = selectedItems.filter(item => !chips.includes(item.trim()) && !item.includes(":"));
+  const isOtrosActive = selectedItems.some(i => i.trim() === "Otros") || customOtrosItems.length > 0;
+  const otrosTextFromValue = customOtrosItems.filter(item => item.trim() !== "Otros").join(", ");
+
+  const [otrosInputText, setOtrosInputText] = useState(otrosTextFromValue);
+
+  useEffect(() => {
+    setOtrosInputText(otrosTextFromValue);
+  }, [otrosTextFromValue]);
 
   const totalCount = selectedPresetChips.length + (isOtrosActive ? 1 : 0);
 
@@ -62,9 +68,9 @@ function MultiSelectQuestion({
   const isRetailOrPhysicalSelected = showModernoCard || showTradicionalCard;
 
   const findPrefixText = (prefix: string) => {
-    const item = selectedItems.find(i => i.startsWith(prefix));
+    const item = selectedItems.find(i => i.startsWith(`${prefix}:`));
     if (!item) return "";
-    return item.replace(`${prefix}: `, "").trim();
+    return item.replace(`${prefix}:`, "").trimStart();
   };
 
   const [modernoText, setModernoText] = useState(() => findPrefixText("Cadenas Canal Moderno"));
@@ -76,9 +82,9 @@ function MultiSelectQuestion({
   });
 
   const updatePrefixItem = (prefix: string, text: string) => {
-    const filtered = selectedItems.filter(i => !i.startsWith(prefix));
-    if (text.trim()) {
-      filtered.push(`${prefix}: ${text.trim()}`);
+    const filtered = selectedItems.filter(i => !i.startsWith(`${prefix}:`));
+    if (text !== "") {
+      filtered.push(`${prefix}: ${text}`);
     }
     onChange(filtered.join(", "));
   };
@@ -92,10 +98,10 @@ function MultiSelectQuestion({
   }, [isWhatsAppSelected, defaultPhoneNumber]);
 
   const toggleSubOption = (subOption: string) => {
-    const isAlready = selectedItems.includes(subOption);
+    const isAlready = selectedItems.map(i => i.trim()).includes(subOption);
     let nextSelected: string[];
     if (isAlready) {
-      nextSelected = selectedItems.filter(i => i !== subOption);
+      nextSelected = selectedItems.filter(i => i.trim() !== subOption);
     } else {
       nextSelected = [...selectedItems, subOption];
     }
@@ -104,14 +110,14 @@ function MultiSelectQuestion({
 
   const updateStrategyValue = (newPresetChips: string[], otrosEnabled: boolean, newOtrosText: string) => {
     const combined: string[] = [...newPresetChips];
-    const prefixItems = selectedItems.filter(i => i.includes(": "));
+    const prefixItems = selectedItems.filter(i => i.includes(":"));
     prefixItems.forEach(p => {
       if (!combined.includes(p)) combined.push(p);
     });
 
     if (otrosEnabled) {
-      if (newOtrosText.trim()) {
-        combined.push(newOtrosText.trim());
+      if (newOtrosText !== undefined && newOtrosText !== "") {
+        combined.push(newOtrosText);
       } else {
         combined.push("Otros");
       }
@@ -123,30 +129,32 @@ function MultiSelectQuestion({
     const isSelected = selectedPresetChips.includes(chip);
     if (isSelected) {
       const nextPresets = selectedPresetChips.filter(c => c !== chip);
-      updateStrategyValue(nextPresets, isOtrosActive, otrosText);
+      updateStrategyValue(nextPresets, isOtrosActive, otrosInputText);
     } else {
       if (maxLimit && totalCount >= maxLimit) {
         toast.info(`Solo puedes seleccionar un máximo de ${maxLimit} opciones.`);
         return;
       }
       const nextPresets = [...selectedPresetChips, chip];
-      updateStrategyValue(nextPresets, isOtrosActive, otrosText);
+      updateStrategyValue(nextPresets, isOtrosActive, otrosInputText);
     }
   };
 
   const toggleOtros = () => {
     if (isOtrosActive) {
+      setOtrosInputText("");
       updateStrategyValue(selectedPresetChips, false, "");
     } else {
       if (maxLimit && totalCount >= maxLimit) {
         toast.info(`Solo puedes seleccionar un máximo de ${maxLimit} opciones.`);
         return;
       }
-      updateStrategyValue(selectedPresetChips, true, "");
+      updateStrategyValue(selectedPresetChips, true, otrosInputText);
     }
   };
 
   const handleOtrosInputChange = (text: string) => {
+    setOtrosInputText(text);
     updateStrategyValue(selectedPresetChips, true, text);
   };
 
@@ -156,28 +164,28 @@ function MultiSelectQuestion({
       return {
         title: "Canal Moderno",
         description: "Establecimientos estructurados, generalmente pertenecientes a grandes cadenas, con procesos de compra automatizados y autoservicio.",
-        examples: "Supermercados e Hipermercados (Walmart, Carrefour, Mercadona, Ketal, Hipermaxi), Conveniencia (OXXO, Tambo, 7-Eleven), Micromercados / Hard Discount (Aldi, Lidl, Tiendas D1)."
+        examples: "Supermercados e Hipermercados (Hipermaxi, Ketal, Fidalga, Walmart), Tiendas de Conveniencia (OXXO, Tambo, 7-Eleven)."
       };
     }
     if (lower.includes("tradicional")) {
       return {
         title: "Canal Tradicional",
         description: "Comercios independientes, habitualmente atendidos por sus propios dueños, con un trato más cercano y vecinal.",
-        examples: "Tiendas de barrio (Almacenes, bodegas, pulperías, abarrotes), Carnicerías y Charcuterías, Fruterías y Verdulerías, Panaderías de zona."
+        examples: "Tiendas de barrio (almacenes, bodegas, pulperías, abarrotes), carnicerías local, fruterías y panaderías de zona."
       };
     }
     if (lower.includes("whatsapp")) {
       return {
         title: "Canal WhatsApp Directo",
-        description: "Atención personalizada 1 a 1 por mensajería instantánea para cerrar pedidos, consultas o ventas.",
-        examples: "WhatsApp Business, catálogos digitales por chat, atención sin intermediarios."
+        description: "Atención personalizada 1 a 1 por mensajería instantánea para cerrar pedidos, consultas o delivery sin intermediarios.",
+        examples: "WhatsApp Business, atención directa por chat, catálogos en WhatsApp."
       };
     }
-    if (lower.includes("menú") || lower.includes("web") || lower.includes("online") || lower.includes("catálogo")) {
+    if (lower.includes("web") || lower.includes("online") || lower.includes("tienda")) {
       return {
-        title: "Canal Web / Menú Digital",
-        description: "Plataforma digital propia para pedidos automatizados, carrito de compras o menú interactivo.",
-        examples: "Tienda online, Menú con código QR, Checkout web directo."
+        title: "Sitio Web / Tienda Online",
+        description: "Plataforma digital propia para pedidos automatizados, carrito de compras e-commerce o catálogo web.",
+        examples: "Tienda e-commerce, catálogo web interactivo, carrito de compras directo."
       };
     }
     if (lower.includes("demo") || lower.includes("zoom") || lower.includes("cita") || lower.includes("presencial")) {
@@ -291,7 +299,7 @@ function MultiSelectQuestion({
         <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
           <Input
             placeholder={otherPlaceholder}
-            value={otrosText}
+            value={otrosInputText}
             onChange={(e) => handleOtrosInputChange(e.target.value)}
             className="h-10 text-xs rounded-xl bg-background border-indigo-200 dark:border-indigo-800 focus-visible:ring-indigo-500"
           />
@@ -627,6 +635,34 @@ function OnboardingContent() {
   };
 
   const handleFinishStrategy = async () => {
+    // Validaciones de canal de conversión (Pregunta 4)
+    const convChannel = strategyValues.conversionChannel || "";
+    if (convChannel.toLowerCase().includes("moderno")) {
+      const hasModernoDetails = convChannel.includes("Cadenas Canal Moderno:") && convChannel.split("Cadenas Canal Moderno:")[1]?.trim();
+      if (!hasModernoDetails) {
+        toast.error("Por favor, especifica el nombre de los supermercados o cadenas del Canal Moderno.");
+        return;
+      }
+    }
+    if (convChannel.toLowerCase().includes("tradicional")) {
+      const hasTradicionalDetails = convChannel.includes("Comercios Canal Tradicional:") && convChannel.split("Comercios Canal Tradicional:")[1]?.trim();
+      if (!hasTradicionalDetails) {
+        toast.error("Por favor, especifica los mercados, pulperías o zonas del Canal Tradicional.");
+        return;
+      }
+    }
+    if (convChannel.toLowerCase().includes("whatsapp")) {
+      const hasWaNumber = convChannel.includes("Número WhatsApp:") && convChannel.split("Número WhatsApp:")[1]?.trim();
+      if (!hasWaNumber && !businessFormValues?.phoneNumbers) {
+        toast.error("Por favor, ingresa el número de WhatsApp para atención y ventas.");
+        return;
+      }
+    }
+    if (convChannel.includes("Otros") && !convChannel.split(",").some(item => !item.includes(":") && item.trim() !== "Otros" && item.trim() !== "")) {
+      toast.error("Has seleccionado la opción 'Otros' en canales pero el campo de texto está vacío.");
+      return;
+    }
+
     setCurrentStep(4);
 
     // Actualizar la URL de forma síncrona para reflejar el paso 4 y que la recarga de página (F5) no vuelva al paso 3

@@ -15,10 +15,18 @@ import { BusinessForm } from "@/components/business/business-form";
 import { saveMultipleCompetitorsAction } from "@/app/(dashboard)/business/[id]/competitor-actions";
 import { getBusinesses } from "@/actions/business";
 import { OnboardingResultsPanel } from "@/components/business/onboarding-results-panel";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter 
+} from "@/components/ui/dialog";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 import { BusinessFormValues } from "@/lib/schemas/business";
-import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction, updateBusiness } from "@/actions/business";
+import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction, updateBusiness, startStrategyStage } from "@/actions/business";
 import { getIndustryPlaceholders } from "@/lib/industry-suggestions";
 
 interface MultiSelectQuestionProps {
@@ -459,6 +467,8 @@ function OnboardingContent() {
   const [businessName, setBusinessName] = useState("");
   const [businessFormValues, setBusinessFormValues] = useState<BusinessFormValues | null>(null);
   const [maxCompetitorsLimit, setMaxCompetitorsLimit] = useState(3);
+  const [showNoStrategyDialog, setShowNoStrategyDialog] = useState(false);
+  const [hasStrategyInDb, setHasStrategyInDb] = useState(false);
 
   const industryPlaceholders = getIndustryPlaceholders(
     businessFormValues?.industry,
@@ -498,6 +508,10 @@ function OnboardingContent() {
             socialLinks: (business.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
           });
           // Hidratar strategyValues para que el paso 3 muestre datos al volver
+          const hasStrategyData = (business.onboardingStrategy && typeof business.onboardingStrategy === "object" && Object.keys(business.onboardingStrategy as object).length > 0 && Object.values(business.onboardingStrategy as object).some((val: any) => typeof val === "string" && val.trim().length > 0)) || ((business as any).strategies && (business as any).strategies.length > 0);
+          if (hasStrategyData) {
+            setHasStrategyInDb(true);
+          }
           if (business.onboardingStrategy && typeof business.onboardingStrategy === "object") {
             setStrategyValues((prev) => ({
               ...prev,
@@ -518,8 +532,7 @@ function OnboardingContent() {
             setCurrentStep(parseInt(forceStep));
           } else if (business.competitors && business.competitors.length > 0) {
             if (isPreview) {
-              const hasStrategy = business.onboardingStrategy && Object.keys(business.onboardingStrategy as object).length > 0;
-              setCurrentStep(hasStrategy ? 4 : 3);
+              setCurrentStep(hasStrategyData ? 4 : 3);
             } else {
               router.push(`/business/${businessId}?skipOnboarding=true`);
             }
@@ -543,6 +556,10 @@ function OnboardingContent() {
         if (list && list.length > 0) {
           const latestBusiness = list[0];
           
+          const hasStrategyData = (latestBusiness.onboardingStrategy && typeof latestBusiness.onboardingStrategy === "object" && Object.keys(latestBusiness.onboardingStrategy as object).length > 0 && Object.values(latestBusiness.onboardingStrategy as object).some((val: any) => typeof val === "string" && val.trim().length > 0)) || ((latestBusiness as any).strategies && (latestBusiness as any).strategies.length > 0);
+          if (hasStrategyData) {
+            setHasStrategyInDb(true);
+          }
           if (latestBusiness.onboardingStrategy && typeof latestBusiness.onboardingStrategy === "object") {
             setStrategyValues((prev) => ({
               ...prev,
@@ -558,8 +575,7 @@ function OnboardingContent() {
               if (forceStep) {
                 setCurrentStep(parseInt(forceStep));
               } else {
-                const hasStrategy = latestBusiness.onboardingStrategy && Object.keys(latestBusiness.onboardingStrategy as object).length > 0;
-                setCurrentStep(hasStrategy ? 4 : 3);
+                setCurrentStep(hasStrategyData ? 4 : 3);
               }
             } else {
               router.push(`/business/${latestBusiness.id}?skipOnboarding=true`);
@@ -577,6 +593,15 @@ function OnboardingContent() {
     };
     checkExistingBusiness();
   }, [businessId, isPreview, forceStep, router]);
+
+  const checkIfStrategyExists = () => {
+    const hasSessionStrategy = Object.values(strategyValues).some(
+      (val) => typeof val === "string" && val.trim().length > 0
+    );
+    if (hasSessionStrategy) return true;
+    if (hasStrategyInDb) return true;
+    return false;
+  };
 
   const TikTokIcon = ({ className }: { className?: string }) => (
     <svg
@@ -908,9 +933,18 @@ function OnboardingContent() {
                   setBusinessFormValues(data);
                   setBusinessName(data.name);
                   if (businessId) {
-                    await updateBusiness(businessId, data);
+                    const res = await updateBusiness(businessId, data);
+                    if (!res.success) {
+                      toast.error(res.error || "Error al guardar los datos del negocio");
+                    } else {
+                      toast.success("Perfil del negocio guardado correctamente");
+                    }
                   }
-                  setCurrentStep(2);
+                  if (checkIfStrategyExists()) {
+                    setCurrentStep(2);
+                  } else {
+                    setShowNoStrategyDialog(true);
+                  }
                 }}
               />
             </div>
@@ -1284,6 +1318,60 @@ function OnboardingContent() {
           </div>
         )}
       </div>
+
+      {/* Dialog modal cuando no existe estrategia previa al dar continuar desde Paso 1 */}
+      <Dialog open={showNoStrategyDialog} onOpenChange={setShowNoStrategyDialog}>
+        <DialogContent className="sm:max-w-md rounded-3xl border border-amber-500/30 bg-card/95 backdrop-blur-xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+          <DialogHeader className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-sm">
+                <Sparkles className="h-6 w-6 animate-pulse" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+                  Estrategia Recomendada
+                </span>
+                <DialogTitle className="text-lg font-black tracking-tight text-foreground mt-1">
+                  Aún no has generado una Estrategia Base
+                </DialogTitle>
+              </div>
+            </div>
+            <DialogDescription className="text-xs font-medium leading-relaxed text-muted-foreground pt-1">
+              Para que la IA cree mejores buyer personas, diagnostique tus competidores de forma precisa y genere campañas efectivas, te recomendamos configurar o generar la estrategia base de tu negocio.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col sm:flex-row items-center justify-end gap-2.5 mt-6 pt-3 border-t border-border/50">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowNoStrategyDialog(false);
+                setCurrentStep(2);
+              }}
+              className="w-full sm:w-auto rounded-xl font-bold text-xs h-10 px-5 border-slate-200 dark:border-slate-800 hover:bg-muted text-muted-foreground"
+            >
+              Continuar a competidores
+            </Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                setShowNoStrategyDialog(false);
+                if (businessId) {
+                  await startStrategyStage(businessId);
+                  setCurrentStep(4);
+                } else {
+                  setCurrentStep(3);
+                }
+              }}
+              className="w-full sm:w-auto rounded-xl font-black text-xs h-10 px-6 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white shadow-lg shadow-amber-500/25 border-none transition-all duration-200"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generar estrategia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <style jsx global>{`
         @keyframes bounceSlow {

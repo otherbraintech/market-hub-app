@@ -137,4 +137,69 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
+
+  /* MarketHub Base44 tokens and utilities */
+  .mh-gradient-text {
+    background: linear-gradient(135deg, #00B4D8, #1565C0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .mh-gradient-brand {
+    background: linear-gradient(135deg, #00C9C8 0%, #00B4D8 40%, #1565C0 100%);
+  }
+
+  .mh-card {
+    background: #0D1526;
+    border: 1px solid rgba(0,180,216,0.12);
+    border-radius: 16px;
+  }
+
+  .mh-card-2 {
+    background: #132035;
+    border: 1px solid rgba(0,180,216,0.12);
+    border-radius: 12px;
+  }
+
+  .mh-glow-blue {
+    box-shadow: 0 0 30px rgba(37, 99, 235, 0.15);
+  }
+
+  .mh-glow-cyan {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.15);
+  }
+
+  .mh-glass {
+    background: rgba(22, 26, 35, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .mh-gradient-border {
+    position: relative;
+    background: #0D1526;
+    border-radius: 16px;
+  }
 }
+
+@keyframes mh-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes mh-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-mh-float {
+  animation: mh-float 4s ease-in-out infinite;
+}
+
+.mh-shimmer {
+  background: linear-gradient(90deg, #0D1526 25%, #132035 50%, #0D1526 75%);
+  background-size: 200% 100%;
+  animation: mh-shimmer 1.5s infinite;
+}

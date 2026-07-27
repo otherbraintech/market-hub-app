@@ -152,7 +152,7 @@ export async function createBusinessWithAI(data: {
 }
 
 
-export async function updateBusiness(id: string, data: z.infer<typeof businessSchema>) {
+export async function updateBusiness(id: string, data: Partial<z.infer<typeof businessSchema>>) {
   try {
     const { getSession } = await import("@/lib/auth");
     const session = await getSession();
@@ -168,15 +168,36 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
     }
 
     const { updateBusiness: updateBusinessService } = await import("@/modules/business/services");
-    const validated = businessSchema.parse(data);
     
-    await updateBusinessService(id, validated as unknown as UpdateBusinessInput);
+    // Parsear socialLinks de la base de datos (pueden ser String JSON u Objeto)
+    let oldLinks: Record<string, any> = {};
+    if (oldBusiness.socialLinks) {
+      if (typeof oldBusiness.socialLinks === "string") {
+        try {
+          oldLinks = JSON.parse(oldBusiness.socialLinks);
+        } catch (e) {}
+      } else if (typeof oldBusiness.socialLinks === "object") {
+        oldLinks = oldBusiness.socialLinks as Record<string, any>;
+      }
+    }
 
-    // Disparar scraping automático si cambiaron o se agregaron URLs
-    const oldLinks = (oldBusiness.socialLinks as Record<string, string | undefined>) || {};
-    const newLinks = (validated.socialLinks as Record<string, string | undefined>) || {};
+    // Parsear socialLinks del formulario nuevo
+    let newLinks: Record<string, any> = {};
+    if (data.socialLinks) {
+      if (typeof data.socialLinks === "string") {
+        try {
+          newLinks = JSON.parse(data.socialLinks);
+        } catch (e) {}
+      } else if (typeof data.socialLinks === "object") {
+        newLinks = data.socialLinks as Record<string, any>;
+      }
+    }
+
+    // Actualizar los datos del negocio en Prisma BBDD
+    const updated = await updateBusinessService(id, data as unknown as UpdateBusinessInput);
+
     const channelsToCheck = [
-      { name: "WEBSITE", oldUrl: oldBusiness.website, newUrl: validated.website },
+      { name: "WEBSITE", oldUrl: oldBusiness.website, newUrl: data.website },
       { name: "FACEBOOK", oldUrl: oldLinks.facebook, newUrl: newLinks.facebook },
       { name: "INSTAGRAM", oldUrl: oldLinks.instagram, newUrl: newLinks.instagram },
       { name: "TIKTOK", oldUrl: oldLinks.tiktok, newUrl: newLinks.tiktok },
@@ -184,27 +205,41 @@ export async function updateBusiness(id: string, data: z.infer<typeof businessSc
       { name: "YOUTUBE", oldUrl: oldLinks.youtube, newUrl: newLinks.youtube },
     ];
 
+    // Para cada canal cuyo URL haya cambiado o se haya modificado:
+    // 1. Eliminar el reporte viejo en la base de datos para ese canal específico
+    // 2. Disparar scraping automático con la nueva URL
     const promises = channelsToCheck
-      .filter((ch) => ch.newUrl && ch.newUrl.trim() !== "" && ch.newUrl !== ch.oldUrl)
-      .map((ch) =>
-        triggerAnalysis({
+      .filter((ch) => ch.newUrl && typeof ch.newUrl === "string" && ch.newUrl.trim() !== "" && ch.newUrl.trim() !== (ch.oldUrl || "").trim())
+      .map(async (ch) => {
+        await prisma.analysisReport.deleteMany({
+          where: {
+            entityId: id,
+            type: "MY_BUSINESS",
+            channel: ch.name
+          }
+        }).catch(err => console.error(`Error al limpiar reporte previo para ${ch.name}:`, err));
+
+        return triggerAnalysis({
           type: "MY_BUSINESS",
           entityId: id,
           channel: ch.name,
-          url: ch.newUrl!,
+          url: ch.newUrl!.trim(),
         }).catch((err) => {
-          console.error(`Error al disparar scraping automático tras editar negocio para canal ${ch.name}:`, err);
-        })
-      );
+          console.error(`Error al disparar reanálisis tras actualizar URL de ${ch.name}:`, err);
+        });
+      });
 
     if (promises.length > 0) {
       await Promise.allSettled(promises);
     }
 
     revalidatePath("/business");
-    return { success: true, message: "Negocio actualizado" };
+    revalidatePath(`/business/${id}`);
+    revalidatePath("/onboarding");
+    return { success: true, message: "Negocio actualizado exitosamente", data: updated };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Error al actualizar";
+    console.error("Update Business Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Error al actualizar el negocio";
     return { success: false, error: errorMessage };
   }
 }
@@ -389,7 +424,7 @@ export async function getBusinessWithCompetitors(id: string) {
     }
     return await prisma.business.findFirst({
       where: { id, userId: session.user.id },
-      include: { competitors: true }
+      include: { competitors: true, strategies: true }
     });
   } catch (error) {
     console.error("Error fetching business with competitors:", error);
@@ -722,24 +757,9 @@ export async function startStrategyStage(businessId: string) {
       }
     });
 
-    // 3. Ejecutar de forma asíncrona la generación en cascada con simulación interactiva
+    // 3. Ejecutar de forma asíncrona la generación en cascada inmediatamente
     (async () => {
       try {
-        await delay(2500);
-
-        // Notificación intermedia
-        await prisma.agentNotification.create({
-          data: {
-            businessId,
-            title: "Agente de Growth & Estrategia",
-            message: "Segmentando perfiles de buyer personas de tu mercado local...",
-            step: "STRATEGY",
-            status: "PROCESSING"
-          }
-        });
-
-        await delay(2500);
-
         const { triggerCascadeGeneration } = await import("@/lib/cascade");
         await triggerCascadeGeneration(businessId, true, 'STRATEGY');
       } catch (err) {

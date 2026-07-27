@@ -174,13 +174,37 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-2 mb-2">
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg">
-            <Zap className="size-5" />
+        <div className="flex items-center gap-3 px-2 py-2 mb-2">
+          <div className="relative flex-shrink-0">
+            <div className="w-8 h-8 relative flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full mh-gradient-brand opacity-30 blur-sm"></div>
+              <svg viewBox="0 0 40 40" className="w-8 h-8 relative z-10">
+                <defs>
+                  <linearGradient id="sb-tl" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#00C9C8"/><stop offset="100%" stopColor="#00B4D8"/>
+                  </linearGradient>
+                  <linearGradient id="sb-tr" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#00B4D8"/><stop offset="100%" stopColor="#1B6CA8"/>
+                  </linearGradient>
+                  <linearGradient id="sb-bl" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#1B6CA8"/><stop offset="100%" stopColor="#1565C0"/>
+                  </linearGradient>
+                  <linearGradient id="sb-br" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#1565C0"/><stop offset="100%" stopColor="#0D3B8C"/>
+                  </linearGradient>
+                </defs>
+                <path d="M20 20 C14 14 8 10 10 4 C12 -2 18 2 20 20Z" fill="url(#sb-tl)"/>
+                <path d="M20 20 C26 14 30 8 36 10 C42 12 38 18 20 20Z" fill="url(#sb-tr)"/>
+                <path d="M20 20 C26 26 30 32 36 30 C42 28 38 22 20 20Z" fill="url(#sb-bl)"/>
+                <path d="M20 20 C14 26 8 30 10 36 C12 42 18 38 20 20Z" fill="url(#sb-br)"/>
+                <circle cx="20" cy="20" r="4.5" fill="#90E0EF"/>
+                <circle cx="20" cy="20" r="3" fill="#CAF0F8"/>
+              </svg>
+            </div>
           </div>
-          <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-black text-lg tracking-tight">MarketHub</span>
-            <span className="truncate text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Intelligence OS</span>
+          <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+            <span className="truncate font-black text-base tracking-tight">Market<span className="mh-gradient-text">Hub</span></span>
+            <span className="truncate text-[10px] font-bold text-cyan-400 opacity-80 uppercase tracking-widest">Agentic SaaS</span>
           </div>
         </div>
         <TeamSwitcher teams={teams} selectedId={selectedId} />

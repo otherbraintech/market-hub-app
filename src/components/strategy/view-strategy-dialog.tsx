@@ -45,6 +45,19 @@ function safeParseJsonArray(val: any): any[] {
   return [];
 }
 
+function safeParseJsonObject(val: any): any {
+  if (!val) return null;
+  if (typeof val === "object") return val;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+}
+
 export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -53,6 +66,12 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
   const personas = safeParseJsonArray(strategy.personas);
   const funnelStages = safeParseJsonArray(strategy.funnelStages);
   const channels = safeParseJsonArray(strategy.channels);
+
+  const executiveP2P = safeParseJsonObject((strategy as any).executiveSummaryP2P);
+  const benchmark2026 = safeParseJsonObject((strategy as any).assetAuditBenchmarking2026);
+  const seoAeo = safeParseJsonObject((strategy as any).nextGenVisibilitySeoAeo);
+  const convCare = safeParseJsonObject((strategy as any).conversionSocialCare);
+  const techStack = safeParseJsonObject((strategy as any).techStackProductivity);
 
   const handleDownloadPDF = () => {
     const printWindow = window.open("", "_blank");
@@ -435,6 +454,83 @@ export function ViewStrategyDialog({ strategy }: ViewStrategyDialogProps) {
               <div className="py-3 px-4 bg-muted/45 rounded-lg text-xs text-slate-700 dark:text-slate-350 border border-muted/70">
                 <span className="font-bold block mb-1 text-slate-800 dark:text-slate-200">Descripción / Visión general:</span>
                 {strategy.description}
+              </div>
+            )}
+
+            {/* PILAR 1: RESUMEN P2P / PLM */}
+            {executiveP2P && (
+              <div className="p-4 bg-purple-50/40 dark:bg-purple-950/20 rounded-xl border border-purple-200/60 dark:border-purple-900/40 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-purple-800 dark:text-purple-300 uppercase tracking-wider">
+                  <span>👥</span> 1. Identidad P2P (People-Led Marketing)
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-muted-foreground pt-1">
+                  <div>
+                    <strong className="text-foreground block mb-0.5">Filosofía PLM:</strong>
+                    <p className="leading-relaxed">{executiveP2P.philosophy || "Transición de marketing corporativo a comunicación liderada por personas reales."}</p>
+                  </div>
+                  <div>
+                    <strong className="text-foreground block mb-0.5">Propuesta de Valor Auténtica:</strong>
+                    <p className="leading-relaxed">{executiveP2P.valueProposition || "Conexión basada en experiencias auténticas de clientes."}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PILAR 2: BENCHMARKING 2026 */}
+            {benchmark2026 && (
+              <div className="p-4 bg-indigo-50/30 dark:bg-slate-900/80 rounded-xl border border-indigo-200/50 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-800 dark:text-indigo-300 uppercase tracking-wider">
+                    <span>📊</span> 2. Benchmarking de Engagement 2026 (El Deber Ser)
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground">{benchmark2026.profileHealth || "Auditado"}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="bg-background p-2.5 rounded-lg border text-center">
+                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase block">Facebook</span>
+                    <span className="text-xs font-black text-foreground">{benchmark2026.benchmarks2026?.facebook || "0.15%"}</span>
+                  </div>
+                  <div className="bg-background p-2.5 rounded-lg border text-center">
+                    <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase block">Instagram</span>
+                    <span className="text-xs font-black text-foreground">{benchmark2026.benchmarks2026?.instagram || "0.48%"}</span>
+                  </div>
+                  <div className="bg-background p-2.5 rounded-lg border text-center">
+                    <span className="text-[9px] font-bold text-pink-600 dark:text-pink-400 uppercase block">TikTok</span>
+                    <span className="text-xs font-black text-foreground">{benchmark2026.benchmarks2026?.tiktok || "2.60% - 3.73%"}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PILAR 6, 7 & 8: VISIBILIDAD, CONVERSIÓN Y TECH STACK */}
+            {(seoAeo || convCare || techStack) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                {seoAeo && (
+                  <div className="p-3.5 bg-background rounded-xl border space-y-1.5 text-xs">
+                    <span className="font-bold text-violet-700 dark:text-violet-400 block text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🔍</span> 6. Visibilidad SEO + AEO
+                    </span>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                      <strong>Formatos IG:</strong> {seoAeo.instagramFormats?.carouselsTarget || "Carousels (10.15%)"} y {seoAeo.instagramFormats?.reelsTarget || "Reels (37.8%)"}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                      <strong>AEO:</strong> {seoAeo.aeoOptimization || "Citaciones en ChatGPT, Gemini y Perplexity."}
+                    </p>
+                  </div>
+                )}
+                {(convCare || techStack) && (
+                  <div className="p-3.5 bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/50 dark:border-emerald-900/40 space-y-1.5 text-xs">
+                    <span className="font-bold text-emerald-700 dark:text-emerald-400 block text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                      <span>💬</span> 7 & 8. Conversión & Stack IA
+                    </span>
+                    <p className="text-muted-foreground text-[11px] leading-relaxed">
+                      <strong>Customer Care:</strong> {convCare?.agenticAiCustomerCare || "Respuesta automática al 50% de dudas preventa con IA Agéntica."}
+                    </p>
+                    <p className="text-emerald-700 dark:text-emerald-300 font-bold text-[11px]">
+                      • {techStack?.weeklyTimeSavings || "Ahorro de hasta 12 horas semanales por automatización."}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

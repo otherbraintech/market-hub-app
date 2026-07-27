@@ -402,6 +402,108 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
     `;
   }
 
+  // 1. Resumen P2P / PLM HTML
+  let p2pHtml = "";
+  if (parsedStrategyObj.executiveSummaryP2P) {
+    p2pHtml = `
+      <div class="mb-5 section-card page-break-inside-avoid">
+        <h2 class="text-xs font-black uppercase tracking-widest text-purple-700 border-b pb-1 mb-2 flex items-center gap-2">
+          <span>👥</span> 1. Resumen Ejecutivo e Identidad P2P (People-Led Marketing)
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 bg-purple-50/30 border border-purple-100 p-3.5 rounded-2xl">
+          <div>
+            <strong class="text-xs font-bold text-slate-800 block mb-1">Filosofía de Marca PLM:</strong>
+            <p class="text-xs text-slate-650 leading-relaxed">${parsedStrategyObj.executiveSummaryP2P.philosophy || "Transición de marketing corporativo a comunicación liderada por personas reales."}</p>
+          </div>
+          <div>
+            <strong class="text-xs font-bold text-slate-800 block mb-1">Propuesta de Valor Auténtica:</strong>
+            <p class="text-xs text-slate-650 leading-relaxed">${parsedStrategyObj.executiveSummaryP2P.valueProposition || "Conexión basada en experiencias y momentos vividos por clientes."}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 2. Benchmarking 2026 HTML
+  let benchmarkHtml = "";
+  if (parsedStrategyObj.assetAuditBenchmarking2026) {
+    const bm = parsedStrategyObj.assetAuditBenchmarking2026;
+    benchmarkHtml = `
+      <div class="mb-5 section-card page-break-inside-avoid">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1 mb-2 flex items-center gap-2">
+          <span>📊</span> 2. Auditoría de Activos y Benchmarks 2026 (El Deber Ser)
+        </h2>
+        <div class="bg-slate-50 border border-slate-200 p-3.5 rounded-2xl space-y-2">
+          <p class="text-xs text-slate-700"><strong>Salud de Perfiles & SmartLinks:</strong> ${bm.profileHealth || "Salud y consistencia de marca auditada."}</p>
+          <div class="grid grid-cols-3 gap-2 pt-1">
+            <div class="bg-white p-2 rounded-xl border text-center shadow-xs">
+              <span class="text-[9px] font-bold text-blue-600 uppercase block">📘 Facebook Target</span>
+              <span class="text-xs font-black text-slate-800">${bm.benchmarks2026?.facebook || "0.15%"}</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border text-center shadow-xs">
+              <span class="text-[9px] font-bold text-purple-600 uppercase block">📸 Instagram Target</span>
+              <span class="text-xs font-black text-slate-800">${bm.benchmarks2026?.instagram || "0.48%"}</span>
+            </div>
+            <div class="bg-white p-2 rounded-xl border text-center shadow-xs">
+              <span class="text-[9px] font-bold text-pink-600 uppercase block">🎵 TikTok Target</span>
+              <span class="text-xs font-black text-slate-800">${bm.benchmarks2026?.tiktok || "2.60% - 3.73%"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 6. SEO + AEO HTML
+  let seoAeoHtml = "";
+  if (parsedStrategyObj.nextGenVisibilitySeoAeo) {
+    const vis = parsedStrategyObj.nextGenVisibilitySeoAeo;
+    seoAeoHtml = `
+      <div class="mb-5 section-card page-break-inside-avoid">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1 mb-2 flex items-center gap-2">
+          <span>🔍</span> 6. Visibilidad de Nueva Generación (SEO + AEO)
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="bg-white border border-slate-200 p-3 rounded-2xl space-y-1">
+            <strong class="text-xs font-bold text-indigo-700 block">Formatos Instagram:</strong>
+            <p class="text-xs text-slate-600">• ${vis.instagramFormats?.carouselsTarget || "Carousels para interacción (meta 10.15%)"}</p>
+            <p class="text-xs text-slate-600">• ${vis.instagramFormats?.reelsTarget || "Reels para alcance masivo (meta 37.8%)"}</p>
+          </div>
+          <div class="bg-white border border-slate-200 p-3 rounded-2xl space-y-1">
+            <strong class="text-xs font-bold text-indigo-700 block">Answer Engine Optimization (AEO):</strong>
+            <p class="text-xs text-slate-600 leading-snug">${vis.aeoOptimization || "Optimización para citaciones directas en motores de IA (ChatGPT, Gemini, Perplexity)."}</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 7 & 8. Conversión & Tech Stack HTML
+  let convTechHtml = "";
+  if (parsedStrategyObj.conversionSocialCare || parsedStrategyObj.techStackProductivity) {
+    const conv = parsedStrategyObj.conversionSocialCare || {};
+    const tech = parsedStrategyObj.techStackProductivity || {};
+    convTechHtml = `
+      <div class="mb-5 section-card page-break-inside-avoid">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1 mb-2 flex items-center gap-2">
+          <span>⚡</span> 7 & 8. Conversión WhatsApp-Centric y Stack Tecnológico
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="bg-emerald-50/40 border border-emerald-200/60 p-3.5 rounded-2xl space-y-1.5">
+            <strong class="text-xs font-bold text-emerald-800 block">💬 Conversión & Customer Care:</strong>
+            <p class="text-xs text-slate-700">${conv.conversionEcosystem || "Ecosistema fluido de redes a catálogo digital y WhatsApp."}</p>
+            <p class="text-xs text-emerald-700 font-semibold">• IA Agéntica: ${conv.agenticAiCustomerCare || "Respuesta automática al 50% de dudas preventa."}</p>
+          </div>
+          <div class="bg-indigo-50/40 border border-indigo-200/60 p-3.5 rounded-2xl space-y-1.5">
+            <strong class="text-xs font-bold text-indigo-800 block">🛠️ Stack & Eficiencia Operativa:</strong>
+            <p class="text-xs text-indigo-700 font-bold">• ${tech.weeklyTimeSavings || "Ahorro estimado de hasta 12 horas semanales."}</p>
+            <p class="text-[11px] text-slate-600">Herramientas sugeridas: Metricool/Agorapulse, CapCut/InVideo AI, Brandwatch.</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
@@ -454,7 +556,7 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
       <body class="bg-slate-50 text-slate-800 p-6 leading-relaxed">
         <div class="bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-pink-500/10 border border-purple-200/60 p-4 rounded-2xl shadow-sm mb-5 flex justify-between items-center page-break-inside-avoid">
           <div>
-            <span class="text-[9px] font-black uppercase tracking-widest text-purple-700">OB MarketHub - Growth Strategy</span>
+            <span class="text-[9px] font-black uppercase tracking-widest text-purple-700">OB MarketHub - Growth Strategy 2026</span>
             <h1 class="text-xl font-black text-slate-800 tracking-tight">${strategyName}</h1>
           </div>
           <div class="text-right text-xs text-slate-500 font-bold">
@@ -468,10 +570,14 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
           </div>
         ` : ""}
 
+        ${p2pHtml}
+        ${benchmarkHtml}
         ${objectivesHtml}
         ${personasHtml}
         ${funnelHtml}
         ${channelsHtml}
+        ${seoAeoHtml}
+        ${convTechHtml}
 
         <script>
           window.onload = function() {

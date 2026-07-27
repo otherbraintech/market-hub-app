@@ -136,6 +136,59 @@ export interface PostingSchedule {
   }
 }
 
+// --- PILARES ESTRATÉGICOS 2026 (ESTRUCTURA CEO) ---
+
+export interface ExecutiveP2PIdentity {
+  philosophy: string;          // People-Led Marketing (PLM)
+  valueProposition: string;   // Momentos auténticos facilitados por personas reales
+}
+
+export interface Benchmarking2026 {
+  profileHealth: string;
+  benchmarks2026: {
+    facebook: string;          // Meta 0.15%
+    instagram: string;         // Meta 0.48%
+    tiktok: string;            // Rango 2.60% a 3.73%
+  };
+}
+
+export interface CompetitiveIntelData {
+  shareOfVoiceMatrix: string;
+  socialListeningGap: string;
+}
+
+export interface StrategicSwotGaps {
+  ugcSocialProofGap: string;
+  educationalEntertainmentGap: string;
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+}
+
+export interface NextGenSeoAeo {
+  instagramFormats: {
+    carouselsTarget: string;   // Interacción (meta 10.15%)
+    reelsTarget: string;       // Alcance (meta 37.8%)
+  };
+  aeoOptimization: string;      // Posicionamiento en ChatGPT, Gemini, Perplexity
+}
+
+export interface ConversionSocialCare {
+  conversionEcosystem: string;
+  whatsappFunnel: string;
+  agenticAiCustomerCare: string; // Automatización del 50% de dudas preventa
+}
+
+export interface TechStackProductivity {
+  weeklyTimeSavings: string;     // Ahorro de hasta 12 horas semanales
+  suggestedStack: {
+    management: string;          // Metricool / Agorapulse
+    agileCreation: string;       // CapCut / InVideo AI
+    listening: string;           // Brandwatch / Keyhole
+  };
+}
+
 // DTOs
 export interface CreateStrategyInput {
   businessId: string
@@ -147,6 +200,13 @@ export interface CreateStrategyInput {
   channels: MarketingChannel[]
   contentPillars?: ContentPillar[]
   postingSchedule?: PostingSchedule
+  executiveSummaryP2P?: ExecutiveP2PIdentity
+  assetAuditBenchmarking2026?: Benchmarking2026
+  competitiveIntelligence?: CompetitiveIntelData
+  strategicSwotGaps?: StrategicSwotGaps
+  nextGenVisibilitySeoAeo?: NextGenSeoAeo
+  conversionSocialCare?: ConversionSocialCare
+  techStackProductivity?: TechStackProductivity
   isActive?: boolean
 }
 
@@ -160,6 +220,13 @@ export interface StrategyWithTypes extends Omit<MarketingStrategy, 'objectives' 
   channels: MarketingChannel[]
   contentPillars: ContentPillar[] | null
   postingSchedule: PostingSchedule | null
+  executiveSummaryP2P?: ExecutiveP2PIdentity
+  assetAuditBenchmarking2026?: Benchmarking2026
+  competitiveIntelligence?: CompetitiveIntelData
+  strategicSwotGaps?: StrategicSwotGaps
+  nextGenVisibilitySeoAeo?: NextGenSeoAeo
+  conversionSocialCare?: ConversionSocialCare
+  techStackProductivity?: TechStackProductivity
 }
 
 // Con relaciones

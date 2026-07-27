@@ -17,8 +17,8 @@ import {
   FileText, ShieldCheck, Target, Users, Megaphone, 
   CheckCircle2, Loader2, Network, HelpCircle, ArrowRight, ArrowLeft,
   Database, Eye, EyeIcon, CalendarDays, Compass, MessageSquare,
-  Play, RefreshCw, Check, X, Clock, Cpu, Bot, Sparkles, Layers, AlertTriangle,
-  Facebook, Instagram, Globe, Lock, Pencil, Lightbulb, BookOpen, Smile, Brain, Award, XCircle, Search, TrendingUp, ThumbsUp, Activity, MapPin, Briefcase, Star, ChevronRight, Download
+  Play, RefreshCw, Check, X, Clock, Cpu, Bot, Sparkles, Layers, AlertTriangle, Terminal,
+  Facebook, Instagram, Globe, Lock, Pencil, Lightbulb, BookOpen, Smile, Brain, Award, XCircle, Search, TrendingUp, ThumbsUp, Activity, MapPin, Briefcase, Star, ChevronRight, Download, Store, Landmark, Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -30,8 +30,10 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { AgentPipelineMonitor } from "./agent-pipeline-monitor";
 
 // TikTok Icon SVG
 function TikTokIcon({ className }: { className?: string }) {
@@ -163,6 +165,7 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [isTriggeredInSession, setIsTriggeredInSession] = useState(false);
+  const [showStrategyAgentWorkingDialog, setShowStrategyAgentWorkingDialog] = useState(false);
 
   const [selectedCompetitorId, setSelectedCompetitorId] = useState<string>("");
 
@@ -234,6 +237,7 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
     setIsDismissed(false);
     setIsTriggeredInSession(true);
     setStrategyLoading(true);
+    setShowStrategyAgentWorkingDialog(true);
     try {
       const res = await startStrategyStage(businessId);
       if (res.success) {
@@ -336,13 +340,18 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
   }, [businessId]);
 
   useEffect(() => {
-    if (!hasActiveProcessing) return;
+    const shouldPoll = hasActiveProcessing || showStrategyAgentWorkingDialog;
+    if (!shouldPoll) return;
+
+    fetchResults(true);
+    fetchNotifications(true);
+
     const interval = setInterval(() => {
       fetchResults(true);
       fetchNotifications(true);
-    }, 8000);
+    }, 2500);
     return () => clearInterval(interval);
-  }, [businessId, hasActiveProcessing]);
+  }, [businessId, hasActiveProcessing, showStrategyAgentWorkingDialog]);
 
   const prevStatusesRef = useRef<Record<string, string>>({});
 
@@ -490,7 +499,12 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
         return 'processing';
       }
       if (latestNotif.status === 'FAILED') return 'failed';
-      if (latestNotif.status === 'COMPLETED') return 'completed';
+      if (latestNotif.status === 'COMPLETED') {
+        if (stepKey === 'STRATEGY' && !activeStrategy) return 'idle';
+        if (stepKey === 'CAMPAIGN' && campaigns.length === 0) return 'idle';
+        if (stepKey === 'CALENDAR' && !isCalendarReady) return 'idle';
+        return 'completed';
+      }
     }
 
     if (stepKey === 'SCRAPING') {
@@ -576,29 +590,21 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
 
   const isTabBlocked = (tabName: string): boolean => {
     if (tabName === "bancodedatos") return false;
-    if (tabName === "estrategia" && activeStrategy) return false;
+    if (tabName === "estrategia") return false;
     if (tabName === "campanas" && campaigns.length > 0) return false;
     if (tabName === "calendario" && isCalendarReady) return false;
 
-    const isDiagnosticActive = diagnosticLoading || getStepStatus("DIAGNOSTIC") === "processing" || getStepStatus("SCRAPING") === "processing" || getStepStatus("ANALYSIS") === "processing";
-    const isStrategyActive = strategyLoading || getStepStatus("STRATEGY") === "processing" || isDiagnosticActive;
+    const isStrategyActive = strategyLoading || getStepStatus("STRATEGY") === "processing";
     const isCampaignActive = campaignLoading || getStepStatus("CAMPAIGN") === "processing" || isStrategyActive;
 
-    if (tabName === "estrategia" && isDiagnosticActive) return true;
     if (tabName === "campanas" && isStrategyActive) return true;
     if (tabName === "calendario" && isCampaignActive) return true;
 
-    if (tabName === "estrategia") {
-      const status = getStepStatus("DIAGNOSTIC");
-      return status !== "completed" && status !== "failed";
-    }
     if (tabName === "campanas") {
-      const status = getStepStatus("STRATEGY");
-      return status !== "completed" && status !== "failed";
+      return !activeStrategy;
     }
     if (tabName === "calendario") {
-      const status = getStepStatus("CAMPAIGN");
-      return status !== "completed" && status !== "failed";
+      return campaigns.length === 0;
     }
     return false;
   };
@@ -878,19 +884,13 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
   const isStrategyProcessing = getStepStatus("STRATEGY") === "processing" || strategyLoading;
 
   const isWaitModalOpen = 
+    activeTab === "bancodedatos" &&
     !isDismissed && (
       (loading && !data) ||
       !isAnalysisComplete ||
       isCurrentlyProcessing ||
-      isStrategyProcessing ||
-      isCampaignProcessing ||
-      isCalendarProcessing ||
-      isTriggeredInSession ||
       scrapingStatus === "failed" ||
-      diagnosticStatus === "failed" ||
-      getStepStatus("STRATEGY") === "failed" ||
-      getStepStatus("CAMPAIGN") === "failed" ||
-      getStepStatus("CALENDAR") === "failed"
+      diagnosticStatus === "failed"
     );
 
   const getDialogProgressContent = () => {
@@ -1048,11 +1048,11 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
     calendario: "Calendario Editorial"
   };
 
-  const isNextBlocked = nextTab ? isTabBlocked(nextTab) || (activeTab === "bancodedatos" && !hasScrolledToBottom) : false;
+  const isNextBlocked = nextTab ? isTabBlocked(nextTab) : false;
 
 
   return (
-    <Card className="border border-slate-100 dark:border-slate-800/80 shadow-xl bg-card/60 backdrop-blur-md flex flex-col min-h-[500px] rounded-3xl overflow-hidden">
+    <Card className="border border-cyan-500/20 bg-[#0D1526] text-slate-100 shadow-2xl flex flex-col min-h-[500px] rounded-3xl overflow-hidden mh-glow-cyan">
       {/* Estilos e Inyecciones CSS */}
       <style>{`
         @keyframes guided-pulse-violet {
@@ -1062,42 +1062,48 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
         .continue-btn-pulse { animation: guided-pulse-violet 1.6s ease-in-out infinite; }
       `}</style>
 
-      {/* DIALOG DE ESPERA ACTIVA (PROGRESO IA) */}
+      {/* DIALOG DE ESPERA ACTIVA (PROGRESO IA ESTILO BASE44) */}
       <Dialog open={isWaitModalOpen} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-6 [&>button]:hidden">
-          <div className="relative flex items-center justify-center h-20 w-20">
+        <DialogContent className="sm:max-w-md rounded-3xl p-8 flex flex-col items-center justify-center text-center space-y-6 bg-[#0D1526] border border-cyan-500/20 text-slate-100 shadow-2xl mh-glow-cyan [&>button]:hidden">
+          <div className="relative flex items-center justify-center h-24 w-24">
             {currentProgress.stage === -1 ? (
-              <div className="relative h-16 w-16 bg-rose-550/10 rounded-2xl border border-rose-500/25 flex items-center justify-center text-rose-600">
-                <AlertTriangle className="h-8 w-8 animate-pulse" />
+              <div className="relative h-20 w-20 bg-rose-500/10 rounded-full border-2 border-rose-500/40 flex items-center justify-center text-rose-400">
+                <AlertTriangle className="h-9 w-9 animate-pulse" />
               </div>
             ) : (
               <>
-                {isCurrentlyProcessing && (
-                  <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" />
-                )}
-                <div className="relative h-16 w-16 bg-primary/10 rounded-2xl border border-primary/25 flex items-center justify-center text-primary">
-                  <Bot className={`h-8 w-8 ${isCurrentlyProcessing ? 'animate-bounce-slow' : ''}`} />
+                <div className="relative h-20 w-20 rounded-full border-2 border-cyan-500/20 bg-[#132035] flex items-center justify-center">
+                  <Search className="h-8 w-8 text-cyan-400 animate-pulse" />
                 </div>
+                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" />
               </>
             )}
           </div>
 
           <div className="space-y-2 w-full">
             <div className="flex items-center justify-center gap-1.5">
-              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
+              <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
                 currentProgress.stage === -1 
-                  ? "bg-rose-500/10 text-rose-700" 
-                  : "bg-primary/10 text-primary"
+                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" 
+                  : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
               }`}>
                 {currentProgress.title}
               </span>
             </div>
-            <h3 className="text-lg font-bold text-foreground">
-              {currentProgress.stage === -1 ? "Error Detectado" : "Procesando Banco de Datos"}
+            <h3 className="text-xl font-black text-white tracking-tight">
+              {currentProgress.stage === -1 ? "Error Detectado" : "Auditando Banco de Datos"}
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed max-w-sm font-medium mx-auto">
+            <p className="text-xs text-slate-400 leading-relaxed max-w-sm font-medium mx-auto">
               {currentProgress.description}
             </p>
+
+            {currentProgress.stage !== -1 && (
+              <div className="flex justify-center items-center gap-1.5 pt-3">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
+                ))}
+              </div>
+            )}
           </div>
 
           {currentProgress.stage === -1 ? (
@@ -2346,6 +2352,132 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                   </div>
                 )}
 
+                {/* Sección de Canales de Ventas y Conversión (Seleccionados en las 7 Preguntas + Estrategia) */}
+                <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5">
+                      <Store className="h-3.5 w-3.5 text-purple-500" /> Canales de Ventas y Conversión (Onboarding & Estrategia)
+                    </span>
+                    <Badge variant="outline" className="bg-purple-500/10 border-purple-500/30 text-purple-650 font-bold text-[9px] rounded-lg">
+                      Formulario 7 Preguntas & IA
+                    </Badge>
+                  </div>
+
+                  {(() => {
+                    const rawConversion = (data?.businessInfo?.onboardingStrategy as any)?.conversionChannel || 
+                      (typeof data?.businessInfo?.onboardingStrategy === 'string' ? parseJson(data.businessInfo.onboardingStrategy)?.conversionChannel : "") || "";
+                    
+                    // Parsear ítems del canal de conversión seleccionado en el onboarding
+                    const parseConversionChannelItems = (text: string) => {
+                      if (!text || typeof text !== "string") return [];
+                      const items: { label: string; detail?: string; icon: React.ReactNode }[] = [];
+
+                      if (text.toLowerCase().includes("whatsapp")) {
+                        const waMatch = text.match(/Número WhatsApp:\s*([^\s,]+)/i) || text.match(/WhatsApp:\s*([^\s,]+)/i);
+                        const waNum = waMatch ? waMatch[1] : "";
+                        items.push({
+                          label: "WhatsApp Directo",
+                          detail: waNum ? `Tel: ${waNum}` : "Canal Principal de Cierre",
+                          icon: <MessageSquare className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                        });
+                      }
+
+                      if (text.toLowerCase().includes("moderno") || text.toLowerCase().includes("cadenas")) {
+                        const modernoMatch = text.match(/Cadenas Canal Moderno:\s*([^,\n]+)/i);
+                        const modernoDetail = modernoMatch ? modernoMatch[1].trim() : "";
+                        items.push({
+                          label: "Canal Moderno (Supermercados)",
+                          detail: modernoDetail || "Cadenas & Autoservicios",
+                          icon: <Store className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                        });
+                      }
+
+                      if (text.toLowerCase().includes("tradicional") || text.toLowerCase().includes("comercios")) {
+                        const tradicionalMatch = text.match(/Comercios Canal Tradicional:\s*([^,\n]+)/i);
+                        const tradicionalDetail = tradicionalMatch ? tradicionalMatch[1].trim() : "";
+                        items.push({
+                          label: "Canal Tradicional (Mercados & Barrio)",
+                          detail: tradicionalDetail || "Pulperías y Comercios Locales",
+                          icon: <Landmark className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                        });
+                      }
+
+                      if (text.toLowerCase().includes("sitio web") || text.toLowerCase().includes("web") || text.toLowerCase().includes("ecommerce")) {
+                        items.push({
+                          label: "Sitio Web / E-Commerce",
+                          detail: "Ventas y Catálogo Digital Directo",
+                          icon: <Globe className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        });
+                      }
+
+                      if (items.length === 0 && text.trim().length > 0) {
+                        items.push({
+                          label: text,
+                          icon: <Target className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                        });
+                      }
+
+                      return items;
+                    };
+
+                    const parsedChannels = parseConversionChannelItems(rawConversion);
+
+                    return (
+                      <div className="space-y-3 pt-1">
+                        {parsedChannels.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {parsedChannels.map((chan, idx) => (
+                              <div key={idx} className="p-3.5 bg-gradient-to-br from-purple-500/5 via-indigo-500/5 to-transparent rounded-xl border border-purple-200/50 space-y-1.5 shadow-sm">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-7 w-7 rounded-lg bg-card border flex items-center justify-center shrink-0 shadow-xs">
+                                    {chan.icon}
+                                  </div>
+                                  <span className="font-bold text-xs text-foreground">
+                                    {chan.label}
+                                  </span>
+                                </div>
+                                {chan.detail && (
+                                  <p className="text-[10.5px] font-semibold text-purple-700 dark:text-purple-300 bg-purple-50/80 dark:bg-purple-950/60 p-1.5 rounded-lg border border-purple-200/40 leading-snug">
+                                    {chan.detail}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-muted/10 rounded-xl border text-xs text-muted-foreground italic">
+                            Información de canales de conversión del formulario inicial cargada en la estrategia.
+                          </div>
+                        )}
+
+                        {/* Canales Estratégicos Complementarios de la IA */}
+                        {parsedStrategyObj?.channels && parsedStrategyObj.channels.length > 0 && (
+                          <div className="pt-2 border-t border-dashed">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground block mb-2">
+                              📡 Canales de Difusión y Adquisición Complementarios:
+                            </span>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                              {parsedStrategyObj.channels.map((chan: any, idx: number) => (
+                                <div key={idx} className="p-2.5 bg-muted/15 rounded-xl border flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <Globe className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                                    <span className="font-bold text-foreground">{chan.name || chan.canal}</span>
+                                  </div>
+                                  {chan.frequency && (
+                                    <span className="text-[9.5px] font-semibold text-muted-foreground bg-background px-2 py-0.5 rounded-md border">
+                                      {chan.frequency}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
                 {/* Objetivos SMART */}
                 {parsedStrategyObj.objectives.length > 0 && (
                   <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
@@ -2647,7 +2779,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
           calendario: "Calendario Editorial"
         };
 
-        const isNextBlocked = nextTab ? isTabBlocked(nextTab) || (activeTab === "bancodedatos" && !hasScrolledToBottom) : false;
+        const isNextBlocked = nextTab ? isTabBlocked(nextTab) : false;
 
         return (
           <div className="px-5 py-4 border-t bg-muted/20 flex flex-col gap-2 shadow-inner shrink-0">
@@ -2708,6 +2840,102 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
           </div>
         );
       })()}
+
+      {/* Dialog Modal interactivo exclusivo para el Agente de Estrategia (Estilo Banco de Datos Etapa 1) */}
+      <Dialog open={showStrategyAgentWorkingDialog} onOpenChange={setShowStrategyAgentWorkingDialog}>
+        <DialogContent className="sm:max-w-md rounded-3xl border border-purple-500/30 bg-card/95 backdrop-blur-xl p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
+          {(() => {
+            const strategyNotifs = notifications.filter(n => n.step === 'STRATEGY');
+            const latestNotif = strategyNotifs.length > 0 ? strategyNotifs[0] : null;
+            const isProcessing = strategyLoading || latestNotif?.status === 'PROCESSING';
+            const isFailed = !isProcessing && latestNotif?.status === 'FAILED';
+            const isCompleted = !isProcessing && !isFailed && (latestNotif?.status === 'COMPLETED' || (activeStrategy && latestNotif?.status !== 'PROCESSING'));
+            const currentMessage = latestNotif?.message || "Formulando buyer personas, embudo y pilares con datos del Paso 1...";
+
+            return (
+              <div className="flex flex-col items-center justify-center space-y-6 py-2">
+                {/* Icono / Loading centrado estilo Banco de Datos Etapa 1 */}
+                <div className={`h-20 w-20 rounded-3xl flex items-center justify-center shadow-lg border transition-all duration-300 ${
+                  isCompleted 
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 scale-105' 
+                    : isFailed
+                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    : 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 animate-pulse'
+                }`}>
+                  {isCompleted ? (
+                    <Check className="h-10 w-10 stroke-[3] animate-in zoom-in duration-300 text-emerald-600 dark:text-emerald-400" />
+                  ) : isFailed ? (
+                    <AlertTriangle className="h-10 w-10 text-rose-600 dark:text-rose-400" />
+                  ) : (
+                    <div className="relative flex items-center justify-center">
+                      <Loader2 className="h-10 w-10 animate-spin text-purple-600 dark:text-purple-400" />
+                      <Sparkles className="h-4 w-4 text-purple-500 absolute inset-0 m-auto animate-ping opacity-75" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Título y Mensaje de texto dinámico debajo del spinner */}
+                <div className="space-y-2 max-w-sm">
+                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${
+                    isCompleted 
+                      ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
+                      : isFailed
+                      ? 'text-rose-700 dark:text-rose-400 bg-rose-500/10 border-rose-500/20'
+                      : 'text-purple-700 dark:text-purple-400 bg-purple-500/10 border-purple-500/20'
+                  }`}>
+                    {isCompleted ? '¡Estrategia Lista!' : isFailed ? 'Error en Estrategia' : 'Agente de Estrategia Trabajando'}
+                  </span>
+                  <h3 className="text-xl font-black tracking-tight text-foreground pt-1">
+                    {isCompleted ? 'Estrategia Generada Exitosamente' : isFailed ? 'Error al Generar Estrategia' : 'Generando Estrategia Base'}
+                  </h3>
+                  
+                  {/* Texto de avance en tiempo real debajo del spinner */}
+                  <p className="text-xs font-medium leading-relaxed text-muted-foreground min-h-[44px] flex items-center justify-center">
+                    {isCompleted 
+                      ? 'Se ha completado el modelado de Buyer Personas, Embudo de Ventas y Pilares Estratégicos usando tus datos del Paso 1.'
+                      : currentMessage}
+                  </p>
+                </div>
+
+                {/* Botón interactivo al finalizar, fallar o ver en segundo plano */}
+                <div className="w-full pt-2 border-t border-border/50 flex flex-col items-center gap-2">
+                  {isCompleted ? (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setShowStrategyAgentWorkingDialog(false);
+                        fetchResults(true);
+                      }}
+                      className="w-full rounded-2xl font-black text-xs h-11 bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 border-none transition-all duration-200"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Ver informe generado
+                    </Button>
+                  ) : isFailed ? (
+                    <Button
+                      type="button"
+                      onClick={handleStartStrategy}
+                      className="w-full rounded-2xl font-bold text-xs h-11 bg-rose-600 hover:bg-rose-700 text-white shadow-md border-none"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Reintentar Generación
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowStrategyAgentWorkingDialog(false)}
+                      className="text-xs font-bold text-muted-foreground hover:text-foreground rounded-xl"
+                    >
+                      Ver en segundo plano
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

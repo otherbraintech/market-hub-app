@@ -36,6 +36,7 @@ const stepsMeta = [
 
 export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) {
   const [notifications, setNotifications] = useState<AgentNotification[]>([]);
+  const [onboardingData, setOnboardingData] = useState<{ strategyCount?: number; competitorCount?: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
 
@@ -46,6 +47,7 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
+        setOnboardingData(data.onboarding || null);
       }
     } catch (e) {
       console.error("Error fetching agent notifications:", e);
@@ -99,22 +101,25 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
       return 'processing';
     }
 
-    if (latestNotif.status === 'COMPLETED') return 'completed';
+    if (latestNotif.status === 'COMPLETED') {
+      if (stepKey === 'STRATEGY' && (onboardingData?.strategyCount || 0) === 0) return 'idle';
+      return 'completed';
+    }
     if (latestNotif.status === 'FAILED') return 'failed';
 
     return 'idle';
   };
 
   return (
-    <Card className="border border-violet-100/80 dark:border-violet-950/40 bg-gradient-to-br from-white via-violet-50/20 to-indigo-50/40 dark:from-slate-900 dark:via-slate-950 dark:to-indigo-950 text-slate-800 dark:text-slate-100 shadow-md dark:shadow-2xl overflow-hidden card-shadow rounded-2xl">
-      {/* Cabecera futurista estilo Terminal */}
-      <CardHeader className="border-b border-violet-100/60 dark:border-white/5 bg-violet-50/10 dark:bg-black/30 pb-4 flex flex-row items-center justify-between">
+    <Card className="border border-cyan-500/20 bg-[#0D1526] text-slate-100 shadow-2xl overflow-hidden rounded-2xl mh-glow-cyan">
+      {/* Cabecera futurista estilo Terminal Base44 */}
+      <CardHeader className="border-b border-cyan-500/10 bg-[#080E1A]/60 pb-4 flex flex-row items-center justify-between">
         <div className="space-y-1">
-          <CardTitle className="text-base font-black tracking-tight flex items-center gap-2 text-violet-600 dark:text-violet-400">
-            <Cpu className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400 animate-pulse" />
-            <span>Progreso de Procesamiento Inteligente</span>
+          <CardTitle className="text-base font-extrabold tracking-tight flex items-center gap-2">
+            <Cpu className="h-4.5 w-4.5 text-cyan-400 animate-pulse" />
+            <span className="mh-gradient-text font-black">Progreso de Procesamiento Inteligente</span>
           </CardTitle>
-          <CardDescription className="text-[11px] text-slate-500 dark:text-slate-400">
+          <CardDescription className="text-[11px] text-slate-400">
             Visualiza el avance del diagnóstico y planificación estratégica en tiempo real.
           </CardDescription>
         </div>
@@ -124,7 +129,7 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
             variant="ghost"
             size="icon"
             onClick={() => fetchNotifications()}
-            className="h-7 w-7 rounded-lg border border-violet-100 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-violet-100/50 dark:hover:bg-white/5 bg-white dark:bg-transparent shadow-sm dark:shadow-none"
+            className="h-7 w-7 rounded-lg border border-cyan-500/20 text-slate-400 hover:text-white hover:bg-cyan-500/10 bg-[#132035]"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>

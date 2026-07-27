@@ -13,6 +13,68 @@ const strategyGenerationSchema = z.object({
   name: z.string(),
   description: z.string(),
   isActive: z.boolean().default(true),
+  
+  // 1. Resumen Ejecutivo e Identidad P2P (People-to-People / PLM)
+  executiveSummaryP2P: z.object({
+    philosophy: z.string().describe("Filosofía de marca People-Led Marketing (PLM)"),
+    valueProposition: z.string().describe("Propuesta de Valor centrada en momentos auténticos facilitados por personas reales")
+  }).optional(),
+
+  // 2. Auditoría de Activos y Benchmarking 2026
+  assetAuditBenchmarking2026: z.object({
+    profileHealth: z.string().describe("Evaluación de consistencia visual, bios y enlaces inteligentes SmartLinks"),
+    benchmarks2026: z.object({
+      facebook: z.string().default("0.15%"),
+      instagram: z.string().default("0.48%"),
+      tiktok: z.string().default("2.60% - 3.73%")
+    })
+  }).optional(),
+
+  // 3. Inteligencia Competitiva y Análisis de Sentimiento
+  competitiveIntelligence: z.object({
+    shareOfVoiceMatrix: z.string().describe("Matriz comparativa de métricas frente a 3 competidores principales"),
+    socialListeningGap: z.string().describe("Análisis cualitativo del gap de percepción y fallos de la competencia")
+  }).optional(),
+
+  // 4. Buyer Personas y Oportunidad de Mercado (6 Perfiles Descriptivos)
+  marketSizeOpportunity: z.string().optional().describe("Cálculo numérico del % de mercado local desatendido"),
+
+  // 5. Diagnóstico de Gaps de Mercado (FODA Estratégico)
+  strategicSwotGaps: z.object({
+    ugcSocialProofGap: z.string().describe("Capitalización del gap de contenido generado por usuarios (UGC)"),
+    educationalEntertainmentGap: z.string().describe("Estrategia educativa/entretenimiento en video vertical (79.6% busca entretenimiento)"),
+    strengths: z.array(z.string()).default([]),
+    weaknesses: z.array(z.string()).default([]),
+    opportunities: z.array(z.string()).default([]),
+    threats: z.array(z.string()).default([])
+  }).optional(),
+
+  // 6. Estrategia de Visibilidad de Nueva Generación (SEO + AEO)
+  nextGenVisibilitySeoAeo: z.object({
+    instagramFormats: z.object({
+      carouselsTarget: z.string().default("Carousels para interacción (meta 10.15%)"),
+      reelsTarget: z.string().default("Reels para alcance (meta 37.8%)")
+    }),
+    aeoOptimization: z.string().describe("Estrategia de Answer Engine Optimization para citaciones directas en ChatGPT, Gemini y Perplexity")
+  }).optional(),
+
+  // 7. Conversión y Social Customer Care (WhatsApp-Centric)
+  conversionSocialCare: z.object({
+    conversionEcosystem: z.string().describe("Flujo desde redes hacia catálogo digital y WhatsApp"),
+    whatsappFunnel: z.string().describe("Estrategia de embudo WhatsApp-Centric"),
+    agenticAiCustomerCare: z.string().describe("Implementación de IA Agéntica para resolver 50% de dudas preventa")
+  }).optional(),
+
+  // 8. Stack Tecnológico y Eficiencia Operativa
+  techStackProductivity: z.object({
+    weeklyTimeSavings: z.string().default("Ahorro estimado de hasta 12 horas semanales"),
+    suggestedStack: z.object({
+      management: z.string().default("Metricool / Agorapulse"),
+      agileCreation: z.string().default("CapCut / InVideo AI"),
+      listening: z.string().default("Brandwatch / Keyhole")
+    })
+  }).optional(),
+
   objectives: z.array(z.object({
     name: z.string(),
     specific: z.string(),
@@ -66,7 +128,7 @@ export async function POST(
   try {
     const { id } = await params;
 
-    // Get business info
+    // 1. Obtener información completa del negocio y sus competidores (Banco de Datos)
     const business = await prisma.business.findUnique({
       where: { id },
       select: {
@@ -75,12 +137,23 @@ export async function POST(
         description: true,
         industry: true,
         website: true,
+        phoneNumbers: true,
         socialLinks: true,
         targetAudience: true,
         brandVoice: true,
         location: true,
         onboardingStrategy: true,
         competitorGeneralReport: true,
+        competitors: {
+          select: {
+            id: true,
+            name: true,
+            website: true,
+            facebook: true,
+            instagram: true,
+            tiktok: true,
+          }
+        }
       }
     });
 
@@ -88,20 +161,17 @@ export async function POST(
       return NextResponse.json({ error: 'Business not found' }, { status: 404 });
     }
 
-    // Get all scraped analysis reports for the business (excluding CONSOLIDATED)
+    // 2. Obtener todos los reportes de análisis auditados de Mi Negocio (incluyendo CONSOLIDATED)
     const businessReports = await prisma.analysisReport.findMany({
       where: {
         type: 'MY_BUSINESS',
         entityId: business.id,
-        status: 'COMPLETED',
-        NOT: {
-          channel: 'CONSOLIDATED'
-        }
+        status: 'COMPLETED'
       },
       orderBy: { completedAt: 'desc' }
     });
 
-    // Group and normalize business reports
+    // Agrupar y normalizar reportes del negocio por canal
     const businessReportsMap = new Map<string, any>();
     businessReports.forEach((report: any) => {
       const existing = businessReportsMap.get(report.channel);
@@ -110,36 +180,48 @@ export async function POST(
       }
     });
 
+    const consolidatedReport = businessReportsMap.get('CONSOLIDATED');
+    let consolidatedDataObj = null;
+    if (consolidatedReport && consolidatedReport.data) {
+      try {
+        consolidatedDataObj = typeof consolidatedReport.data === 'string' ? JSON.parse(consolidatedReport.data) : consolidatedReport.data;
+      } catch (e) {
+        console.error('Error parsing consolidated report data:', e);
+      }
+    }
+
     const body = await request.json().catch(() => ({}));
     const { selectedChannels, selectedPillars, selectedTone, name, description } = body;
 
-    // Build AI context
+    // 3. Construir el contexto unificado con el BANCO DE DATOS COMPLETO
     const context = {
       business: {
         name: business.name,
         description: business.description,
         industry: business.industry,
         website: business.website,
+        phoneNumbers: business.phoneNumbers,
         location: business.location,
         targetAudience: business.targetAudience,
         brandVoice: business.brandVoice,
         socialLinks: business.socialLinks,
         onboardingStrategy: business.onboardingStrategy,
+        competitors: business.competitors || [],
       },
-      myScrapedChannels: Array.from(businessReportsMap.entries()).map(([channel, report]) => {
-        let dataObj = report.data;
-        if (typeof report.data === 'string') {
-          try {
-            dataObj = JSON.parse(report.data);
-          } catch (e) {
-            console.error('Error parsing report data:', e);
+      consolidatedAudit: consolidatedDataObj,
+      myScrapedChannels: Array.from(businessReportsMap.entries())
+        .filter(([channel]) => channel !== 'CONSOLIDATED')
+        .map(([channel, report]) => {
+          let dataObj = report.data;
+          if (typeof report.data === 'string') {
+            try {
+              dataObj = JSON.parse(report.data);
+            } catch (e) {
+              console.error('Error parsing report data:', e);
+            }
           }
-        }
-        return {
-          channel,
-          data: dataObj
-        };
-      }),
+          return { channel, data: dataObj };
+        }),
       competitorAnalysis: business.competitorGeneralReport,
       selectedFocusName: name || '',
       selectedFocusDescription: description || '',
@@ -148,7 +230,7 @@ export async function POST(
       selectedTone: selectedTone || '',
     };
 
-    // Generate strategy with AI
+    // 4. Generar estrategia con IA usando el Banco de Datos completo
     const strategy = await generateMarketingStrategyWithAI(context);
 
     return NextResponse.json(strategy);
@@ -171,7 +253,7 @@ async function generateMarketingStrategyWithAI(context: any) {
     const { object } = await generateObject({
       model: openrouter('google/gemini-2.5-flash'),
       schema: strategyGenerationSchema,
-      system: 'Eres un estratega jefe de marketing digital y growth hacker experto. Generas planes de marketing hiper-personalizados y accionables. Tu objetivo es proponer objetivos SMART realistas, buyer personas detalladas, embudos de conversión y canales basados en los datos del negocio y sus competidores. Responde únicamente con un JSON estructurado y válido.',
+      system: 'Eres el Director de Estrategia de Marketing Digital y Growth Hacker de nivel internacional. Generas planes de crecimiento estratégico basados rigurosamente en el BANCO DE DATOS COMPLETO del negocio (auditoría consolidada, FODA, métricas de scraping, datos de competidores y respuestas del onboarding) estructurados en 8 pilares ejecutivos (Resumen P2P/PLM, Benchmarking 2026 con metas de engagement de 0.15% FB / 0.48% IG / 2.6-3.73% TikTok, Inteligencia Competitiva y Sentiment, 6 Buyer Personas Descriptivas, FODA de Gaps con UGC, Visibilidad SEO+AEO, Conversión WhatsApp+IA Agéntica y Stack de Eficiencia Operativa para ahorrar 12h semanales). Responde únicamente con un JSON estructurado y válido.',
       prompt: prompt,
     });
 
@@ -183,35 +265,67 @@ async function generateMarketingStrategyWithAI(context: any) {
 }
 
 function buildStrategyPrompt(context: any) {
-  const { business, myScrapedChannels, competitorAnalysis } = context;
+  const { business, consolidatedAudit, myScrapedChannels, competitorAnalysis } = context;
   
-  let prompt = `Crea una estrategia de marketing detallada para el siguiente negocio basándote en sus datos, el análisis de su competencia y las elecciones específicas del usuario.\n\n`;
-  prompt += `DATOS DEL NEGOCIO:\n`;
-  prompt += `- Nombre: ${business.name}\n`;
-  prompt += `- Descripción: ${business.description || 'No especificada'}\n`;
-  prompt += `- Industria: ${business.industry || 'No especificada'}\n`;
-  prompt += `- Ubicación: ${business.location || 'No especificada'}\n`;
-  if (business.brandVoice) prompt += `- Tono de Marca sugerido: ${JSON.stringify(business.brandVoice)}\n`;
+  let prompt = `Genera un Plan Estratégico de Crecimiento integral estructurado formalmente en los 8 PILARES EJECUTIVOS DE MARKETING Y GROWTH 2026 para el negocio "${business.name}" usando su BANCO DE DATOS COMPLETO.\n\n`;
+  prompt += `=========================================\n`;
+  prompt += `1. BANCO DE DATOS COMPLETO DEL NEGOCIO:\n`;
+  prompt += `=========================================\n`;
+  prompt += `- Nombre comercial: ${business.name}\n`;
+  prompt += `- Descripción del negocio: ${business.description || 'No especificada'}\n`;
+  prompt += `- Industria / Rubro: ${business.industry || 'No especificada'}\n`;
+  prompt += `- Ubicación / Cobertura: ${business.location || 'No especificada'}\n`;
+  prompt += `- Sitio Web: ${business.website || 'No registrado'}\n`;
+  prompt += `- Teléfono / WhatsApp de Ventas: ${business.phoneNumbers || 'No registrado'}\n`;
+  if (business.brandVoice) prompt += `- Identidad y Tono de Marca: ${JSON.stringify(business.brandVoice)}\n`;
+  if (business.socialLinks) prompt += `- Redes Sociales Vinculadas: ${JSON.stringify(business.socialLinks)}\n`;
   
   if (business.onboardingStrategy && typeof business.onboardingStrategy === 'object') {
     const st = business.onboardingStrategy as any;
-    prompt += `\nRESPUESTAS ESTRATÉGICAS DEL NEGOCIO (ONBOARDING - ALTA PRIORIDAD):\n`;
+    prompt += `\nRESPUESTAS ESTRATÉGICAS DEL NEGOCIO (FORMULARIO BASE - ALTA PRIORIDAD):\n`;
     if (st.locationAge) prompt += `- Segmentación Demográfica/Ubicación: ${st.locationAge}\n`;
     if (st.lifeEvent) prompt += `- Momento de Compra / Evento de Vida: ${st.lifeEvent}\n`;
     if (st.archetype) prompt += `- Arquetipo de Marca: ${st.archetype}\n`;
     if (st.conversionChannel) {
-      prompt += `- Canal Crítico de Conversión Selección Usuario: ${st.conversionChannel}\n`;
-      prompt += `  * GUÍA EXPLÍCITA Y DEFINICIONES DE CANALES DE CONVERSIÓN:\n`;
-      prompt += `    - Canal Moderno: Establecimientos estructurados de grandes cadenas con autoservicio y compras automatizadas (Supermercados/Hipermercados como Hipermaxi, Ketal, Walmart, Carrefour; Tiendas de Conveniencia como OXXO, Tambo; Micromercados / Hard Discount).\n`;
-      prompt += `    - Canal Tradicional: Comercios independientes atendidos por sus dueños con trato vecinal (Tiendas de Barrio/Almacenes/Bodegas, Carnicerías y Charcuterías, Fruterías/Verdulerías, Panaderías de zona).\n`;
-      prompt += `    - Puntos de Venta (PDV): Espacio físico exacto de interacción y pago (La góndola/estante del supermercado, el mostrador/vitrina de carnicería, la caja de cobro/zona caliente por impulso, islas promocionales).\n`;
-      prompt += `    - Canal Retail / Minorista: Venta al detalle dirigida al consumidor final (B2C).\n`;
+      prompt += `- Canales de Conversión (Pregunta 4): ${st.conversionChannel}\n`;
     }
-    if (st.informationGaps) prompt += `- Obscuridades/Dudas antes de comprar: ${st.informationGaps}\n`;
-    if (st.socialProof) prompt += `- Prueba Social Clave: ${st.socialProof}\n`;
+    if (st.informationGaps) prompt += `- Dudas/Objeciones comunes antes de comprar: ${st.informationGaps}\n`;
+    if (st.socialProof) prompt += `- Prueba Social Destacada (UGC): ${st.socialProof}\n`;
     if (st.differentialAdvantage) prompt += `- Ventaja Diferencial Única: ${st.differentialAdvantage}\n`;
   }
   prompt += `\n`;
+
+  if (consolidatedAudit) {
+    prompt += `AUDITORÍA CONSOLIDADA DE MI NEGOCIO (DATOS AUDITADOS POR IA):\n`;
+    if (consolidatedAudit.executiveSummary) prompt += `- Resumen Ejecutivo Auditado: ${consolidatedAudit.executiveSummary}\n`;
+    if (consolidatedAudit.marketPosition) {
+      prompt += `- Propuesta de Valor Auditada: ${consolidatedAudit.marketPosition.value_proposition || consolidatedAudit.marketPosition.competitiveAdvantage || 'N/D'}\n`;
+      prompt += `- Brecha de Mercado Identificada: ${consolidatedAudit.marketPosition.marketGap || 'N/D'}\n`;
+    }
+    if (Array.isArray(consolidatedAudit.strengths)) prompt += `- Fortalezas Clave: ${consolidatedAudit.strengths.join(', ')}\n`;
+    if (Array.isArray(consolidatedAudit.weaknesses)) prompt += `- Debilidades a Corregir: ${consolidatedAudit.weaknesses.join(', ')}\n`;
+    if (Array.isArray(consolidatedAudit.opportunities)) prompt += `- Oportunidades de Mercado: ${consolidatedAudit.opportunities.join(', ')}\n`;
+    if (Array.isArray(consolidatedAudit.threats)) prompt += `- Amenazas del Entorno: ${consolidatedAudit.threats.join(', ')}\n`;
+    prompt += `\n`;
+  }
+
+  if (business.competitors && business.competitors.length > 0) {
+    prompt += `COMPETIDORES DIRECTOS REGISTRADOS:\n`;
+    business.competitors.forEach((c: any, idx: number) => {
+      prompt += `- Competidor ${idx + 1}: ${c.name} | Web: ${c.website || 'N/D'} | FB: ${c.facebook || 'N/D'} | IG: ${c.instagram || 'N/D'} | TikTok: ${c.tiktok || 'N/D'}\n`;
+    });
+    prompt += `\n`;
+  }
+
+  prompt += `REGLAS Y PARÁMETROS OBLIGATORIOS PARA CADA UNO DE LOS 8 PILARES:\n`;
+  prompt += `1. Resumen Ejecutivo P2P (People-to-People / PLM): Define el paso de marketing corporativo frío a People-Led Marketing (PLM) centrado en generar confianza con caras y personas reales.\n`;
+  prompt += `2. Auditoría y Benchmarks 2026: Incluye explícitamente las metas de engagement 2026 -> Facebook: 0.15%, Instagram: 0.48%, TikTok: 2.60% a 3.73%.\n`;
+  prompt += `3. Inteligencia Competitiva: Matriz Share of Voice y Gap de Percepción (Social Listening).\n`;
+  prompt += `4. Buyer Personas: Genera exactamente 6 BUYER PERSONAS DESCRIPTIVAS usando roles/demografía en sus nombres (ej: "Mujer de 35 años casada", "Joven ejecutivo de 28 años", "Madre emprendedora") SIN usar nombres propios individuales ficticios. Calcula también el % de mercado desatendido.\n`;
+  prompt += `5. Gaps de Mercado (FODA Estratégico): Enfócate en el Gap de Validación Social (UGC) y el Gap Educativo/Entretenimiento (recordando que el 79.6% de usuarios busca entretenimiento en video).\n`;
+  prompt += `6. Visibilidad SEO + AEO: Define objetivos de Instagram (Carousels para interacción meta 10.15% y Reels para alcance meta 37.8%) y estrategia de Answer Engine Optimization (AEO) para ser citados por ChatGPT, Gemini y Perplexity.\n`;
+  prompt += `7. Conversión WhatsApp-Centric: Embudo hacia catálogo digital y respuesta automatizada del 50% de dudas preventa mediante IA Agéntica.\n`;
+  prompt += `8. Stack Tecnológico: Demuestra el ahorro de hasta 12 horas semanales y recomienda Metricool/Agorapulse, CapCut/InVideo AI y Brandwatch/Keyhole.\n\n`;
 
   if (context.selectedFocusName) {
     prompt += `ENFOQUE ESTRATÉGICO SELECCIONADO POR EL USUARIO (la estrategia y objetivos deben alinearse en torno a esta visión):\n`;

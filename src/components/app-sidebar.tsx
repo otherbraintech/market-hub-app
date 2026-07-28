@@ -56,7 +56,7 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
   const navMain = React.useMemo(() => {
     const rawNav = [
       {
-        title: "Inicio",
+        title: "Centro de Comando",
         url: "#",
         icon: LayoutDashboard,
         isActive: true,
@@ -64,48 +64,46 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
           { title: "Panel General", url: "/dashboard" },
           { title: "Mis Negocios", url: "/business" },
           { 
-            title: "Asistente Onboarding", 
+            title: "Nuevo Negocio / Onboarding", 
             url: selectedId ? `/onboarding?businessId=${selectedId}&preview=true` : "/onboarding" 
           },
         ],
       },
       {
-        title: "Mi Negocio",
+        title: "Negocio Seleccionado",
         url: "#",
         icon: Building2,
         isActive: true,
         items: [
           ...(selectedId ? [
-            { title: "Perfil del Negocio", url: `/business/${selectedId}` },
-            { title: "Monitoreo de Agentes", url: `/business/${selectedId}/monitor` }
-          ] : []),
-          { title: "Productos", url: "/products" },
+            { title: "Perfil & Operaciones", url: `/business/${selectedId}` },
+            { title: "Auditoría Digital", url: `/business/analysis` },
+            { title: "Análisis de Competencia", url: `/competitors/analysis` },
+          ] : [
+            { title: "Selecciona un negocio...", url: "/business" }
+          ]),
         ],
       },
       {
-        title: "Inteligencia IA",
+        title: "Estrategias & Campañas",
         url: "#",
-        icon: Lightbulb,
+        icon: Target,
         isActive: true,
         items: [
-          { title: "Mi Negocio IA", url: "/business/analysis" },
-          { title: "Mi Competencia IA", url: "/competitors/analysis" },
-          { title: "Tendencias IA", url: "/trends" },
-          { title: "Jobs IA", url: "/jobs" },
+          { title: "Estrategias IA", url: "/strategies" },
+          { title: "Campañas Activas", url: "/campaigns" },
+          { title: "Catálogo de Productos", url: "/products" },
         ],
       },
       {
-        title: "Marketing & Social",
+        title: "Contenido & Métricas",
         url: "#",
-        icon: Share2,
+        icon: Calendar,
         isActive: true,
         items: [
-          { title: "Estrategias", url: "/strategies" },
-          { title: "Campañas", url: "/campaigns" },
-          { title: "Mi Calendario", url: "/calendar" },
-          { title: "Media", url: "/media" },
-          { title: "Publicación", url: "/publishing" },
-          { title: "Métricas", url: "/metrics" },
+          { title: "Calendario Editorial", url: "/calendar" },
+          { title: "Canales & Publicación", url: "/publishing" },
+          { title: "Analítica & KPIs", url: "/metrics" },
         ],
       },
       {
@@ -113,28 +111,10 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         url: "#",
         icon: Settings,
         items: [
-          { title: "Usuarios", url: "/settings/users" },
+          { title: "Usuarios & Permisos", url: "/settings/users" },
+          { title: "Guía de Inicio", url: "/guide" },
+          { title: "Soporte y Ayuda", url: "/support" },
         ],
-      },
-      {
-        title: "Mi Calendario",
-        url: "/calendar",
-        icon: Calendar,
-      },
-      {
-        title: "Estrategias y Campañas",
-        url: "/marketing",
-        icon: Share2,
-      },
-      {
-        title: "Guía de Inicio",
-        url: "/guide",
-        icon: BookOpen,
-      },
-      {
-        title: "Soporte y Ayuda",
-        url: "/support",
-        icon: LifeBuoy,
       },
     ]
 
@@ -143,11 +123,10 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         if (!section.items) return section;
         const filteredItems = section.items.filter(item => {
           if (role === "USER") {
-            if (item.url === "/products") return false;
-            if (section.title === "Marketing & Social" && item.url !== "/calendar") return false;
             if (item.url === "/settings/users") return false;
+            if (item.url === "/products") return false;
           } else if (role === "SPECIALIST") {
-            if (item.url === "/settings/users" || item.url === "/jobs") return false;
+            if (item.url === "/settings/users") return false;
           }
           return true;
         });
@@ -155,9 +134,6 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         return { ...section, items: filteredItems };
       })
       .filter(section => {
-        if (role === "USER" && section.title === "Inteligencia IA") return false;
-        if (role === "USER" && section.title === "Marketing & Social") return false;
-        if (role !== "USER" && (section.title === "Estrategias y Campañas" || section.title === "Mi Calendario")) return false;
         if (!section.items || section.items.length === 0) {
           return !!section.url && section.url !== "#";
         }

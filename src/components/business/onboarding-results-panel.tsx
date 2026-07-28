@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { CalendarView } from "@/components/calendar/calendar-view";
 import { handleDownloadEstrategiaPDF as downloadEstrategiaPDF, handleDownloadBancoDeDatosPDF as downloadBancoDeDatosPDF } from "@/utils/print-utils";
 import {
   Dialog,
@@ -149,13 +150,32 @@ const normalizeReportData = (rawReportData: any) => {
 
 interface OnboardingResultsPanelProps {
   businessId: string;
+  externalActiveTab?: string;
+  onTabChange?: (tab: string) => void;
+  hideTopTabBar?: boolean;
 }
 
-export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelProps) {
+export function OnboardingResultsPanel({ 
+  businessId, 
+  externalActiveTab, 
+  onTabChange,
+  hideTopTabBar = false 
+}: OnboardingResultsPanelProps) {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("bancodedatos");
+  const [activeTab, setActiveTabState] = useState(externalActiveTab || "bancodedatos");
+
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    if (onTabChange) onTabChange(tab);
+  };
+
+  useEffect(() => {
+    if (externalActiveTab && externalActiveTab !== activeTab) {
+      setActiveTabState(externalActiveTab);
+    }
+  }, [externalActiveTab]);
 
   const [scrapingLoading, setScrapingLoading] = useState(false);
   const [diagnosticLoading, setDiagnosticLoading] = useState(false);
@@ -492,7 +512,7 @@ export function OnboardingResultsPanel({ businessId }: OnboardingResultsPanelPro
       const latestNotif = stepNotifs[0];
       if (latestNotif.status === 'PROCESSING') {
         const ageMs = Date.now() - new Date(latestNotif.createdAt).getTime();
-        const maxAgeMs = 15 * 60 * 1000; // 15 minutos
+        const maxAgeMs = 3 * 60 * 1000; // 3 minutos (evita colgados falsos)
         if (ageMs > maxAgeMs) {
           return 'idle'; // Considerar estancado
         }
@@ -1226,143 +1246,147 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
       </Dialog>
 
       {/* Header premium */}
-      <div className="px-6 py-5 border-b bg-gradient-to-r from-orange-500/5 via-background to-indigo-500/5">
-        <h4 className="text-sm font-black uppercase tracking-widest text-foreground flex items-center gap-2">
-          <Cpu className="h-4.5 w-4.5 text-orange-600 animate-pulse" />
-          Procesamiento del Banco de Datos e Inteligencia Competitiva
-        </h4>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Observa cómo se consolida la información de mercado para el motor de estrategias.
-        </p>
-      </div>
+      {!hideTopTabBar && (
+        <div className="px-6 py-5 border-b bg-gradient-to-r from-orange-500/5 via-background to-indigo-500/5">
+          <h4 className="text-sm font-black uppercase tracking-widest text-foreground flex items-center gap-2">
+            <Cpu className="h-4.5 w-4.5 text-orange-600 animate-pulse" />
+            Procesamiento del Banco de Datos e Inteligencia Competitiva
+          </h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Observa cómo se consolida la información de mercado para el motor de estrategias.
+          </p>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         {/* Etapas de agentes responsivas */}
-        <div className="px-6 py-5 border-b bg-muted/10">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {pipelineStages.map((stage, idx) => {
-              let status = 'idle';
-              if (stage.key === "BANCODEDATOS") {
-                status = (scrapingStatus === 'processing' || diagnosticStatus === 'processing') ? 'processing' :
-                         (scrapingStatus === 'completed' && diagnosticStatus === 'completed') ? 'completed' : 'idle';
-              } else {
-                status = getStepStatus(stage.key);
-              }
-              const style = getStageStatusStyle(stage.key);
-              const isActive = activeTab === stage.tab;
-              const isBlocked = isTabBlocked(stage.tab);
+        {!hideTopTabBar && (
+          <div className="px-6 py-5 border-b bg-muted/10">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {pipelineStages.map((stage, idx) => {
+                let status = 'idle';
+                if (stage.key === "BANCODEDATOS") {
+                  status = (scrapingStatus === 'processing' || diagnosticStatus === 'processing') ? 'processing' :
+                           (scrapingStatus === 'completed' && diagnosticStatus === 'completed') ? 'completed' : 'idle';
+                } else {
+                  status = getStepStatus(stage.key);
+                }
+                const style = getStageStatusStyle(stage.key);
+                const isActive = activeTab === stage.tab;
+                const isBlocked = isTabBlocked(stage.tab);
 
-              const activeColors: Record<string, string> = {
-                orange: 'from-orange-500/10 to-orange-500/3 border-orange-300 dark:from-orange-400/20 dark:to-orange-400/5 dark:border-orange-700',
-                purple: 'from-purple-500/10 to-purple-500/3 border-purple-300 dark:from-purple-400/20 dark:to-purple-400/5 dark:border-purple-700',
-                emerald: 'from-emerald-500/10 to-emerald-500/3 border-emerald-300 dark:from-emerald-400/20 dark:to-emerald-400/5 dark:border-emerald-700',
-                sky: 'from-sky-500/10 to-sky-500/3 border-sky-300 dark:from-sky-400/20 dark:to-sky-400/5 dark:border-sky-700',
-              };
+                const activeColors: Record<string, string> = {
+                  orange: 'from-orange-500/10 to-orange-500/3 border-orange-300 dark:from-orange-400/20 dark:to-orange-400/5 dark:border-orange-700',
+                  purple: 'from-purple-500/10 to-purple-500/3 border-purple-300 dark:from-purple-400/20 dark:to-purple-400/5 dark:border-purple-700',
+                  emerald: 'from-emerald-500/10 to-emerald-500/3 border-emerald-300 dark:from-emerald-400/20 dark:to-emerald-400/5 dark:border-emerald-700',
+                  sky: 'from-sky-500/10 to-sky-500/3 border-sky-300 dark:from-sky-400/20 dark:to-sky-400/5 dark:border-sky-700',
+                };
 
-              return (
-                <button
-                  key={stage.key}
-                  disabled={isBlocked && activeTab !== stage.tab}
-                  onClick={() => {
-                    if (isBlocked) {
-                      toast.error(`La Etapa ${idx} (${pipelineStages[idx - 1]?.label || ""}) debe finalizar para desbloquear esta etapa.`);
-                      return;
-                    }
-                    setActiveTab(stage.tab);
-                  }}
-                  className={`relative flex flex-col items-center justify-between text-center p-3 rounded-2xl border transition-all duration-350 ${
-                    isBlocked
-                      ? 'bg-slate-50/40 dark:bg-slate-900/10 border-slate-100 dark:border-slate-900 opacity-40 cursor-not-allowed'
-                      : isActive 
-                        ? `bg-gradient-to-b ${activeColors[stage.color]} shadow-md scale-[1.02] border-primary/40` 
-                        : status === 'completed'
-                          ? 'bg-background hover:bg-muted/40 border-emerald-300/60 dark:border-emerald-800/60 hover:scale-[1.01] cursor-pointer step-completed-shimmer'
-                          : 'bg-background hover:bg-muted/40 border-slate-100 dark:border-slate-800 hover:scale-[1.01] cursor-pointer'
-                  }`}
-                >
-                  <div className="w-full flex flex-col items-center gap-1.5">
-                    <span className={`text-[8px] font-black uppercase tracking-widest leading-none ${
-                      isActive ? 'text-primary' : 'text-muted-foreground/50'
-                    }`}>
-                      Etapa 0{idx + 1}
-                    </span>
-
-                    <div className="relative">
-                      {status === 'processing' && !isBlocked && (
-                        <>
-                          <div className="absolute inset-0 rounded-xl bg-blue-500/20 agent-radar-ring" />
-                          <div className="absolute inset-0 rounded-xl bg-blue-500/10 agent-radar-ring" style={{ animationDelay: '0.5s' }} />
-                        </>
-                      )}
-                      {status === 'completed' && !isBlocked && (
-                        <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-br from-emerald-400/20 to-teal-400/20 blur-sm" />
-                      )}
-                      <div className={`relative h-10 w-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${
-                        isBlocked
-                          ? 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 grayscale'
-                          : status === 'processing'
-                            ? 'bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 border-blue-400 dark:border-blue-500 shadow-lg shadow-blue-500/20'
-                            : status === 'completed'
-                              ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 border-emerald-400 dark:border-emerald-500 shadow-md shadow-emerald-500/15'
-                              : status === 'failed'
-                                ? 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950 dark:to-red-950 border-rose-400 dark:border-rose-500'
-                                : isActive
-                                  ? `bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950 border-orange-400 dark:border-orange-500 shadow-md`
-                                  : 'bg-muted/30 border-muted-foreground/10'
+                return (
+                  <button
+                    key={stage.key}
+                    disabled={isBlocked && activeTab !== stage.tab}
+                    onClick={() => {
+                      if (isBlocked) {
+                        toast.error(`La Etapa ${idx} (${pipelineStages[idx - 1]?.label || ""}) debe finalizar para desbloquear esta etapa.`);
+                        return;
+                      }
+                      setActiveTab(stage.tab);
+                    }}
+                    className={`relative flex flex-col items-center justify-between text-center p-3 rounded-2xl border transition-all duration-350 ${
+                      isBlocked
+                        ? 'bg-slate-50/40 dark:bg-slate-900/10 border-slate-100 dark:border-slate-900 opacity-40 cursor-not-allowed'
+                        : isActive 
+                          ? `bg-gradient-to-b ${activeColors[stage.color]} shadow-md scale-[1.02] border-primary/40` 
+                          : status === 'completed'
+                            ? 'bg-background hover:bg-muted/40 border-emerald-300/60 dark:border-emerald-800/60 hover:scale-[1.01] cursor-pointer step-completed-shimmer'
+                            : 'bg-background hover:bg-muted/40 border-slate-100 dark:border-slate-800 hover:scale-[1.01] cursor-pointer'
+                    }`}
+                  >
+                    <div className="w-full flex flex-col items-center gap-1.5">
+                      <span className={`text-[8px] font-black uppercase tracking-widest leading-none ${
+                        isActive ? 'text-primary' : 'text-muted-foreground/50'
                       }`}>
-                        <span className={`text-base select-none ${
-                          isBlocked ? 'opacity-30 grayscale'
-                          : status === 'processing' ? 'agent-working'
-                          : status === 'completed' ? 'agent-float'
-                          : ''
+                        Etapa 0{idx + 1}
+                      </span>
+
+                      <div className="relative">
+                        {status === 'processing' && !isBlocked && (
+                          <>
+                            <div className="absolute inset-0 rounded-xl bg-blue-500/20 agent-radar-ring" />
+                            <div className="absolute inset-0 rounded-xl bg-blue-500/10 agent-radar-ring" style={{ animationDelay: '0.5s' }} />
+                          </>
+                        )}
+                        {status === 'completed' && !isBlocked && (
+                          <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-br from-emerald-400/20 to-teal-400/20 blur-sm" />
+                        )}
+                        <div className={`relative h-10 w-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${
+                          isBlocked
+                            ? 'bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 grayscale'
+                            : status === 'processing'
+                              ? 'bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 border-blue-400 dark:border-blue-500 shadow-lg shadow-blue-500/20'
+                              : status === 'completed'
+                                ? 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950 dark:to-teal-950 border-emerald-400 dark:border-emerald-500 shadow-md shadow-emerald-500/15'
+                                : status === 'failed'
+                                  ? 'bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950 dark:to-red-950 border-rose-400 dark:border-rose-500'
+                                  : isActive
+                                    ? `bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950 dark:to-amber-950 border-orange-400 dark:border-orange-500 shadow-md`
+                                    : 'bg-muted/30 border-muted-foreground/10'
                         }`}>
-                          {isBlocked ? '🔒'
-                            : status === 'processing' ? (stage as any).processingEmoji
-                            : status === 'failed' ? '❌'
-                            : (stage as any).emoji}
-                        </span>
+                          <span className={`text-base select-none ${
+                            isBlocked ? 'opacity-30 grayscale'
+                            : status === 'processing' ? 'agent-working'
+                            : status === 'completed' ? 'agent-float'
+                            : ''
+                          }`}>
+                            {isBlocked ? '🔒'
+                              : status === 'processing' ? (stage as any).processingEmoji
+                              : status === 'failed' ? '❌'
+                              : (stage as any).emoji}
+                          </span>
+                        </div>
                       </div>
+
+                      <span className={`text-[10px] font-bold leading-tight transition-colors ${
+                        isActive ? 'text-primary font-extrabold' : 'text-muted-foreground/80'
+                      }`}>
+                        {stage.label}
+                      </span>
+
+                      <span className="text-[8px] text-muted-foreground/60 leading-normal block max-w-[90px] mt-0.5">
+                        {stage.desc}
+                      </span>
                     </div>
 
-                    <span className={`text-[10px] font-bold leading-tight transition-colors ${
-                      isActive ? 'text-primary font-extrabold' : 'text-muted-foreground/80'
-                    }`}>
-                      {stage.label}
-                    </span>
-
-                    <span className="text-[8px] text-muted-foreground/60 leading-normal block max-w-[90px] mt-0.5">
-                      {stage.desc}
-                    </span>
-                  </div>
-
-                  <div className="mt-1.5 w-full">
-                    {isBlocked ? (
-                      <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800">
-                        BLOQUEADO
-                      </span>
-                    ) : status === 'processing' ? (
-                      <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                        Trabajando
-                      </span>
-                    ) : status !== 'idle' ? (
-                      <span className={`text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        status === 'completed' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-                        'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                      }`}>
-                        {style.label}
-                      </span>
-                    ) : (
-                      <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border border-transparent">
-                        PENDIENTE
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="mt-1.5 w-full">
+                      {isBlocked ? (
+                        <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-400 border border-slate-200 dark:border-slate-800">
+                          BLOQUEADO
+                        </span>
+                      ) : status === 'processing' ? (
+                        <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center gap-1">
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                          Trabajando
+                        </span>
+                      ) : status !== 'idle' ? (
+                        <span className={`text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          status === 'completed' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                          'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                        }`}>
+                          {style.label}
+                        </span>
+                      ) : (
+                        <span className="text-[7px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border border-transparent">
+                          PENDIENTE
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         <TabsList className="sr-only">
           <TabsTrigger value="bancodedatos">Banco de Datos</TabsTrigger>
@@ -2637,7 +2661,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               <div className="flex flex-col items-center justify-center p-8 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-center min-h-[180px] space-y-4 animate-pulse">
                 <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
                 <div className="space-y-1">
-                  <span className="text-xs font-black uppercase text-emerald-700 block">IA Procesando Campañas</span>
+                  <span className="text-xs font-black uppercase text-emerald-700 block">IA Procesando Campaña</span>
                   <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
                     El Agente de Campañas de Marketing está estructurando tus metas mensuales, presupuestos y segmentaciones de audiencia.
                   </p>
@@ -2647,57 +2671,144 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-2xl border border-dashed text-center min-h-[180px] space-y-4">
                 <Clock className="h-6 w-6 text-muted-foreground/45" />
                 <div className="space-y-1">
-                  <span className="text-xs font-bold text-muted-foreground block">Plan de Campañas Pendiente</span>
+                  <span className="text-xs font-bold text-muted-foreground block">Plan de Campaña Pendiente</span>
                   <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
-                    El Agente de Campañas de Marketing formulará tu plan de campañas mensuales una vez activado.
+                    El Agente de Campañas de Marketing formulará tu campaña principal una vez activado.
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="grid grid-cols-1 gap-3">
-                  {campaigns.map((camp: any) => {
-                    return (
-                      <div key={camp.id} className="p-4 bg-muted/30 hover:bg-muted/40 rounded-xl border space-y-3 transition-all flex flex-col justify-between">
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11.5px] font-bold text-foreground line-clamp-1">
-                              {camp.name}
+              <div className="space-y-6 animate-in fade-in duration-300">
+                {campaigns.slice(0, 1).map((camp: any) => {
+                  const channels = Array.isArray(camp.channels) ? camp.channels : [];
+                  const targeting = typeof camp.targeting === "object" && camp.targeting ? camp.targeting : {};
+                  const startDateStr = camp.startDate ? new Date(camp.startDate).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "";
+                  const endDateStr = camp.endDate ? new Date(camp.endDate).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "";
+
+                  return (
+                    <div key={camp.id} className="space-y-6">
+                      {/* 1. Header Principal de la Campaña */}
+                      <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 rounded-2xl border border-emerald-200/50 space-y-3 shadow-xs">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/40 pb-3">
+                          <div>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 block">
+                              Campaña Principal de Marketing (30 Días)
                             </span>
-                            <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-black text-[9px] rounded-lg shrink-0">
+                            <h4 className="text-base font-extrabold text-foreground capitalize mt-0.5">{camp.name}</h4>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-black text-[9.5px] rounded-lg px-2.5 py-0.5">
                               {camp.status || "ACTIVA"}
                             </Badge>
+                            {camp.objective && (
+                              <Badge variant="outline" className="bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-black text-[9.5px] rounded-lg px-2.5 py-0.5">
+                                OBJETIVO: {camp.objective}
+                              </Badge>
+                            )}
                           </div>
-                          {camp.description && <p className="text-[10px] text-muted-foreground leading-relaxed">{camp.description}</p>}
                         </div>
 
-                        <div className="pt-2 flex justify-end border-t border-dashed mt-1">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-7 text-[9px] font-black rounded-lg gap-1 border-emerald-500/30 text-emerald-700 hover:bg-emerald-50/5">
-                                <EyeIcon className="h-3 w-3" /> Ver Detalles
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-lg rounded-2xl h-[85vh] md:h-[80vh] flex flex-col p-0 overflow-hidden bg-background">
-                              <DialogHeader className="p-6 pb-3 border-b shrink-0 bg-muted/20">
-                                <DialogTitle className="text-sm font-black uppercase tracking-wider text-emerald-700 flex items-center gap-2">
-                                  <Megaphone className="h-4.5 w-4.5 text-emerald-600" /> Plan de Campaña
-                                </DialogTitle>
-                              </DialogHeader>
+                        {camp.description && (
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {camp.description}
+                          </p>
+                        )}
 
-                              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-emerald-200 scrollbar-track-transparent">
-                                <div className="p-4 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 rounded-2xl border border-emerald-200/50 space-y-2">
-                                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Campaña de Marketing</span>
-                                  <h4 className="text-base font-bold text-foreground capitalize">{camp.name}</h4>
-                                </div>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                        {/* Fechas y Métricas de Presupuesto */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+                          <div className="p-3 bg-background/60 rounded-xl border border-emerald-200/40">
+                            <span className="text-[8px] font-black uppercase text-muted-foreground block">Duración de Campaña</span>
+                            <span className="text-xs font-bold text-foreground mt-0.5 block">{startDateStr} - {endDateStr}</span>
+                          </div>
+                          <div className="p-3 bg-background/60 rounded-xl border border-emerald-200/40">
+                            <span className="text-[8px] font-black uppercase text-muted-foreground block">Presupuesto Sugerido</span>
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">${camp.budget || 45} USD</span>
+                          </div>
+                          <div className="p-3 bg-background/60 rounded-xl border border-emerald-200/40 col-span-2 sm:col-span-1">
+                            <span className="text-[8px] font-black uppercase text-muted-foreground block">Plan de Publicaciones</span>
+                            <span className="text-xs font-bold text-foreground mt-0.5 block">8 Piezas (5 Reels, 2 Carruseles, 1 Post)</span>
+                          </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+
+                      {/* 2. Distribución de Canales */}
+                      <div className="space-y-3 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                        <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
+                          <Share2 className="h-3.5 w-3.5 text-emerald-500" /> Distribución por Canales de Difusión
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          {channels.length > 0 ? (
+                            channels.map((chan: any, idx: number) => {
+                              const platformName = typeof chan === "object" ? (chan.platform || "SOCIAL") : String(chan);
+                              const budgetVal = typeof chan === "object" ? chan.budget : Math.round((camp.budget || 45) / 3);
+                              return (
+                                <div key={idx} className="p-3.5 bg-muted/15 rounded-xl border flex flex-col justify-between space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-xs text-foreground uppercase tracking-wide">{platformName}</span>
+                                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[8px] font-black">
+                                      ACTIVO
+                                    </Badge>
+                                  </div>
+                                  <div className="text-[10px] text-muted-foreground">
+                                    Presupuesto canal: <strong className="text-foreground font-extrabold">${budgetVal} USD</strong>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <>
+                              <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
+                                <span className="font-bold text-xs text-foreground block">FACEBOOK</span>
+                                <span className="text-[10px] text-muted-foreground">Pauta de Alcance & Anuncios Directos</span>
+                              </div>
+                              <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
+                                <span className="font-bold text-xs text-foreground block">INSTAGRAM</span>
+                                <span className="text-[10px] text-muted-foreground">Reels & Historias de Engagement</span>
+                              </div>
+                              <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
+                                <span className="font-bold text-xs text-foreground block">TIKTOK</span>
+                                <span className="text-[10px] text-muted-foreground">Videos Cortos Orgánicos / Ads</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 3. Segmentación del Público Objetivo (Targeting) */}
+                      <div className="space-y-3 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                        <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
+                          <Users className="h-3.5 w-3.5 text-emerald-500" /> Segmentación del Público Objetivo (Targeting)
+                        </span>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                          <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
+                            <span className="text-[8.5px] font-black text-muted-foreground uppercase block">Ubicaciones Relevantes</span>
+                            <p className="text-xs font-semibold text-foreground">
+                              {Array.isArray(targeting.locations) && targeting.locations.length > 0 
+                                ? targeting.locations.join(", ") 
+                                : data?.businessInfo?.location || "Entorno Metropolitano Local"}
+                            </p>
+                          </div>
+                          <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
+                            <span className="text-[8.5px] font-black text-muted-foreground uppercase block">Rango de Edad</span>
+                            <p className="text-xs font-semibold text-foreground">
+                              {Array.isArray(targeting.ageRange) && targeting.ageRange.length === 2 
+                                ? `${targeting.ageRange[0]} - ${targeting.ageRange[1]} años` 
+                                : "22 - 50 años"}
+                            </p>
+                          </div>
+                          <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
+                            <span className="text-[8.5px] font-black text-muted-foreground uppercase block">Intereses Psicográficos</span>
+                            <p className="text-xs font-semibold text-foreground line-clamp-2">
+                              {Array.isArray(targeting.interests) && targeting.interests.length > 0 
+                                ? targeting.interests.join(", ") 
+                                : "Compras locales, calidad de servicio, hábitos de consumo en redes"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -2749,17 +2860,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </div>
             ) : (
               <div className="space-y-4 animate-in fade-in duration-300">
-                <div className="p-4 bg-sky-500/5 rounded-2xl border border-sky-200/50 space-y-2">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-400">Calendario Listo</span>
-                  <h6 className="text-xs font-bold text-foreground">Tu calendario de contenidos está disponible</h6>
-                </div>
-
-                <Button 
-                  onClick={() => router.push(`/calendar`)}
-                  className="w-full h-11 rounded-xl bg-sky-600 text-white hover:bg-sky-700 font-bold flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <CalendarDays className="h-4 w-4" /> Ver Calendario de Contenidos
-                </Button>
+                <CalendarView
+                  businessId={businessId}
+                  businessName={data?.businessInfo?.name || ""}
+                  campaigns={data?.campaigns || campaigns || []}
+                  initialContents={(data?.calendarContents || []) as any}
+                />
               </div>
             )}
           </TabsContent>

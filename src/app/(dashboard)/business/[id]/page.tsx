@@ -1,20 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { BusinessHeader } from "@/components/business/business-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { listProductsByBusiness } from "@/modules/products";
 import { listCampaignsByBusiness } from "@/modules/campaigns";
 import { listSocialAccounts } from "@/modules/publishing";
-import { BusinessInfoCard } from "@/components/business/business-info-card";
-import { BusinessExtraInfoCard } from "@/components/business/business-extra-info-card";
-import { ScrapingReportDialog } from "@/components/business/scraping-report-dialog";
-import { CompetitorGeneralReportDialog } from "../../../../components/business/competitor-general-report-dialog";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { Users, Target } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { BusinessDetailClient } from "@/components/business/business-detail-client";
 
 export default async function BusinessDetailPage({ 
   params,
@@ -46,7 +36,6 @@ export default async function BusinessDetailPage({
     notFound();
   }
 
-  // Authorization check: ensure the business belongs to the current user
   if (business.userId !== session.user.id) {
     redirect("/business");
   }
@@ -55,251 +44,70 @@ export default async function BusinessDetailPage({
     redirect(`/onboarding?businessId=${id}`);
   }
 
-  const role = session.user?.role || "USER";
+  // Fetch products, campaigns, social accounts, contents and reports
+  const [productsData, campaignsData, socialAccounts, contents, myAnalysis, activeStrategy] = await Promise.all([
+    listProductsByBusiness(business.id),
+    listCampaignsByBusiness(business.id),
+    listSocialAccounts(business.id),
+    prisma.content.findMany({
+      where: {
+        OR: [
+          { campaign: { businessId: business.id } },
+          { product: { businessId: business.id } }
+        ]
+      },
+      select: { id: true, status: true }
+    }),
+    prisma.analysisReport.findFirst({
+      where: { entityId: business.id, type: "MY_BUSINESS", status: "COMPLETED" },
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.marketingStrategy.findFirst({
+      where: { businessId: business.id, isActive: true },
+      select: { id: true }
+    })
+  ]);
 
-  // Fetch products, campaigns, social accounts and contents sequentially to prevent DB pool connection failures
-  const productsData = await listProductsByBusiness(business.id);
-  const campaignsData = await listCampaignsByBusiness(business.id);
-  const socialAccounts = await listSocialAccounts(business.id);
-  const contents = await prisma.content.findMany({
-    where: { campaign: { businessId: business.id } },
-    include: {
-      campaign: { select: { name: true } },
-      socialAccount: { select: { accountName: true } },
-    },
-    orderBy: { scheduledAt: 'asc' }
-  });
-
-  // Fetch latest analysis report for this business
-  const myAnalysis = await prisma.analysisReport.findFirst({
-    where: { entityId: business.id, type: "MY_BUSINESS", status: "COMPLETED" },
-    orderBy: { createdAt: 'desc' }
-  });
-
-  // Fetch active strategy for AI generation
-  const activeStrategy = await prisma.marketingStrategy.findFirst({
-    where: { businessId: business.id, isActive: true },
-    select: { id: true }
-  });
-
-  const userLimit = await prisma.user.findUnique({
-    where: { id: business.userId || '' },
-    select: { maxCompetitors: true }
-  });
-
-  const { products } = productsData;
   const { campaigns } = campaignsData;
 
-  const campaignsBrief = campaigns.map(c => ({ id: c.id, name: c.name }));
-  const productsBrief = products.map(p => ({ id: p.id, name: p.name }));
-  const socialAccountsBrief = socialAccounts.map(a => ({ id: a.id, accountName: a.accountName, channel: a.channel }));
+  const hasAudit = !!myAnalysis || !!business.competitorGeneralReport;
+  const hasStrategy = !!activeStrategy || (Array.isArray((business as any).strategies) && (business as any).strategies.length > 0);
+  const hasCampaign = campaigns.length > 0;
+  const hasCalendar = contents.length > 0;
+
+  const flowDone = (hasAudit ? 1 : 0) + (hasStrategy ? 1 : 0) + (hasCampaign ? 1 : 0) + (hasCalendar ? 1 : 0);
+  const flowPercentage = Math.round((flowDone / 4) * 100);
+
+  const approvedPiecesCount = contents.filter(c => c.status === "PUBLISHED" || c.status === "SCHEDULED").length;
+
+  let activeNetworksList: string[] = [];
+  if (business.socialLinks) {
+    try {
+      const links = typeof business.socialLinks === "string" ? JSON.parse(business.socialLinks) : business.socialLinks;
+      if (links && typeof links === "object") {
+        activeNetworksList = Object.keys(links).filter(k => typeof links[k] === "string" && links[k].trim() !== "");
+      }
+    } catch (e) {}
+  }
 
   return (
-    <div className="flex flex-col h-full bg-background pb-12">
-      <BusinessHeader business={business} />
-      
-      <div className="flex-1 p-8 pt-6 space-y-8 w-full">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-             <h2 className="text-3xl font-black tracking-tight mb-2">Resumen de Negocio</h2>
-             <p className="text-muted-foreground">Estado actual y métricas generales de {business.name}.</p>
-          </div>
-          <div className="flex gap-3">
-             {myAnalysis && role !== "USER" && (
-               <ScrapingReportDialog data={myAnalysis.data as any} channel={myAnalysis.channel} />
-             )}
-             {role !== "USER" && (
-               <Button asChild variant="outline" className="gap-2">
-                 <Link href={`/business/${id}/analysis`} className="flex items-center gap-2">
-                   <Target className="h-4 w-4 text-purple-500" />
-                   Análisis de Mi Negocio
-                 </Link>
-               </Button>
-             )}
-             {role !== "USER" && (
-               <Button asChild variant="outline" className="gap-2">
-                 <Link href="/competitors/analysis" className="flex items-center gap-2">
-                   <Users className="h-4 w-4 text-blue-500" />
-                   Ver Competencia
-                 </Link>
-               </Button>
-             )}
-          </div>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-3">
-          {role !== "USER" && (
-            <Card className="card-shadow border-none bg-blue-50/50 dark:bg-blue-900/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">
-                  Catálogo
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black">{business._count.products}</div>
-                <p className="text-xs text-muted-foreground mt-1">Productos registrados</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {role !== "USER" && (
-            <Card className="card-shadow border-none bg-emerald-50/50 dark:bg-emerald-900/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
-                  Marketing
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black">{business._count.campaigns}</div>
-                <p className="text-xs text-muted-foreground mt-1">Campañas activas</p>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="card-shadow border-none bg-purple-50/50 dark:bg-purple-900/10 max-w-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest">
-                Social
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-black">
-                {(() => {
-                  let manualSocialCount = 0;
-                  if (business.socialLinks) {
-                    try {
-                      let links = business.socialLinks;
-                      if (typeof links === "string") {
-                        links = JSON.parse(links);
-                      }
-                      if (links && typeof links === "object") {
-                        manualSocialCount = Object.values(links).filter(url => typeof url === "string" && url.trim() !== "").length;
-                      }
-                    } catch (e) {}
-                  }
-                  return business._count.socialAccounts + manualSocialCount;
-                })()}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Cuentas vinculadas</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-            <BusinessExtraInfoCard 
-              businessId={business.id}
-              initialPhoneNumbers={business.phoneNumbers}
-              initialLocation={business.location}
-              initialSocialLinks={business.socialLinks as any}
-              initialCompetitors={business.competitors as any}
-              maxCompetitors={userLimit?.maxCompetitors ?? 3}
-              role={role}
-            />
-           <BusinessInfoCard business={business} />
-        </div>
-
-        {/* Sección de Informes de Auditoría de IA */}
-        <div className="space-y-4 pt-4 border-t">
-          <div>
-            <h3 className="text-lg font-bold tracking-tight">Informes de Auditoría y Diagnóstico de IA</h3>
-            <p className="text-xs text-muted-foreground">Información consolidada de tu negocio y competencia generada por nuestros agentes digitales.</p>
-          </div>
-          
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Mi Negocio Report */}
-            <Card className="card-shadow border border-muted/20">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <Target className="h-4 w-4 text-purple-500" />
-                    Auditoría Digital de Mi Negocio
-                  </CardTitle>
-                </div>
-                {myAnalysis && (
-                  <ScrapingReportDialog data={myAnalysis.data as any} channel={myAnalysis.channel} />
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {myAnalysis ? (
-                  <div className="text-xs text-muted-foreground leading-relaxed space-y-2">
-                    <p>Auditoría digital completada con éxito del canal <strong>{myAnalysis.channel}</strong>.</p>
-                    {(() => {
-                      try {
-                        const parsed = typeof myAnalysis.data === "string" ? JSON.parse(myAnalysis.data) : myAnalysis.data;
-                        const dataObj = Array.isArray(parsed) && parsed.length > 0 ? (parsed[0].output || parsed[0]) : parsed;
-                        const positioning = dataObj?.market_positioning || dataObj?.brand_positioning?.brand_positioning_indicators?.[0] || "Diagnóstico completado.";
-                        return <p className="italic bg-muted/30 p-2 rounded border border-muted/50">"{positioning}"</p>;
-                      } catch (e) {
-                        return null;
-                      }
-                    })()}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">
-                    Aún no se ha realizado la extracción digital de tu sitio web o canal. Se ejecutará automáticamente tras registrar tus canales.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Competencia Report */}
-            <Card className="card-shadow border border-muted/20">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-500" />
-                    Diagnóstico Consolidado de Competidores
-                  </CardTitle>
-                </div>
-                {business.competitorGeneralReport && (
-                  <CompetitorGeneralReportDialog reportData={business.competitorGeneralReport} />
-                )}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {business.competitorGeneralReport ? (
-                  <div className="text-xs text-muted-foreground leading-relaxed space-y-2">
-                    <p>Diagnóstico de competencia estructurado por el Agente de Diagnóstico con IA.</p>
-                    {(() => {
-                      try {
-                        const parsed = typeof business.competitorGeneralReport === "string" 
-                          ? JSON.parse(business.competitorGeneralReport) 
-                          : business.competitorGeneralReport;
-                        
-                        let execSummary = "Diagnóstico competitivo listo.";
-                        if (parsed) {
-                          if (typeof parsed.executiveSummary === "string") {
-                            execSummary = parsed.executiveSummary;
-                          } else if (typeof parsed.panoramaGlobal === "string") {
-                            execSummary = parsed.panoramaGlobal;
-                          } else if (parsed.executiveSummary && typeof parsed.executiveSummary === "object") {
-                            const values = Object.values(parsed.executiveSummary).filter(v => typeof v === "string");
-                            if (values.length > 0) execSummary = values[0] as string;
-                          } else if (parsed.panoramaGlobal && typeof parsed.panoramaGlobal === "object") {
-                            const pg = parsed.panoramaGlobal as any;
-                            if (typeof pg.resumen === "string") {
-                              execSummary = pg.resumen;
-                            } else {
-                              const values = Object.values(pg).filter(v => typeof v === "string");
-                              if (values.length > 0) execSummary = values[0] as string;
-                            }
-                          }
-                        }
-                        return <p className="line-clamp-3 italic bg-muted/30 p-2 rounded border border-muted/50">"{execSummary}"</p>;
-                      } catch (e) {
-                        return <p className="text-xs text-muted-foreground italic">Diagnóstico competitivo listo.</p>;
-                      }
-                    })()}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">
-                    Aún no se ha consolidado el informe de tus competidores. Registra competidores y espera a que los agentes de extracción terminen para generar el diagnóstico.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    </div>
+    <BusinessDetailClient
+      business={business}
+      hasAudit={hasAudit}
+      hasStrategy={hasStrategy}
+      hasCampaign={hasCampaign}
+      hasCalendar={hasCalendar}
+      flowPercentage={flowPercentage}
+      flowDone={flowDone}
+      activeNetworksCount={socialAccounts.length + activeNetworksList.length}
+      activeNetworksList={activeNetworksList}
+      calendarCount={hasCalendar ? 1 : 0}
+      latestCalendarStatus={hasCalendar ? `${contents.length} piezas` : "Sin generar"}
+      approvedPiecesCount={approvedPiecesCount}
+      totalPiecesCount={contents.length}
+      auditId={myAnalysis?.id}
+      strategyId={activeStrategy?.id}
+      calendarId={contents?.[0]?.id}
+    />
   );
 }

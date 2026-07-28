@@ -53,8 +53,6 @@ import {
   Globe,
   Instagram,
   Facebook,
-  Linkedin,
-  Youtube,
   Video,
   Image as ImageIcon,
   Layers,
@@ -151,18 +149,6 @@ const channelMeta: Record<string, { label: string; icon: React.ReactNode; styles
     icon: <Globe className="h-3 w-3" />,
     styles: "bg-zinc-900 text-zinc-100 border-zinc-800 hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:border-zinc-800",
     badge: "bg-zinc-900 text-zinc-100 border-zinc-800 dark:bg-zinc-100 dark:text-zinc-900",
-  },
-  LINKEDIN: {
-    label: "LinkedIn",
-    icon: <Linkedin className="h-3 w-3" />,
-    styles: "bg-indigo-50 text-indigo-750 border-indigo-200 hover:bg-indigo-100/50 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-900/30",
-    badge: "bg-indigo-100 text-indigo-850 border-indigo-250 dark:bg-indigo-950 dark:text-indigo-400",
-  },
-  YOUTUBE: {
-    label: "YouTube",
-    icon: <Youtube className="h-3 w-3" />,
-    styles: "bg-red-50 text-red-750 border-red-200 hover:bg-red-100/50 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/30",
-    badge: "bg-red-100 text-red-850 border-red-250 dark:bg-red-950 dark:text-red-400",
   },
 };
 
@@ -350,9 +336,18 @@ export function CalendarView({
   const [draggedContent, setDraggedContent] = useState<ContentItem | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // Sincronizar contenidos del prop cuando cambian en el servidor
+  // Sincronizar contenidos del prop cuando cambian en el servidor y saltar al mes correspondiente
   useEffect(() => {
     setContents(initialContents);
+    if (initialContents.length > 0) {
+      const firstWithDate = initialContents.find(c => c.scheduledAt);
+      if (firstWithDate && firstWithDate.scheduledAt) {
+        const d = new Date(firstWithDate.scheduledAt);
+        if (!isNaN(d.getTime())) {
+          setCurrentDate(d);
+        }
+      }
+    }
   }, [initialContents]);
 
   // Rotador de frases para el planificador IA

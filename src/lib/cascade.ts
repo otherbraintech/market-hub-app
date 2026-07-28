@@ -335,44 +335,35 @@ export async function triggerCascadeGeneration(
       return;
     }
 
-    // 3. Generar Campañas de Marketing (limpieza aislada por etapa)
-    if (force && onlyStage === 'CAMPAIGN') {
-      console.log(`[CASCADE] Limpiando SOLO campañas y contenidos previos para el negocio ${businessId}...`);
+    // 3. Generar Campaña de Marketing (Regla Estricta: 1 sola campaña por negocio)
+    if (force || onlyStage === 'CAMPAIGN' || existingCampaigns.length === 0) {
+      console.log(`[CASCADE] Reemplazando campañas previas para mantener exactamente 1 sola campaña activa en el negocio ${businessId}...`);
       await prisma.content.deleteMany({
         where: { campaign: { businessId } }
       });
       await prisma.campaign.deleteMany({
         where: { businessId }
       });
-    }
 
-    const existingCampaigns = await prisma.campaign.findMany({
-      where: { businessId }
-    });
-    const campaignsCount = existingCampaigns.length;
-
-    const neededCampaigns = force ? 1 : (campaignsCount < 1 ? 1 - campaignsCount : 0);
-
-    if (neededCampaigns > 0) {
-      console.log(`[CASCADE] Generando ${neededCampaigns} campañas...`);
+      console.log(`[CASCADE] Generando 1 campaña principal con IA...`);
       
       await addAgentNotification(
         businessId, 
         "Agente de Campañas de Marketing", 
-        `Iniciando generación de ${neededCampaigns} campañas automatizadas con IA...`, 
+        "Iniciando generación de 1 campaña principal automatizada con IA...", 
         "CAMPAIGN", 
         "PROCESSING"
       );
 
-      // Generar campañas adicionales mapeadas a las estrategias disponibles
-      const campaignsData = await generateCampaignsCascade(business, savedStrategies, neededCampaigns, requestedStartDate);
+      // Generar exactamente 1 campaña
+      const campaignsData = await generateCampaignsCascade(business, savedStrategies, 1, requestedStartDate);
 
       for (const camp of campaignsData) {
         // Mapear a cuál estrategia pertenece
         const matchedStrategy = savedStrategies.find(s => s.name.toLowerCase().includes((camp.strategyKeyword || '').toLowerCase()));
         const strategyId = matchedStrategy ? matchedStrategy.id : savedStrategies[0]?.id;
 
-        // Calcular fechas en base a la fecha de inicio solicitada por el usuario de forma segura contra desfasajes de zona horaria (UTC vs Local)
+        // Calcular fechas en base a la fecha de inicio solicitada por el usuario
         let finalStartDate: Date;
         if (requestedStartDate) {
           const [year, month, day] = requestedStartDate.split('-').map(Number);
@@ -432,21 +423,21 @@ export async function triggerCascadeGeneration(
           }
         }
       }
-      console.log(`[CASCADE] ${neededCampaigns} nuevas campañas guardadas exitosamente.`);
+      console.log(`[CASCADE] 1 campaña principal guardada exitosamente.`);
       
       await addAgentNotification(
         businessId, 
         "Agente de Campañas de Marketing", 
-        `¡${neededCampaigns} nuevas campañas diseñadas y vinculadas correctamente a las estrategias!`, 
+        "¡1 campaña principal diseñada y vinculada correctamente a la estrategia!", 
         "CAMPAIGN", 
         "COMPLETED"
       );
     } else {
-      console.log(`[CASCADE] Ya existen ${campaignsCount} campañas.`);
+      console.log(`[CASCADE] Ya existe 1 campaña activa para el negocio ${businessId}.`);
       await addAgentNotification(
         businessId, 
         "Agente de Campañas de Marketing", 
-        `Ya tienes ${campaignsCount} campañas activas y programadas en tu panel (mínimo de 3 cubierto).`, 
+        "Ya tienes 1 campaña principal activa y programada en tu panel.", 
         "CAMPAIGN", 
         "COMPLETED"
       );

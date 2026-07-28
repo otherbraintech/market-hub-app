@@ -490,7 +490,8 @@ export async function getOnboardingResults(businessId: string) {
 
     const campaigns = await prisma.campaign.findMany({
       where: { businessId },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      take: 1
     });
 
     // Serializar Decimals a números planos para evitar errores de Next.js RSC
@@ -506,8 +507,7 @@ export async function getOnboardingResults(businessId: string) {
           businessId
         }
       },
-      orderBy: { scheduledAt: "asc" },
-      take: 15 // Suficientes para mostrar un resumen excelente
+      orderBy: { scheduledAt: "asc" }
     });
 
     return {

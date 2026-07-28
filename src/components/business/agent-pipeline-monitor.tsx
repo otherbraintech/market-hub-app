@@ -138,7 +138,7 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
 
       <CardContent className="pt-6">
         {/* Animaciones de Agente */}
-        <style>{`
+        <style>{` 
           @keyframes monitor-radar {
             0% { transform: scale(0.8); opacity: 0.7; }
             50% { transform: scale(1.35); opacity: 0; }

@@ -182,26 +182,26 @@ export function AgentPipelineSidebar({
     : hasCalendar ? "completed" : !hasStrategy ? "locked" : "idle";
 
   return (
-    <Card className="border border-cyan-500/20 bg-[#0D1526] text-slate-100 shadow-2xl overflow-hidden rounded-2xl mh-glow-cyan sticky top-6">
+    <Card className="border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-lg overflow-hidden rounded-2xl sticky top-6">
       {/* Header */}
-      <CardHeader className="border-b border-cyan-500/10 bg-[#080E1A]/80 pb-3.5">
+      <CardHeader className="border-b border-border dark:border-cyan-500/10 bg-muted/40 dark:bg-[#080E1A]/80 pb-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Cpu className="h-4.5 w-4.5 text-cyan-400 animate-pulse" />
+            <Cpu className="h-4.5 w-4.5 text-cyan-600 dark:text-cyan-400 animate-pulse" />
             <CardTitle className="text-sm font-extrabold tracking-tight">
               Flujo Operativo IA
             </CardTitle>
           </div>
-          <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px] font-black">
+          <Badge className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20 text-[10px] font-black">
             {progressPercentage}% Listo (4 Etapas)
           </Badge>
         </div>
-        <CardDescription className="text-[10.5px] text-slate-400 mt-1">
+        <CardDescription className="text-[10.5px] text-muted-foreground dark:text-slate-400 mt-1">
           Ejecuta paso a paso las 4 etapas con agentes autónomos de IA.
         </CardDescription>
 
         {/* Global Progress Bar */}
-        <div className="w-full bg-slate-900 h-2 rounded-full mt-2.5 overflow-hidden border border-slate-800">
+        <div className="w-full bg-muted dark:bg-slate-900 h-2 rounded-full mt-2.5 overflow-hidden border border-border dark:border-slate-800">
           <div
             className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500"
             style={{ width: `${progressPercentage}%` }}

@@ -1094,7 +1094,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
 
   return (
-    <Card className="border border-cyan-500/20 bg-[#0D1526] text-slate-100 shadow-2xl flex flex-col min-h-[500px] rounded-3xl overflow-hidden mh-glow-cyan">
+    <Card className="border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-xl flex flex-col min-h-[500px] rounded-3xl overflow-hidden">
       {/* Estilos e Inyecciones CSS */}
       <style>{`
         @keyframes guided-pulse-violet {
@@ -1106,18 +1106,18 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
       {/* DIALOG DE ESPERA ACTIVA (PROGRESO IA ESTILO BASE44) */}
       <Dialog open={isWaitModalOpen} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-8 flex flex-col items-center justify-center text-center space-y-6 bg-[#0D1526] border border-cyan-500/20 text-slate-100 shadow-2xl mh-glow-cyan [&>button]:hidden">
+        <DialogContent className="sm:max-w-md rounded-3xl p-8 flex flex-col items-center justify-center text-center space-y-6 bg-card dark:bg-[#0D1526] border border-border dark:border-cyan-500/20 text-foreground dark:text-slate-100 shadow-2xl [&>button]:hidden">
           <div className="relative flex items-center justify-center h-24 w-24">
             {currentProgress.stage === -1 ? (
-              <div className="relative h-20 w-20 bg-rose-500/10 rounded-full border-2 border-rose-500/40 flex items-center justify-center text-rose-400">
+              <div className="relative h-20 w-20 bg-rose-500/10 rounded-full border-2 border-rose-500/40 flex items-center justify-center text-rose-500 dark:text-rose-400">
                 <AlertTriangle className="h-9 w-9 animate-pulse" />
               </div>
             ) : (
               <>
-                <div className="relative h-20 w-20 rounded-full border-2 border-cyan-500/20 bg-[#132035] flex items-center justify-center">
-                  <Search className="h-8 w-8 text-cyan-400 animate-pulse" />
+                <div className="relative h-20 w-20 rounded-full border-2 border-cyan-500/20 bg-muted dark:bg-[#132035] flex items-center justify-center">
+                  <Search className="h-8 w-8 text-cyan-600 dark:text-cyan-400 animate-pulse" />
                 </div>
-                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" />
+                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-500 animate-spin" />
               </>
             )}
           </div>
@@ -1126,16 +1126,16 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
             <div className="flex items-center justify-center gap-1.5">
               <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
                 currentProgress.stage === -1 
-                  ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" 
-                  : "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30"
+                  ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30" 
+                  : "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30"
               }`}>
                 {currentProgress.title}
               </span>
             </div>
-            <h3 className="text-xl font-black text-white tracking-tight">
+            <h3 className="text-xl font-black text-foreground dark:text-white tracking-tight">
               {currentProgress.stage === -1 ? "Error Detectado" : "Auditando Banco de Datos"}
             </h3>
-            <p className="text-xs text-slate-400 leading-relaxed max-w-sm font-medium mx-auto">
+            <p className="text-xs text-muted-foreground dark:text-slate-400 leading-relaxed max-w-sm font-medium mx-auto">
               {currentProgress.description}
             </p>
 

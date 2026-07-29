@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarView } from "@/components/calendar/calendar-view";
-import { handleDownloadEstrategiaPDF as downloadEstrategiaPDF, handleDownloadBancoDeDatosPDF as downloadBancoDeDatosPDF } from "@/utils/print-utils";
+import { handleDownloadEstrategiaPDF as downloadEstrategiaPDF, handleDownloadBancoDeDatosPDF as downloadBancoDeDatosPDF, handleDownloadCampanasPDF as downloadCampanasPDF, handleDownloadCalendarioPDF as downloadCalendarioPDF } from "@/utils/print-utils";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +58,19 @@ const formatSocialMetric = (val: any): string => {
   const num = Number(val);
   if (isNaN(num)) return typeof val === "string" ? val.trim() : val.toString();
   return num.toLocaleString('es-ES');
+};
+
+const formatPersonaTitle = (rawName: string | undefined, index: number): string => {
+  if (!rawName) return `Segmento Objetivo ${index + 1}`;
+  let cleaned = rawName
+    .replace(/^María,?\s*(la\s*)?/i, "")
+    .replace(/^Carlos,?\s*(el\s*)?/i, "")
+    .replace(/^Juan,?\s*(el\s*)?/i, "")
+    .replace(/^Ana,?\s*(la\s*)?/i, "")
+    .replace(/^Pedro,?\s*(el\s*)?/i, "")
+    .trim();
+  if (!cleaned) return `Segmento Objetivo ${index + 1}`;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 };
 
 const normalizeReportData = (rawReportData: any) => {
@@ -648,6 +661,15 @@ export function OnboardingResultsPanel({
 
   const handleDownloadBancoDeDatosPDF = () => {
     downloadBancoDeDatosPDF(data, businessReports, competitorReports, competitorsList, businessId);
+  };
+
+  const handleDownloadCampanasPDF = () => {
+    downloadCampanasPDF(campaigns, data?.businessInfo?.name || "Mi Negocio");
+  };
+
+  const handleDownloadCalendarioPDF = () => {
+    const calendarContents = data?.calendarContents || [];
+    downloadCalendarioPDF(calendarContents, data?.businessInfo?.name || "Mi Negocio", campaigns[0]?.name);
   };
 
   const shouldActionPulse = (tabName: string): boolean => {
@@ -2554,7 +2576,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                 <div className="h-7 w-7 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[10px] font-black shrink-0">
                                   P{index + 1}
                                 </div>
-                                <span className="font-bold text-[11.5px] text-foreground">{persona.name || `Audiencia ${index + 1}`}</span>
+                                <span className="font-bold text-[11.5px] text-foreground">{formatPersonaTitle(persona.name, index)}</span>
                               </div>
                               {persona.demographics && (
                                 <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-purple-500/5 text-purple-650">
@@ -2625,6 +2647,17 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </h5>
               
               <div className="flex items-center gap-2">
+                {campaigns.length > 0 && (
+                  <Button
+                    onClick={handleDownloadCampanasPDF}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold gap-1 rounded-xl border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/5"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Descargar PDF
+                  </Button>
+                )}
                 <div className="flex items-center gap-1.5 bg-muted/30 px-2.5 py-1.5 rounded-xl border border-muted/88">
                   <span className="text-[9px] font-black uppercase text-muted-foreground">Inicio:</span>
                   <input
@@ -2820,18 +2853,31 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 <CalendarDays className="h-3.5 w-3.5 text-sky-550" /> Calendario Editorial
               </h5>
 
-              <Button 
-                onClick={handleStartCalendar}
-                disabled={calendarLoading || campaignLoading}
-                className="h-8 text-xs font-bold gap-1 rounded-xl bg-sky-650 hover:bg-sky-700 text-white"
-              >
-                {calendarLoading || campaignLoading ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3 w-3" />
+              <div className="flex items-center gap-2">
+                {(data?.calendarContents?.length || 0) > 0 && (
+                  <Button
+                    onClick={handleDownloadCalendarioPDF}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs font-bold gap-1 rounded-xl border-sky-500/30 text-sky-700 dark:text-sky-400 hover:bg-sky-500/5"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Descargar PDF
+                  </Button>
                 )}
-                {isCalendarReady ? "Regenerar Calendario" : "Generar Calendario"}
-              </Button>
+                <Button 
+                  onClick={handleStartCalendar}
+                  disabled={calendarLoading || campaignLoading}
+                  className="h-8 text-xs font-bold gap-1 rounded-xl bg-sky-650 hover:bg-sky-700 text-white"
+                >
+                  {calendarLoading || campaignLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                  {isCalendarReady ? "Regenerar Calendario" : "Generar Calendario"}
+                </Button>
+              </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-sky-500/5 p-3 rounded-xl border border-sky-100 dark:border-sky-850 mb-4">
@@ -2905,6 +2951,15 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 <div className="h-1.5 w-1.5 rounded-full bg-violet-500 animate-pulse" />
               </div>
             )}
+            {!nextTab && isCalendarReady && (
+              <div className="flex items-center justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wide">
+                  ¡Calendario Editorial generado con éxito! Presiona Confirmar y Guardar para finalizar.
+                </span>
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
+            )}
 
             <div className="flex items-center justify-between">
               {prevTab ? (
@@ -2936,10 +2991,13 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 </Button>
               ) : (
                 <Button
-                  onClick={() => router.push(`/business/${businessId}?skipOnboarding=true`)}
+                  onClick={() => {
+                    toast.success("¡Configuración y calendario guardados correctamente!");
+                    router.push(`/business/${businessId}?skipOnboarding=true`);
+                  }}
                   className="rounded-xl h-11 font-extrabold px-7 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:via-teal-700 hover:to-cyan-700 text-white shadow-md hover:shadow-xl transition-all scale-100 hover:scale-[1.03] active:scale-[0.98] text-xs flex items-center gap-2 action-btn-pulse-emerald"
                 >
-                  Finalizar y Ver Dashboard <Check className="h-4 w-4 stroke-[3]" />
+                  Confirmar y Guardar <Check className="h-4 w-4 stroke-[3]" />
                 </Button>
               )}
             </div>

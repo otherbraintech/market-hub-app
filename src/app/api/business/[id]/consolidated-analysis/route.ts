@@ -99,13 +99,7 @@ export async function runBusinessConsolidatedAnalysis(id: string) {
       }
     }).catch(e => console.error("Error creating diagnostic completed notification:", e));
 
-    // Disparar generación en cascada asíncrona en background
-    // (no se espera con await para no retrasar el request)
-    import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-      triggerCascadeGeneration(business.id, true).catch(err => {
-        console.error('Error in triggerCascadeGeneration background process:', err);
-      });
-    });
+    // Generación en cascada desacoplada: solo se ejecuta por solicitud explícita del usuario haciendo clic en 'Generar Plan'.
 
     // Disparar regeneración del informe de competidores general directamente en código
     runGenerateGeneralReport(business.id).catch((err) => {
@@ -271,7 +265,7 @@ function buildConsolidatedPrompt(context: any) {
   prompt += `  },\n`;
   prompt += `  "buyerPersonas": [\n`;
   prompt += `    {\n`;
-  prompt += `      "name": "Nombre descriptivo y representativo del Buyer Persona (ej: María, la Mamá Tradicional)",\n`;
+  prompt += `      "name": "Título profesional y representativo del segmento de Buyer Persona (ej: Consumidor Habitual B2C / Cliente Corporativo B2B). PROHIBIDO usar nombres personales como María, Carlos, etc.",\n`;
   prompt += `      "demographics": "Edad, género, nivel de ingresos estimado, ocupación, ubicación en ${business.location || 'la ciudad local'}",\n`;
   prompt += `      "goals": "Objetivos y deseos de compra principales del perfil respecto al negocio",\n`;
   prompt += `      "painPoints": "Puntos de dolor socioculturales cotidianos, hábitos locales de consumo y objeciones de compra",\n`;
@@ -287,7 +281,7 @@ function buildConsolidatedPrompt(context: any) {
   prompt += `PROMPT DE ANÁLISIS DE OPORTUNIDADES Y ENFOQUE SOCIOCULTURAL (MANDATORIO PARA GENERAR LAS BUYER PERSONAS):\n`;
   prompt += `Analiza el contexto del negocio, descripción y catálogo de productos, en conjunto con las variables demográficas, nivel adquisitivo e idiosincrasia cultural de la ciudad de ${business.location || 'operación'}.\n`;
   prompt += `Identifica patrones socioculturales específicos (hábitos de fin de semana, micro-dolores cotidianos de la población local, festividades tradicionales relevantes y modismos de consumo).\n`;
-  prompt += `Con esta base de oportunidades sociológicas, modela exactamente 4 Buyer Personas de alta fidelidad psicográfica en el array 'buyerPersonas'. Asegura que no solo definan edad y género, sino su estilo de vida real, disparadores emocionales locales, eventos de vida prioritarios (Ej. quincenas, cumpleaños, calor/invierno regional) y ganchos conversacionales que resuenen culturalmente con el target local.\n\n`;
+  prompt += `Con esta base de oportunidades sociológicas, modela exactamente 4 Buyer Personas de alta fidelidad psicográfica en el array 'buyerPersonas'. Usa únicamente títulos profesionales y representativos de la audiencia objetiva del negocio (Ej. Consumidor Habitual B2C, Comprador Corporativo, etc.). Queda estrictamente prohibido usar nombres personales ficticios como "María" o "Carlos".\n\n`;
   prompt += `Responde SOLO con el JSON, sin texto adicional. Sé específico y accionable.`;
   
   return prompt;
@@ -356,20 +350,6 @@ function generatePlaceholderAnalysis(context: any) {
     },
     buyerPersonas: [
       {
-        "name": "María, la Mamá Tradicional",
-        "demographics": "Mujer, 35-45 años, casada con hijos, nivel de ingresos medio, vive en " + (business.location || "la zona local"),
-        "goals": "Encontrar productos deliciosos, frescos y tradicionales para el festejo familiar de fin de semana.",
-        "painPoints": "Falta de tiempo, quiere garantizar calidad y sabor casero, busca comodidad con entrega a domicilio.",
-        "communication": {
-          "tone": "Cálido y familiar",
-          "triggers": "Cumpleaños, reuniones familiares de domingo, antojos por la tarde",
-          "topics": "Sabores tradicionales, recetas caseras, packs familiares"
-        }
-      },
-      {
-        "name": "Carlos, el Joven Profesional",
-        "demographics": "Varón, 25-33 años, soltero, nivel de ingresos medio-alto, profesional independiente",
-        "goals": "Disfrutar de antojos rápidos y de alta calidad después del trabajo o durante el fin de semana.",
         "painPoints": "Poco tiempo de cocina, valora la rapidez de compra a través de WhatsApp, prefiere delivery rápido.",
         "communication": {
           "tone": "Moderno, directo y entusiasta",

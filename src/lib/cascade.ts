@@ -135,9 +135,10 @@ export async function triggerCascadeGeneration(
     const existingCount = existingStrategies.length;
     const savedStrategies = [...existingStrategies];
 
-    const needed = force ? 1 : (existingCount < 1 ? 1 - existingCount : 0);
+    const shouldGenerateStrategy = onlyStage === 'STRATEGY';
+    const needed = 1;
 
-    if (onlyStage !== 'CAMPAIGN' && onlyStage !== 'CALENDAR' && needed > 0) {
+    if (shouldGenerateStrategy && needed > 0) {
       console.log(`[CASCADE] Generando ${needed} estrategias...`);
       await addAgentNotification(
         businessId, 
@@ -336,6 +337,10 @@ export async function triggerCascadeGeneration(
     }
 
     // 3. Generar Campaña de Marketing (Regla Estricta: 1 sola campaña por negocio)
+    const existingCampaigns = await prisma.campaign.findMany({
+      where: { businessId }
+    });
+
     if (force || onlyStage === 'CAMPAIGN' || existingCampaigns.length === 0) {
       console.log(`[CASCADE] Reemplazando campañas previas para mantener exactamente 1 sola campaña activa en el negocio ${businessId}...`);
       await prisma.content.deleteMany({
@@ -617,29 +622,40 @@ export async function generateCampaignsCascade(
           contents: z.array(z.object({
             type: z.enum(['POST', 'STORY', 'REEL', 'VIDEO', 'CAROUSEL', 'EMAIL', 'AD']),
             title: z.string(),
-            body: z.string(),
-            caption: z.string(),
-            promptUsed: z.string().describe("AI image generator prompt in English describing the visual design, style and composition"),
-            channel: z.enum(['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'LINKEDIN']),
+            body: z.string().describe("Guion estructurado paso a paso del contenido, desglose por slides o storyboard visual"),
+            caption: z.string().describe("Copy completo e íntegro para redes sociales en español con gancho inicial, viñetas con emojis, CTA claro y hashtags"),
+            promptUsed: z.string().describe("AI image generator prompt en INGLÉS hiper-detallado de al menos 25 palabras para Midjourney o Flux"),
+            channel: z.enum(['FACEBOOK', 'INSTAGRAM', 'TIKTOK']),
             scheduledAt: z.string() // fecha en ISOString
           }))
         }))
       }),
-      system: `Eres un Director de Campañas Digitales. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing detalladas asociadas a estas estrategias. Cada campaña debe contener exactamente 8 publicaciones sugeridas de contenido planificado distribuidas a lo largo del próximo mes.
-Reglas clave:
-1. Cada campaña generada debe durar exactamente 30 días (1 mes completo). Establece la fecha de inicio ('startDate') en "${baseDateStr}" y la fecha de finalización ('endDate') exactamente 30 días después.
-2. Cada campaña debe tener activados exactamente los tres canales principales de difusión: 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK' (es decir, el array 'channels' debe ser siempre exactamente ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'] para todas las campañas sugeridas). Las fechas generadas deben estar situadas en el año ${new Date().getFullYear()}.
-3. Para cumplir con la Regla 60-25-15 en la frecuencia baja (8 publicaciones mensuales totales), debes generar exactamente 8 publicaciones de contenidos en el array 'contents'. Estas 8 publicaciones deben estar distribuidas equitativamente y espaciadas uniformemente a lo largo de los 30 días de duración de la campaña (por ejemplo, con una separación de 3 o 4 días entre cada publicación, comenzando desde "${baseDateStr}"):
-   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (equivalente al 60% de videos cortos)
-   - 2 publicaciones de tipo 'CAROUSEL' (equivalente al 25% de carruseles)
-   - 1 publicación de tipo 'POST' (equivalente al 15% de imágenes estáticas)
-4. Para cada publicación en 'contents', debes redactar un 'promptUsed' detallado en inglés de al menos 15 palabras para generadores de imágenes por IA como Midjourney o DALL-E, que describa la composición visual, estilo fotográfico premium y colores correspondientes.
-5. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, agregar, deducir o sugerir productos, servicios o variantes de productos que no estén explícitamente declarados en la información del negocio. No combines ingredientes ni inventes recetas nuevas (ej. no inventes 'panqueque de chuño'). Promociona única y exclusivamente los productos descritos.
-6. REGLA DE PRESUPUESTO REALISTA (BOLIVIA/LATAM): El presupuesto sugerido de publicidad ('budget') para cada campaña debe ser moderado y adaptado a pymes en Bolivia. Debe situarse estrictamente en un rango de entre $15 y $75 USD para toda la campaña (por ejemplo, $30, $45 o $60 USD), distribuyéndose proporcionalmente entre Facebook, Instagram y TikTok Ads. Evita presupuestos altos e irreales de $200, $300 o $500 USD.`,
+      system: `Eres un Director Editorial y de Contenidos Digitales de élite. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing altamente efectivas y detalladas. Cada campaña debe contener exactamente 8 publicaciones sugeridas de contenido planificado distribuidas a lo largo del próximo mes.
+
+REGLAS DE CALIDAD OBLIGATORIAS PARA CADA PUBLICACIÓN:
+1. CANALES PERMITIDOS: Los únicos tres canales de difusión permitidos son 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK'. Asigna única y exclusivamente estos tres valores en el campo 'channel'.
+2. COPY COMPLETO Y PROFESIONAL ('caption'):
+   - Cada 'caption' debe ser un copy 100% completo, redactado en español persuasivo y profesional.
+   - Debe iniciar obligatoriamente con un GANCHO IMPACTANTE en la primera línea para capturar la atención en los primeros 3 segundos.
+   - Debe incluir un cuerpo explicativo estructurado con viñetas y emojis contextuales.
+   - Debe finalizar con un Llamado a la Acción (CTA) directo (ej: "Envíanos un mensaje por WhatsApp", "Comenta la palabra X para más información").
+   - Debe concluir con un bloque de 5 a 8 hashtags de tendencia altamente relevantes.
+3. ESTRUCTURA Y GUION DEL CONTENIDO ('body'):
+   - Para REEL o VIDEO: Escribe el guion detallado dividiendo tiempos (0-3s Hook, 3-15s Valor/Demostración, 15-30s Cierre) y sugiriendo estilo de audio.
+   - Para CAROUSEL: Escribe el desglose diapositiva por diapositiva (Slide 1: Título e imagen principal, Slide 2 a 5: Contenido clave).
+   - Para POST: Describe la intención de marketing y composición gráfica recomendada.
+4. PROMPT VISUAL EN INGLÉS ('promptUsed'):
+   - Debe ser un prompt en INGLÉS extremadamente detallado (mínimo 25 palabras) optimizado para Midjourney v6, Flux o DALL-E 3.
+   - Describe el sujeto principal, estilo fotográfico realista (ej: 8k resolution, cinematic lighting, shallow depth of field, commercial product design, vibrant colors).
+5. REGLA ESTRICTA DE NO INVENTAR PRODUCTOS: Queda terminantemente prohibido inventar o sugerir productos que no estén explícitamente declarados en la información del negocio. Promociona única y exclusivamente los productos reales dados.
+6. FRECUENCIA 60-25-15 EN 30 DÍAS: Genera exactamente 8 publicaciones por campaña distribuidas uniformemente en los 30 días siguientes a "${baseDateStr}":
+   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (60%)
+   - 2 publicaciones de tipo 'CAROUSEL' (25%)
+   - 1 publicación de tipo 'POST' (15%)`,
       prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
         (business.onboardingStrategy ? `\nESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA - usar como base para targeting, canales de conversión y tono de copies):\n${JSON.stringify(business.onboardingStrategy)}` : '') +
-        `\nGenera exactamente 8 publicaciones (5 videos/reels, 2 carruseles y 1 post) con fechas coherentes de planificación en formato ISO que inicien exactamente desde "${baseDateStr}" en adelante, distribuidas a lo largo de 30 días en el año ${new Date().getFullYear()}.`,
+        `\nGenera exactamente 8 publicaciones completas (5 reels, 2 carruseles y 1 post) distribuida cada 3-4 días iniciando exactamente desde "${baseDateStr}" en adelante en el año ${new Date().getFullYear()}.`,
     });
     return object.campaigns.slice(0, count);
   } catch (e) {
@@ -672,30 +688,41 @@ export async function generateCalendarContentsCascade(
         contents: z.array(z.object({
           type: z.enum(['POST', 'STORY', 'REEL', 'VIDEO', 'CAROUSEL', 'EMAIL', 'AD']),
           title: z.string(),
-          body: z.string(),
-          caption: z.string(),
-          promptUsed: z.string().describe("AI image generator prompt in English describing the visual design, style and composition"),
+          body: z.string().describe("Guion estructurado paso a paso del contenido, desglose por slides o storyboard visual"),
+          caption: z.string().describe("Copy completo e íntegro para redes sociales en español con gancho inicial, viñetas con emojis, CTA claro a WhatsApp y hashtags"),
+          promptUsed: z.string().describe("AI image generator prompt en INGLÉS hiper-detallado de al menos 25 palabras para Midjourney o Flux"),
           scheduledAt: z.string()
         }))
       }),
-      system: `Eres un Director Editorial y de Contenidos. Tu tarea es regenerar SOLO las publicaciones del calendario editorial para una campaña existente.
-Genera exactamente 8 publicaciones variadas distribuidas equitativamente a lo largo del próximo mes (30 días).
-Reglas clave:
-1. Para cumplir con la Regla 60-25-15 en la frecuencia baja (8 publicaciones mensuales totales), debes generar exactamente 8 publicaciones de contenidos. Las fechas de estas publicaciones deben distribuirse equitativamente a lo largo de los 30 días de la campaña (con una separación de aproximadamente 3 o 4 días entre posts):
-   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (60% de videos cortos)
-   - 2 publicaciones de tipo 'CAROUSEL' (25% de carruseles)
-   - 1 publicación de tipo 'POST' (15% de imágenes estáticas)
-2. Para cada publicación, redacta un 'promptUsed' detallado en inglés de al menos 15 palabras para Midjourney/DALL-E describiendo composición visual y estilo.
-3. NO inventes productos que no estén en la información del negocio.
-4. Las fechas deben empezar desde hoy (${new Date().toISOString().split('T')[0]}) en adelante, distribuidas en los próximos 30 días, año ${new Date().getFullYear()}.`,
-      prompt: `Regenera las publicaciones del calendario para:
+      system: `Eres un Director Editorial y de Contenidos Digitales de alto rendimiento. Tu función es generar publicaciones completas, persasivas y detalladas para la campaña de marketing del negocio.
+
+REGLAS DE CALIDAD OBLIGATORIAS:
+1. COPY COMPLETO Y LISTO PARA PUBLICAR ('caption'):
+   - Redacta un copy 100% completo e íntegro en español para redes sociales.
+   - Debe iniciar obligatoriamente con un GANCHO PERSUASIVO en la primera línea.
+   - Debe incluir un cuerpo con viñetas explicativas y emojis contextuales.
+   - Debe tener un Llamado a la Acción (CTA) directo (ej. escribir por WhatsApp o comentar).
+   - Debe incluir de 5 a 8 hashtags de tendencia relevantes.
+2. GUION O ESTRUCTURA TÉCNICA ('body'):
+   - Para REELS/VIDEOS: Desarrolla el guion detallado (0-3s Hook, 3-15s Demostración, 15-30s Cierre) + sugerencia de estilo de audio.
+   - Para CARROUSEL: Detalla el concepto visual diapositiva por diapositiva (Slide 1 a 5).
+   - Para POST/STORY: Describe la composición y el mensaje clave.
+3. PROMPT DE IMAGEN/VIDEO EN INGLÉS ('promptUsed'):
+   - Redacta un prompt en INGLÉS detallado (mínimo 25 palabras) optimizado para Midjourney v6, Flux o DALL-E 3.
+   - Especifica sujeto principal, iluminación (ej. cinematic natural lighting), encuadre, texturas y paleta de colores.
+4. NO INVENTES PRODUCTOS que no existan en la información del negocio.
+5. FRECUENCIA DE 8 PUBLICACIONES EN 30 DÍAS:
+   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (60%)
+   - 2 publicaciones de tipo 'CAROUSEL' (25%)
+   - 1 publicación de tipo 'POST' (15%)`,
+      prompt: `Genera las publicaciones completas del calendario para:
 Negocio: ${business.name}
 Campaña: "${campaign.name}" - ${campaign.description || 'Sin descripción'}
 Objetivo de la campaña: ${campaign.objective}
 Canales activos: ${campaignChannels.join(', ')}
 ${strategies.length > 0 ? `Estrategia base: "${strategies[0].name}" - ${strategies[0].description}` : ''}
-${business.onboardingStrategy ? `ESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA - alinear tono, targeting y copies con estos datos):\n${JSON.stringify(business.onboardingStrategy)}` : ''}
-Genera exactamente 8 publicaciones (5 videos/reels, 2 carruseles y 1 post) distribuidas de forma espaciada durante los próximos 30 días para esta campaña.`,
+${business.onboardingStrategy ? `ESTRATEGIA DIRECTA DEL CLIENTE:\n${JSON.stringify(business.onboardingStrategy)}` : ''}
+Genera exactamente 8 publicaciones totalmente desarrolladas (5 reels/videos, 2 carruseles y 1 post) espaciadas en los próximos 30 días.`,
     });
     return object.contents;
   } catch (e) {

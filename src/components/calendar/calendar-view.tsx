@@ -62,9 +62,11 @@ import {
   Save,
   X,
   Send,
-  AlertTriangle
+  AlertTriangle,
+  Download
 } from "lucide-react";
 import { toast } from "sonner";
+import { handleDownloadCalendarioPDF } from "@/utils/print-utils";
 import { 
   deleteContentAction, 
   updateCalendarContentAction, 
@@ -714,9 +716,10 @@ export function CalendarView({
               }
             });
           });
-          setPreviewPosts(expandedPosts);
+          // Respetar la cantidad exacta solicitada por el usuario
+          setPreviewPosts(expandedPosts.slice(0, Number(planningQuantity)));
         } else {
-          setPreviewPosts(res.posts);
+          setPreviewPosts(res.posts.slice(0, Number(planningQuantity)));
         }
         // Navegar automáticamente al mes del primer post generado
         if (res.posts.length > 0 && res.posts[0].scheduledAt) {
@@ -1267,6 +1270,20 @@ export function CalendarView({
             </SheetContent>
           </Sheet>
 
+          {/* Exportar PDF del Calendario */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const activeCamp = campaigns.find(c => c.id === selectedCampaignId);
+              handleDownloadCalendarioPDF(contents, businessName || "Tu Marca", activeCamp?.name);
+            }}
+            className="h-9 text-xs font-semibold gap-1.5 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-muted"
+          >
+            <Download className="h-3.5 w-3.5 text-violet-600" />
+            <span>Descargar PDF</span>
+          </Button>
+
           {/* Planificar con IA */}
           <Button 
             onClick={() => setIsPlanModalOpen(true)}
@@ -1281,12 +1298,12 @@ export function CalendarView({
       {/* CONTENEDOR DEL CALENDARIO */}
       <div className="flex-1 min-h-[500px] overflow-hidden flex flex-col bg-card border rounded-2xl shadow-md card-shadow">
         {/* Cabecera de columnas para Canales */}
-        <div className="grid grid-cols-[repeat(13,minmax(0,1fr))] border-b bg-muted/20 select-none shrink-0 text-[10px] font-black uppercase tracking-wider text-muted-foreground/85">
+        <div className="grid grid-cols-12 border-b bg-muted/20 select-none shrink-0 text-[10px] font-black uppercase tracking-wider text-muted-foreground/85">
           <div className="col-span-3 py-3 pl-4 border-r">Fecha</div>
-          {["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"].map((ch) => {
+          {["FACEBOOK", "INSTAGRAM", "TIKTOK"].map((ch) => {
             const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
             return (
-              <div key={ch} className="col-span-2 py-3 text-center border-r last:border-r-0 flex items-center justify-center gap-1">
+              <div key={ch} className="col-span-3 py-3 text-center border-r last:border-r-0 flex items-center justify-center gap-1">
                 {meta.icon}
                 <span className="truncate">{meta.label}</span>
               </div>
@@ -1333,10 +1350,10 @@ export function CalendarView({
                 })
               : [];
 
-            const channelsList = ["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"];
+            const channelsList = ["FACEBOOK", "INSTAGRAM", "TIKTOK"];
 
             return (
-              <div key={idx} className={`grid grid-cols-[repeat(13,minmax(0,1fr))] min-h-[90px] transition-all hover:bg-muted/5 ${isToday ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
+              <div key={idx} className={`grid grid-cols-12 min-h-[90px] transition-all hover:bg-muted/5 ${isToday ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
                 {/* Columna Fecha (Lado izquierdo) */}
                 <div className="col-span-3 p-4 border-r flex flex-col justify-between bg-muted/5">
                   <div>
@@ -1396,7 +1413,7 @@ export function CalendarView({
                   return (
                     <div 
                       key={ch} 
-                      className={`col-span-2 p-3 border-r last:border-r-0 flex flex-col gap-2 min-h-[90px] hover:bg-muted/10 transition-colors relative group/cell`}
+                      className={`col-span-3 p-3 border-r last:border-r-0 flex flex-col gap-2 min-h-[90px] hover:bg-muted/10 transition-colors relative group/cell`}
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, cell.date)}
                     >
@@ -2435,7 +2452,7 @@ export function CalendarView({
                         type="checkbox"
                         id="replicateChannels"
                         className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                        defaultChecked={true}
+                        defaultChecked={false}
                       />
                     </div>
                   </div>
@@ -2684,7 +2701,7 @@ export function CalendarView({
                 </div>
               </div>
 
-              <div className="p-4 border-t border-muted/20 bg-muted/5 flex justify-end gap-2.5">
+              <div className="p-4 border-t border-muted/20 bg-muted/5 flex items-center justify-between">
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -2693,14 +2710,38 @@ export function CalendarView({
                 >
                   Cancelar
                 </Button>
-                <Button 
-                  onClick={handleGeneratePreview}
-                  disabled={!planningCampaignId}
-                  className="gradient-primary text-xs font-semibold h-9 shadow-sm"
-                >
-                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-300 shrink-0" />
-                  Previsualizar Planificación
-                </Button>
+                
+                <div className="flex items-center gap-2">
+                  <Button 
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGeneratePreview}
+                    disabled={!planningCampaignId || isPlanning}
+                    className="text-xs font-semibold h-9 border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-900 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+                  >
+                    {isPlanning ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    )}
+                    Previsualizar Primero
+                  </Button>
+
+                  <Button 
+                    type="button"
+                    onClick={handlePlanCalendarWithIA}
+                    disabled={!planningCampaignId || isPlanning}
+                    className="gradient-primary text-xs font-bold h-9 shadow-md text-white gap-1.5"
+                  >
+                    {isPlanning ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5 stroke-[3]" />
+                    )}
+                    Generar y Guardar ({planningQuantity} Posts)
+                  </Button>
+                </div>
               </div>
             </>
           )}

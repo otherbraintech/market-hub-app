@@ -149,10 +149,10 @@ export function BusinessList({ businesses }: BusinessListProps) {
                   className="w-full text-xs font-bold gap-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-md"
                   onClick={async () => {
                     await setSelectedBusinessAction(business.id);
-                    window.location.href = `/business/${business.id}`;
+                    window.location.href = `/business/${business.id}?skipOnboarding=true`;
                   }}
                 >
-                  <Layers className="h-3.5 w-3.5" /> Abrir Negocio & Pipeline
+                  <Layers className="h-3.5 w-3.5" /> Abrir Negocio & Flujo IA
                 </Button>
               </CardFooter>
             </Card>

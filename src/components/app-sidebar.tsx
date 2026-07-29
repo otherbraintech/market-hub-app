@@ -2,22 +2,11 @@
 
 import * as React from "react"
 import {
-  LayoutDashboard,
   Building2,
-  Lightbulb,
-  Package,
-  Target,
-  Calendar,
-  Image as ImageIcon,
-  Share2,
-  BarChart3,
-  Settings,
-  LogOut,
-  Zap,
+  PlusCircle,
+  Eye,
   Moon,
-  Sun,
-  BookOpen,
-  LifeBuoy
+  Sun
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -51,95 +40,25 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
     id: b.id
   }))
 
-  const role = session?.user?.role || "USER"
-
   const navMain = React.useMemo(() => {
-    const rawNav = [
+    return [
       {
-        title: "Centro de Comando",
-        url: "#",
-        icon: LayoutDashboard,
-        isActive: true,
-        items: [
-          { title: "Panel General", url: "/dashboard" },
-          { title: "Mis Negocios", url: "/business" },
-          { 
-            title: "Nuevo Negocio / Onboarding", 
-            url: selectedId ? `/onboarding?businessId=${selectedId}&preview=true` : "/onboarding" 
-          },
-        ],
+        title: "Crear Negocio",
+        url: "/business/create?new=true",
+        icon: PlusCircle,
       },
       {
-        title: "Negocio Seleccionado",
-        url: "#",
+        title: "Gestionar Negocios",
+        url: "/business",
         icon: Building2,
-        isActive: true,
-        items: [
-          ...(selectedId ? [
-            { title: "Perfil & Operaciones", url: `/business/${selectedId}` },
-            { title: "Auditoría Digital", url: `/business/analysis` },
-            { title: "Análisis de Competencia", url: `/competitors/analysis` },
-          ] : [
-            { title: "Selecciona un negocio...", url: "/business" }
-          ]),
-        ],
       },
       {
-        title: "Estrategias & Campañas",
-        url: "#",
-        icon: Target,
-        isActive: true,
-        items: [
-          { title: "Estrategias IA", url: "/strategies" },
-          { title: "Campañas Activas", url: "/campaigns" },
-          { title: "Catálogo de Productos", url: "/products" },
-        ],
-      },
-      {
-        title: "Contenido & Métricas",
-        url: "#",
-        icon: Calendar,
-        isActive: true,
-        items: [
-          { title: "Calendario Editorial", url: "/calendar" },
-          { title: "Canales & Publicación", url: "/publishing" },
-          { title: "Analítica & KPIs", url: "/metrics" },
-        ],
-      },
-      {
-        title: "Administración",
-        url: "#",
-        icon: Settings,
-        items: [
-          { title: "Usuarios & Permisos", url: "/settings/users" },
-          { title: "Guía de Inicio", url: "/guide" },
-          { title: "Soporte y Ayuda", url: "/support" },
-        ],
+        title: "Ver Detalle del Negocio",
+        url: selectedId ? `/business/${selectedId}?skipOnboarding=true` : "/business",
+        icon: Eye,
       },
     ]
-
-    return rawNav
-      .map(section => {
-        if (!section.items) return section;
-        const filteredItems = section.items.filter(item => {
-          if (role === "USER") {
-            if (item.url === "/settings/users") return false;
-            if (item.url === "/products") return false;
-          } else if (role === "SPECIALIST") {
-            if (item.url === "/settings/users") return false;
-          }
-          return true;
-        });
-
-        return { ...section, items: filteredItems };
-      })
-      .filter(section => {
-        if (!section.items || section.items.length === 0) {
-          return !!section.url && section.url !== "#";
-        }
-        return section.items.length > 0;
-      });
-  }, [role, selectedId]);
+  }, [selectedId]);
 
   const user = {
     name: session?.user?.name || session?.user?.username || "Usuario",

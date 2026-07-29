@@ -189,7 +189,7 @@ export function AgentPipelineSidebar({
           <div className="flex items-center gap-2">
             <Cpu className="h-4.5 w-4.5 text-cyan-400 animate-pulse" />
             <CardTitle className="text-sm font-extrabold tracking-tight">
-              Pipeline de Operaciones
+              Flujo Operativo IA
             </CardTitle>
           </div>
           <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px] font-black">
@@ -197,7 +197,7 @@ export function AgentPipelineSidebar({
           </Badge>
         </div>
         <CardDescription className="text-[10.5px] text-slate-400 mt-1">
-          Ejecuta paso a paso los 4 agentes autónomos de IA.
+          Ejecuta paso a paso las 4 etapas con agentes autónomos de IA.
         </CardDescription>
 
         {/* Global Progress Bar */}

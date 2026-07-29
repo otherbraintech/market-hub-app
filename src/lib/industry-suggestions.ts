@@ -29,9 +29,10 @@ const GASTRO_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Artesanal y Apasionado", "Moderno y Juvenil", "Tradicional y Familiar", "Gourmet y Exclusivo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Sitio Web",
+    placeholder: "Ej. WhatsApp directo, Apps de Delivery, Canal Moderno, Canal Tradicional o Sitio Web",
     chips: [
       "WhatsApp directo",
+      "Apps de Delivery (PedidosYa, Yango, etc.)",
       "Canal Moderno",
       "Canal Tradicional",
       "Sitio Web / Tienda Online"
@@ -74,9 +75,10 @@ const MODA_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Chic y Vanguardista", "Minimalista y Elegante", "Urbano y Audaz", "Fresco y Accesible"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Tienda Online",
+    placeholder: "Ej. WhatsApp directo, Apps de Delivery, Canal Moderno, Canal Tradicional o Tienda Online",
     chips: [
       "WhatsApp directo",
+      "Apps de Delivery (PedidosYa, Yango, etc.)",
       "Canal Moderno",
       "Canal Tradicional",
       "Sitio Web / Tienda Online"
@@ -206,9 +208,10 @@ const SERVICIOS_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Experto y Líder de Opinión", "Mentor Cercano y Práctico", "Analítico y Transparente", "Prestigioso y Exclusivo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Sitio Web",
+    placeholder: "Ej. WhatsApp directo, Apps de Delivery, Canal Moderno, Canal Tradicional o Sitio Web",
     chips: [
       "WhatsApp directo",
+      "Apps de Delivery (PedidosYa, Yango, etc.)",
       "Canal Moderno",
       "Canal Tradicional",
       "Sitio Web / Tienda Online"
@@ -250,9 +253,10 @@ const GENERAL_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Cercano y Servicial", "Eficiente y Práctico", "Moderno y Confiable", "Innovador y Directo"]
   },
   conversionChannel: {
-    placeholder: "Ej. WhatsApp directo, Canal Moderno, Canal Tradicional o Tienda Web",
+    placeholder: "Ej. WhatsApp directo, Apps de Delivery, Canal Moderno, Canal Tradicional o Tienda Web",
     chips: [
       "WhatsApp directo",
+      "Apps de Delivery (PedidosYa, Yango, etc.)",
       "Canal Moderno",
       "Canal Tradicional",
       "Sitio Web / Tienda Online"
@@ -279,6 +283,49 @@ const GENERAL_PRESETS: IndustryPlaceholdersMap = {
   }
 };
 
+const ERROR_PRESETS: IndustryPlaceholdersMap = {
+  industryLabel: "Error al identificar rubro (Descripción o datos insuficientes)",
+  locationAge: {
+    placeholder: "Ej. Especifica el público objetivo y la ubicación principal de tu negocio",
+    chips: ["Clientes de la ciudad local", "Público general 20 a 50 años", "Ejecutivos y Empresas B2B"]
+  },
+  lifeEvent: {
+    placeholder: "Ej. Describe qué problema resuelve tu negocio o qué necesidad satisface",
+    chips: ["Solución rápida a un problema", "Compra recurrente / Servicio habitual", "Regalos y eventos especiales"]
+  },
+  archetype: {
+    placeholder: "Ej. Define la personalidad de tu marca (ej: Profesional, Cercana, Innovadora)",
+    chips: ["Profesional y Confiable", "Cercana y Servicial", "Innovadora y Moderna", "Exclusiva y Premium"]
+  },
+  conversionChannel: {
+    placeholder: "Ej. WhatsApp directo, Apps de Delivery, Canal Moderno, Canal Tradicional o Tienda Web",
+    chips: [
+      "WhatsApp directo",
+      "Apps de Delivery (PedidosYa, Yango, etc.)",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Sitio Web / Tienda Online"
+    ]
+  },
+  informationGaps: {
+    placeholder: "Ej. ¿Qué dudas o preguntas frecuentes suelen tener tus clientes antes de comprar?",
+    chips: ["Precios y promociones", "Ubicación y horarios de atención", "Tiempos de entrega y envíos"]
+  },
+  socialProof: {
+    placeholder: "Ej. Reseñas de clientes, fotos reales o años de experiencia",
+    chips: [
+      "Fotos de clientes satisfechos",
+      "Reseñas de 5 estrellas en redes o Google",
+      "Mensajes de agradecimiento por WhatsApp",
+      "Recomendaciones boca a boca"
+    ]
+  },
+  differentialAdvantage: {
+    placeholder: "Ej. ¿Cuál es el principal valor único o ventaja de tu negocio respecto a otros?",
+    chips: ["Atención rápida e inmediata", "Excelente relación precio-calidad", "Garantía de servicio personalizado"]
+  }
+};
+
 /**
  * Obtiene los datos sugeridos y placeholders dinámicos adaptados a la industria o descripción del negocio.
  */
@@ -289,6 +336,13 @@ export function getIndustryPlaceholders(
 ): IndustryPlaceholdersMap {
   const textToSearch = `${industry || ""} ${description || ""} ${businessName || ""}`.toLowerCase();
 
+  // 0. Si se especificó o detectó un error por datos aleatorios/insuficientes
+  if (textToSearch.includes("error al identificar") || textToSearch.includes("insuficiente")) {
+    return ERROR_PRESETS;
+  }
+
+  let matchedPreset = GENERAL_PRESETS;
+
   // 1. Gastronomía
   if (
     textToSearch.includes("gastro") ||
@@ -298,6 +352,9 @@ export function getIndustryPlaceholders(
     textToSearch.includes("cafe") ||
     textToSearch.includes("panad") ||
     textToSearch.includes("reposter") ||
+    textToSearch.includes("pasteler") ||
+    textToSearch.includes("torta") ||
+    textToSearch.includes("postre") ||
     textToSearch.includes("bar") ||
     textToSearch.includes("snack") ||
     textToSearch.includes("hamburgue") ||
@@ -305,11 +362,8 @@ export function getIndustryPlaceholders(
     textToSearch.includes("sushi") ||
     textToSearch.includes("alimento")
   ) {
-    return GASTRO_PRESETS;
-  }
-
-  // 2. Moda y Belleza
-  if (
+    matchedPreset = GASTRO_PRESETS;
+  } else if (
     textToSearch.includes("moda") ||
     textToSearch.includes("ropa") ||
     textToSearch.includes("vestir") ||
@@ -325,11 +379,8 @@ export function getIndustryPlaceholders(
     textToSearch.includes("joya") ||
     textToSearch.includes("accesorio")
   ) {
-    return MODA_PRESETS;
-  }
-
-  // 3. Tecnología y SaaS
-  if (
+    matchedPreset = MODA_PRESETS;
+  } else if (
     textToSearch.includes("tecnolog") ||
     textToSearch.includes("software") ||
     textToSearch.includes("saas") ||
@@ -342,11 +393,8 @@ export function getIndustryPlaceholders(
     textToSearch.includes("ecommerce") ||
     textToSearch.includes("sistem")
   ) {
-    return TECH_PRESETS;
-  }
-
-  // 4. Salud y Fitness
-  if (
+    matchedPreset = TECH_PRESETS;
+  } else if (
     textToSearch.includes("salud") ||
     textToSearch.includes("clínic") ||
     textToSearch.includes("clinic") ||
@@ -361,11 +409,8 @@ export function getIndustryPlaceholders(
     textToSearch.includes("nutric") ||
     textToSearch.includes("terapia")
   ) {
-    return SALUD_PRESETS;
-  }
-
-  // 5. Servicios Profesionales, Educación, Inmobiliaria
-  if (
+    matchedPreset = SALUD_PRESETS;
+  } else if (
     textToSearch.includes("educa") ||
     textToSearch.includes("curso") ||
     textToSearch.includes("capacita") ||
@@ -380,9 +425,34 @@ export function getIndustryPlaceholders(
     textToSearch.includes("arquitect") ||
     textToSearch.includes("servicio")
   ) {
-    return SERVICIOS_PRESETS;
+    matchedPreset = SERVICIOS_PRESETS;
   }
 
-  // 6. General
-  return GENERAL_PRESETS;
+  // 2. Determinar la etiqueta exacta del rubro (dando prioridad al valor devuelto por la IA)
+  let exactLabel = (industry && industry.trim().length > 0 && !industry.toLowerCase().includes("error"))
+    ? industry.trim()
+    : null;
+
+  if (!exactLabel) {
+    if (textToSearch.includes("pasteler") || textToSearch.includes("reposter") || textToSearch.includes("torta") || textToSearch.includes("postre")) {
+      exactLabel = "Pastelería y Repostería";
+    } else if (textToSearch.includes("panad") || textToSearch.includes("panificad")) {
+      exactLabel = "Panadería y Repostería";
+    } else if (textToSearch.includes("café") || textToSearch.includes("cafe")) {
+      exactLabel = "Cafetería y Repostería";
+    } else if (textToSearch.includes("hamburgue") || textToSearch.includes("pizza") || textToSearch.includes("sushi") || textToSearch.includes("restauran")) {
+      exactLabel = "Restaurantes y Gastronomía";
+    } else if (textToSearch.includes("odontol") || textToSearch.includes("dentis")) {
+      exactLabel = "Odontología y Salud Dental";
+    } else if (textToSearch.includes("boutique") || textToSearch.includes("ropa")) {
+      exactLabel = "Moda y Boutiques";
+    } else {
+      exactLabel = matchedPreset.industryLabel;
+    }
+  }
+
+  return {
+    ...matchedPreset,
+    industryLabel: exactLabel
+  };
 }

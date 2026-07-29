@@ -403,7 +403,7 @@ function buildStrategyPrompt(context: any) {
   prompt += `  ],\n`;
   prompt += `  "personas": [\n`;
   prompt += `    {\n`;
-  prompt += `      "name": "Nombre ficticio (Ej. María la Repostera Casual)",\n`;
+  prompt += `      "name": "Título profesional del perfil de cliente enfocado en la industria del negocio (Ej. Consumidor Habitual B2C / Comprador Corporativo / Cliente Frecuente). PROHIBIDO usar nombres propios como María, Carlos, etc.",\n`;
   prompt += `      "demographics": "Resumen demográfico (edad, ubicación, ocupación, estado familiar, ej: Mujer, 25-35 años, profesional independiente, interesada en pastelería fina, Santa Cruz)",\n`;
   prompt += `      "painPoints": "Puntos de dolor y retos del cliente (Frase concisa, ej: Falta de tiempo para cocinar, busca opciones listas para eventos, desconfía de la calidad de ingredientes)",\n`;
   prompt += `      "goals": "Objetivos y motivaciones (ej: Celebrar fechas especiales con postres de alta calidad, sorprender a invitados, encontrar postres sin gluten)",\n`;

@@ -23,7 +23,7 @@ model Event {
 
 model Job {
   id          String     @id @default(cuid())
-  type        JobType
+  type        JobType                
   status      JobStatus  @default(PENDING)
   priority    Int        @default(0)
   payload     Json

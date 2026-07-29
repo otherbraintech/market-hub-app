@@ -42,6 +42,7 @@ export function TeamSwitcher({
   const handleSelect = (businessId: string) => {
     startTransition(async () => {
       await setSelectedBusinessAction(businessId)
+      router.push(`/business/${businessId}?skipOnboarding=true`)
       router.refresh()
     })
   }

@@ -49,7 +49,7 @@ export default async function MonitorPage({
             Consola y Monitoreo de Agentes: {business.name}
           </h2>
           <p className="text-muted-foreground text-sm">
-            Monitorea el estado de procesamiento del pipeline autónomo y los logs de la inteligencia artificial.
+            Monitorea el estado de procesamiento del flujo de trabajo autónomo y los logs de la inteligencia artificial.
           </p>
         </div>
       </div>

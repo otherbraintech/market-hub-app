@@ -150,12 +150,7 @@ export async function runCompetitorConsolidatedAnalysis(businessId: string) {
       }
     }).catch(e => console.error("Error creating diagnostic completed notification:", e));
 
-    // Disparar generación en cascada asíncrona en background
-    import('@/lib/cascade').then(({ triggerCascadeGeneration }) => {
-      triggerCascadeGeneration(businessId, true).catch(err => {
-        console.error('Error in triggerCascadeGeneration background process for competitors:', err);
-      });
-    });
+    // Generación en cascada desacoplada: solo se ejecuta por solicitud explícita del usuario haciendo clic en 'Generar Plan'.
 
     // Disparar regeneración del informe de competidores general directamente en código
     runGenerateGeneralReport(businessId).catch((err) => {

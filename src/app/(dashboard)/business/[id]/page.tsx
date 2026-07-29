@@ -8,10 +8,13 @@ import { BusinessDetailClient } from "@/components/business/business-detail-clie
 
 export default async function BusinessDetailPage({ 
   params,
+  searchParams,
 }: { 
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ skipOnboarding?: string }>;
 }) {
   const { id } = await params;
+  const { skipOnboarding } = await searchParams;
   const session = await getSession();
 
   if (!session || !session.user?.id) {
@@ -40,7 +43,9 @@ export default async function BusinessDetailPage({
     redirect("/business");
   }
 
-  if (business.competitors.length === 0) {
+  const hasOnboardingStrategy = (business.onboardingStrategy && typeof business.onboardingStrategy === "object" && Object.keys(business.onboardingStrategy as object).length > 0 && Object.values(business.onboardingStrategy as object).some((val: any) => typeof val === "string" && val.trim().length > 0));
+
+  if ((business.competitors.length === 0 || !hasOnboardingStrategy) && skipOnboarding !== "true") {
     redirect(`/onboarding?businessId=${id}`);
   }
 

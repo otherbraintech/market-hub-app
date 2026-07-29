@@ -566,10 +566,25 @@ export async function generateSingleContentIdeaAction(
       return { success: false, error: "Campaña no encontrada" };
     }
 
-    const systemPrompt = `Eres un estratega de marketing y creador de contenidos experto.
-Tu tarea es generar una única idea detallada de publicación en formato JSON para una campaña de marketing específica.
-La publicación debe ser accionable, relevante para los objetivos de la campaña, y contar con un formato y canal definidos.
-REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Queda terminantemente prohibido inventar, deducir, agregar o sugerir productos, platos, servicios o variantes que no estén descritos o detallados explícitamente en la descripción del negocio o la campaña (por ejemplo, si el negocio ofrece 'panqueques de camote' o 'panqueques de banana', bajo ningún concepto inventes 'panqueque de chuño'). Promociona única y exclusivamente lo indicado.`;
+    const systemPrompt = `Eres un Director Editorial y Estratega de Redes Sociales de élite.
+Tu tarea es generar una idea de publicación completa, persuasiva e hiper-detallada en formato JSON para la campaña.
+
+REGLAS DE CALIDAD:
+1. CANALES PERMITIDOS: El canal sugerido (channel) DEBE ser exclusivamente uno de: 'FACEBOOK', 'INSTAGRAM' o 'TIKTOK'.
+2. COPY COMPLETO Y LISTO PARA PUBLICAR ('caption'):
+   - El copy debe estar 100% redactado en español.
+   - Debe iniciar con un GANCHO PERSUASIVO en la primera línea.
+   - Incluir viñetas explicativas con emojis contextuales.
+   - Incluir un Llamado a la Acción (CTA) directo (ej. escribir por WhatsApp).
+   - Incluir de 5 a 8 hashtags de tendencia relevantes.
+3. GUION O ESTRUCTURA TÉCNICA ('body'):
+   - Para REEL o VIDEO: Escribe el guion detallado (0-3s Hook, 3-15s Demostración, 15-30s Cierre) + sugerencia de estilo de audio.
+   - Para CAROUSEL: Detalla el concepto visual diapositiva por diapositiva (Slide 1 a 5).
+   - Para POST: Describe la intención de marketing y composición gráfica recomendada.
+4. PROMPT VISUAL EN INGLÉS ('promptUsed'):
+   - Debe ser un prompt en INGLÉS detallado (mínimo 25 palabras) optimizado para Midjourney v6 o DALL-E 3.
+   - Especifica sujeto principal, estilo fotográfico realista (ej: 8k resolution, cinematic lighting, commercial product design, vibrant colors).
+5. REGLA ESTRICTA DE NO INVENTAR PRODUCTOS: Promociona única y exclusivamente los productos reales descritos.`;
 
     const typeClause = targetType 
       ? `El tipo de contenido (type) DEBE ser estrictamente: ${targetType}.` 
@@ -605,7 +620,7 @@ DATOS DE LA CAMPAÑA:
 ${targetChannel ? `- Canal preferido de destino: ${targetChannel}` : ""}
 
 INSTRUCCIONES DE PLANIFICACIÓN:
-1. El canal sugerido (channel) debe ser: ${targetChannel || "Uno adecuado (INSTAGRAM, FACEBOOK, TIKTOK, LINKEDIN o YOUTUBE)"}.
+1. El canal sugerido (channel) debe ser estrictamente uno de los tres permitidos: ${targetChannel || "FACEBOOK, INSTAGRAM o TIKTOK"}.
 2. ${typeClause}
 3. ${formatClause}
 4. El "body" debe contener el storyboard visual de lo que se mostrará o el guion de video detallado.
@@ -617,11 +632,11 @@ INSTRUCCIONES DE PLANIFICACIÓN:
       schema: z.object({
         title: z.string(),
         type: z.enum(["POST", "STORY", "REEL", "VIDEO", "CAROUSEL"]),
-        channel: z.enum(["FACEBOOK", "INSTAGRAM", "TIKTOK", "LINKEDIN", "YOUTUBE"]),
+        channel: z.enum(["FACEBOOK", "INSTAGRAM", "TIKTOK"]),
         format: z.enum(["IMAGE", "VIDEO"]),
-        body: z.string().describe("Storyboard visual, script o guion del contenido"),
-        caption: z.string().describe("Copy o descripción final para la red social"),
-        promptUsed: z.string().describe("AI image generator prompt en INGLÉS para la imagen de diseño o la miniatura/portada del video")
+        body: z.string().describe("Guion estructurado paso a paso del contenido, desglose por slides o storyboard visual"),
+        caption: z.string().describe("Copy completo e íntegro para redes sociales en español con gancho inicial, viñetas con emojis, CTA claro y hashtags"),
+        promptUsed: z.string().describe("AI image generator prompt en INGLÉS hiper-detallado de al menos 25 palabras para Midjourney o Flux")
       }),
       system: systemPrompt,
       prompt: userPrompt,

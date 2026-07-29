@@ -593,6 +593,460 @@ export const handleDownloadEstrategiaPDF = (parsedStrategyObj: any, activeStrate
   printWindow.document.close();
 };
 
+export const handleDownloadCampanasPDF = (campaigns: any[], brandName: string) => {
+  if (!campaigns || campaigns.length === 0) return;
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    toast.error("El navegador bloqueó la ventana emergente. Por favor, permite ventanas emergentes para este sitio.");
+    return;
+  }
+
+  const mainCampaign = campaigns[0] || {};
+  const campaignName = mainCampaign.name || "Plan de Campañas de Marketing";
+  const dateStr = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+  const startDateStr = mainCampaign.startDate ? new Date(mainCampaign.startDate).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "Por definir";
+  const endDateStr = mainCampaign.endDate ? new Date(mainCampaign.endDate).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "Por definir";
+
+  const channels = Array.isArray(mainCampaign.channels) ? mainCampaign.channels : [];
+  const targeting = typeof mainCampaign.targeting === "object" && mainCampaign.targeting ? mainCampaign.targeting : {};
+
+  const budgetTotal = mainCampaign.budget || 45;
+  const objective = mainCampaign.objective || "Captación de Leads / Posicionamiento";
+  const status = mainCampaign.status || "ACTIVA";
+
+  let channelsHtml = "";
+  if (channels.length > 0) {
+    channelsHtml = `
+      <div class="mb-6 section-card">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
+          <span>📢</span> 2. Distribución por Canales de Difusión
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          ${channels.map((chan: any) => {
+            const platformName = typeof chan === "object" ? (chan.platform || "SOCIAL") : String(chan);
+            const budgetVal = typeof chan === "object" && chan.budget ? chan.budget : Math.round(budgetTotal / (channels.length || 1));
+            return `
+              <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-2 page-break-inside-avoid">
+                <div class="flex justify-between items-center border-b pb-2">
+                  <span class="font-extrabold text-slate-800 text-xs tracking-wide uppercase">${platformName}</span>
+                  <span class="px-2 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">ACTIVO</span>
+                </div>
+                <div class="text-xs text-slate-650">
+                  Presupuesto canal: <strong class="text-slate-800 font-extrabold">$${budgetVal} USD</strong>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  } else {
+    channelsHtml = `
+      <div class="mb-6 section-card">
+        <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
+          <span>📢</span> 2. Distribución por Canales de Difusión
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-1 page-break-inside-avoid">
+            <span class="font-extrabold text-slate-800 text-xs block">FACEBOOK</span>
+            <span class="text-[11px] text-slate-600 block">Pauta de Alcance & Anuncios Directos ($15 USD)</span>
+          </div>
+          <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-1 page-break-inside-avoid">
+            <span class="font-extrabold text-slate-800 text-xs block">INSTAGRAM</span>
+            <span class="text-[11px] text-slate-600 block">Reels & Historias de Engagement ($20 USD)</span>
+          </div>
+          <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-1 page-break-inside-avoid">
+            <span class="font-extrabold text-slate-800 text-xs block">TIKTOK</span>
+            <span class="text-[11px] text-slate-600 block">Videos Cortos Orgánicos / Ads ($10 USD)</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const locationsStr = Array.isArray(targeting.locations) && targeting.locations.length > 0 
+    ? targeting.locations.join(", ") 
+    : "Entorno Metropolitano Local";
+
+  const ageStr = Array.isArray(targeting.ageRange) && targeting.ageRange.length === 2 
+    ? `${targeting.ageRange[0]} - ${targeting.ageRange[1]} años` 
+    : "22 - 50 años";
+
+  const interestsStr = Array.isArray(targeting.interests) && targeting.interests.length > 0 
+    ? targeting.interests.join(", ") 
+    : "Compras locales, calidad de servicio, hábitos de consumo en redes";
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Plan de Campañas - ${brandName}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = {
+            theme: {
+              extend: {
+                fontFamily: {
+                  sans: ['Outfit', 'sans-serif'],
+                }
+              }
+            }
+          }
+        </script>
+        <style>
+          @page {
+            margin: 10mm 10mm;
+            size: A4 portrait;
+          }
+          body {
+            font-family: 'Outfit', sans-serif;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .page-break-inside-avoid {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .section-card {
+            page-break-inside: auto !important;
+            break-inside: auto !important;
+          }
+          h1, h2, h3, h4 {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+          @media print {
+            body {
+              padding: 0 !important;
+              background-color: #ffffff !important;
+            }
+          }
+        </style>
+      </head>
+      <body class="bg-slate-50 text-slate-800 p-6 leading-relaxed">
+        <!-- Banner de Encabezado -->
+        <div class="bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 border border-emerald-200/60 p-4 rounded-2xl shadow-sm mb-5 flex justify-between items-center page-break-inside-avoid">
+          <div>
+            <span class="text-[9px] font-black uppercase tracking-widest text-emerald-700">OB MarketHub - Plan de Campañas 2026</span>
+            <h1 class="text-xl font-black text-slate-800 tracking-tight">${campaignName}</h1>
+          </div>
+          <div class="text-right text-xs text-slate-500 font-bold">
+            Negocio: ${brandName} | Generación: ${dateStr}
+          </div>
+        </div>
+
+        <!-- Resumen de Campaña -->
+        <div class="mb-6 section-card">
+          <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
+            <span>🎯</span> 1. Resumen y Objetivos Estratégicos
+          </h2>
+          <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-3 page-break-inside-avoid">
+            ${mainCampaign.description ? `
+              <p class="text-xs text-slate-650 italic leading-relaxed border-l-4 border-l-emerald-600 pl-3 py-1 bg-emerald-50/40 rounded-r-xl">
+                ${mainCampaign.description}
+              </p>
+            ` : ""}
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1 text-xs">
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] font-black uppercase text-slate-400 block">Estado</span>
+                <span class="font-extrabold text-emerald-700 mt-0.5 block">${status}</span>
+              </div>
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] font-black uppercase text-slate-400 block">Objetivo</span>
+                <span class="font-bold text-slate-800 mt-0.5 block">${objective}</span>
+              </div>
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] font-black uppercase text-slate-400 block">Duración</span>
+                <span class="font-bold text-slate-800 mt-0.5 block">${startDateStr} - ${endDateStr}</span>
+              </div>
+              <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                <span class="text-[9px] font-black uppercase text-slate-400 block">Presupuesto Sugerido</span>
+                <span class="font-extrabold text-emerald-700 mt-0.5 block">$${budgetTotal} USD</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Distribución por Canales -->
+        ${channelsHtml}
+
+        <!-- Segmentación y Targeting -->
+        <div class="mb-6 section-card">
+          <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
+            <span>👥</span> 3. Segmentación del Público Objetivo (Targeting)
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-1 page-break-inside-avoid">
+              <span class="text-[9px] font-black uppercase text-slate-400 block">Ubicaciones Geográficas</span>
+              <p class="text-xs font-extrabold text-slate-800">${locationsStr}</p>
+            </div>
+            <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-1 page-break-inside-avoid">
+              <span class="text-[9px] font-black uppercase text-slate-400 block">Rango de Edad</span>
+              <p class="text-xs font-extrabold text-slate-800">${ageStr}</p>
+            </div>
+            <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-1 page-break-inside-avoid">
+              <span class="text-[9px] font-black uppercase text-slate-400 block">Intereses Psicográficos</span>
+              <p class="text-xs font-extrabold text-slate-800">${interestsStr}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Plan de Piezas de Contenido -->
+        <div class="mb-6 section-card">
+          <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-3 flex items-center gap-2">
+            <span>🎬</span> 4. Formatos Recomendados de la Campaña
+          </h2>
+          <div class="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm space-y-2 page-break-inside-avoid text-xs text-slate-650">
+            <div class="flex items-center justify-between border-b pb-2">
+              <span class="font-bold text-slate-800">Mezcla de Contenido Sugerida (30 Días)</span>
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">8 Piezas Clave</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <strong class="text-slate-800 block text-xs mb-1">5 Reels / Videos Cortos (9:16)</strong>
+                <p class="text-[11px] text-slate-600">Demostración de propuesta de valor, ganchos de problema/solución y llamado a la acción directo.</p>
+              </div>
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <strong class="text-slate-800 block text-xs mb-1">2 Carruseles Educativos (1:1 / 4:5)</strong>
+                <p class="text-[11px] text-slate-600">Puntos de dolor, comparativas de mercado y prueba social / casos de éxito.</p>
+              </div>
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <strong class="text-slate-800 block text-xs mb-1">1 Post Directo de Promoción</strong>
+                <p class="text-[11px] text-slate-600">Oferta especial de conversión, incentivo por tiempo limitado y enlace directo a WhatsApp.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 800);
+            }, 500);
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
+export const handleDownloadCalendarioPDF = (
+  contents: any[], 
+  brandName: string, 
+  campaignName?: string
+) => {
+  if (!contents || contents.length === 0) {
+    toast.error("No hay publicaciones en el calendario para exportar.");
+    return;
+  }
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    toast.error("El navegador bloqueó la ventana emergente. Por favor, permite ventanas emergentes para este sitio.");
+    return;
+  }
+
+  const dateStr = new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" });
+  
+  // Contar por tipo
+  const reelsCount = contents.filter(c => c.type === "REEL" || c.type === "VIDEO").length;
+  const carouselsCount = contents.filter(c => c.type === "CAROUSEL").length;
+  
+  // Contar por canal
+  const facebookCount = contents.filter(c => (c.channel || "INSTAGRAM").toUpperCase() === "FACEBOOK").length;
+  const instagramCount = contents.filter(c => (c.channel || "INSTAGRAM").toUpperCase() === "INSTAGRAM").length;
+  const tiktokCount = contents.filter(c => (c.channel || "INSTAGRAM").toUpperCase() === "TIKTOK").length;
+
+  // Agrupar por fecha
+  const groupedByDate: Record<string, any[]> = {};
+  contents.forEach((post) => {
+    let key = "Sin fecha programada";
+    if (post.scheduledAt) {
+      const d = new Date(post.scheduledAt);
+      key = d.toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+    }
+    if (!groupedByDate[key]) groupedByDate[key] = [];
+    groupedByDate[key].push(post);
+  });
+
+  const datesHtml = Object.entries(groupedByDate).map(([dateKey, datePosts]) => {
+    const fbPost = datePosts.find(p => (p.channel || "").toUpperCase() === "FACEBOOK");
+    const igPost = datePosts.find(p => (p.channel || "").toUpperCase() === "INSTAGRAM");
+    const ttPost = datePosts.find(p => (p.channel || "").toUpperCase() === "TIKTOK");
+
+    const renderPostCard = (post: any | undefined, channelName: string, channelColor: string) => {
+      if (!post) {
+        return `<div class="bg-slate-50/50 border border-slate-200/50 rounded-xl p-3 text-[10px] text-slate-400 text-center italic min-h-[90px] flex items-center justify-center">Sin publicación</div>`;
+      }
+      const typeBadge = post.type || "POST";
+      const title = post.title || "Publicación";
+      const caption = post.caption || post.body || "";
+      const bodyScript = post.body || "";
+      const promptUsed = post.promptUsed || "";
+
+      return `
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm space-y-2 text-xs">
+          <div class="flex items-center justify-between border-b pb-1.5">
+            <span class="px-2 py-0.5 rounded-md text-[8.5px] font-black uppercase ${channelColor}">
+              ${channelName}
+            </span>
+            <span class="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-slate-100 text-slate-700">
+              ${typeBadge}
+            </span>
+          </div>
+          <h4 class="font-black text-slate-800 text-xs leading-snug">${title}</h4>
+          ${caption ? `
+            <div class="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[11px] text-slate-750 whitespace-pre-wrap leading-relaxed">
+              <strong class="text-[8.5px] uppercase font-black text-slate-400 block mb-0.5">Copy / Leyenda</strong>
+              ${caption}
+            </div>
+          ` : ""}
+          ${bodyScript && bodyScript !== caption ? `
+            <div class="bg-indigo-50/40 p-2 rounded-lg border border-indigo-100 text-[11px] text-indigo-950 whitespace-pre-wrap leading-relaxed">
+              <strong class="text-[8.5px] uppercase font-black text-indigo-500 block mb-0.5">Guión / Storyboard</strong>
+              ${bodyScript}
+            </div>
+          ` : ""}
+          ${promptUsed ? `
+            <div class="bg-slate-900 text-slate-200 p-2 rounded-lg font-mono text-[10px] leading-normal border border-slate-800">
+              <strong class="text-[8.5px] uppercase font-black text-slate-400 block mb-0.5">Prompt de Imagen IA</strong>
+              ${promptUsed}
+            </div>
+          ` : ""}
+        </div>
+      `;
+    };
+
+    return `
+      <div class="mb-5 page-break-inside-avoid">
+        <div class="bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl font-black text-xs text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-2">
+          <span>📅</span> ${dateKey}
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <span class="text-[9px] font-black uppercase text-blue-700 block mb-1">Facebook</span>
+            ${renderPostCard(fbPost, "FACEBOOK", "bg-blue-50 text-blue-700 border border-blue-200")}
+          </div>
+          <div>
+            <span class="text-[9px] font-black uppercase text-pink-700 block mb-1">Instagram</span>
+            ${renderPostCard(igPost, "INSTAGRAM", "bg-pink-50 text-pink-700 border border-pink-200")}
+          </div>
+          <div>
+            <span class="text-[9px] font-black uppercase text-zinc-800 block mb-1">TikTok</span>
+            ${renderPostCard(ttPost, "TIKTOK", "bg-zinc-100 text-zinc-900 border border-zinc-300")}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+      <head>
+        <meta charset="utf-8">
+        <title>Calendario Editorial - ${brandName}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = {
+            theme: {
+              extend: {
+                fontFamily: {
+                  sans: ['Outfit', 'sans-serif'],
+                }
+              }
+            }
+          }
+        </script>
+        <style>
+          @page {
+            margin: 10mm 10mm;
+            size: A4 portrait;
+          }
+          body {
+            font-family: 'Outfit', sans-serif;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .page-break-inside-avoid {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .section-card {
+            page-break-inside: auto !important;
+            break-inside: auto !important;
+          }
+          h1, h2, h3, h4 {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+          }
+          @media print {
+            body {
+              padding: 0 !important;
+              background-color: #ffffff !important;
+            }
+          }
+        </style>
+      </head>
+      <body class="bg-slate-50 text-slate-800 p-6 leading-relaxed">
+        <!-- Banner de Encabezado -->
+        <div class="bg-gradient-to-br from-violet-500/10 via-purple-500/5 to-indigo-500/10 border border-violet-200/60 p-4 rounded-2xl shadow-sm mb-5 flex justify-between items-center page-break-inside-avoid">
+          <div>
+            <span class="text-[9px] font-black uppercase tracking-widest text-violet-700">OB MarketHub - Calendario Editorial 2026</span>
+            <h1 class="text-xl font-black text-slate-800 tracking-tight">${campaignName || `Calendario de Contenidos - ${brandName}`}</h1>
+          </div>
+          <div class="text-right text-xs text-slate-500 font-bold">
+            Negocio: ${brandName} | Generación: ${dateStr}
+          </div>
+        </div>
+
+        <!-- Resumen de Métricas -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 page-break-inside-avoid">
+          <div class="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm text-center">
+            <span class="text-[9px] font-black uppercase text-slate-400 block">Total Publicaciones</span>
+            <span class="text-lg font-black text-slate-800 mt-0.5 block">${contents.length}</span>
+          </div>
+          <div class="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm text-center">
+            <span class="text-[9px] font-black uppercase text-slate-400 block">Reels / Videos Cortos</span>
+            <span class="text-lg font-black text-violet-600 mt-0.5 block">${reelsCount}</span>
+          </div>
+          <div class="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm text-center">
+            <span class="text-[9px] font-black uppercase text-slate-400 block">Carruseles Educativos</span>
+            <span class="text-lg font-black text-indigo-600 mt-0.5 block">${carouselsCount}</span>
+          </div>
+          <div class="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm text-center">
+            <span class="text-[9px] font-black uppercase text-slate-400 block">Canales Activos</span>
+            <span class="text-xs font-extrabold text-slate-700 mt-1 block">FB (${facebookCount}) • IG (${instagramCount}) • TT (${tiktokCount})</span>
+          </div>
+        </div>
+
+        <!-- Grilla de Calendario por Canales -->
+        <div class="section-card">
+          <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 border-b pb-1.5 mb-4 flex items-center gap-2">
+            <span>🗓️</span> Matriz Editorial por Redes Sociales (3 Canales)
+          </h2>
+          ${datesHtml}
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 800);
+            }, 500);
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
 export const handleDownloadBancoDeDatosPDF = (
   data: any,
   businessReports: any[],

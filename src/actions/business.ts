@@ -106,43 +106,29 @@ export async function createBusinessWithAI(data: {
   onboardingStrategy?: Record<string, string | undefined>;
 }, skipAnalysis = false) {
   try {
-    // 1. Preparar datos completos iniciales de forma rápida
+    // 1. Ejecutar análisis rápido de negocio por IA para detectar el rubro exacto
+    let analysis: any = null;
+    try {
+      analysis = await analyzeBusiness(data.name, data.description, data.website);
+    } catch (aiErr) {
+      console.error("Error al analizar negocio con IA:", aiErr);
+    }
+
     const fullData = {
       name: data.name,
       description: data.description || "",
       website: data.website || "",
-      industry: "",
-      brandVoice: { tone: [], personality: [], values: [] },
-      targetAudience: { demographics: "", psychographics: "" },
+      industry: analysis?.industry || "",
+      brandVoice: analysis?.brandVoice || { tone: [], personality: [], values: [] },
+      targetAudience: analysis?.targetAudience || { demographics: "", psychographics: "" },
       phoneNumbers: data.phoneNumbers || "",
       location: data.location || "",
       socialLinks: data.socialLinks || { facebook: "", instagram: "", tiktok: "" },
       onboardingStrategy: data.onboardingStrategy,
     };
 
-    // 2. Crear el negocio en la base de datos de inmediato
+    // 2. Crear el negocio en la base de datos de inmediato con los datos analizados
     const res = await createBusiness(fullData as z.infer<typeof businessSchema>, skipAnalysis);
-
-    if (res.success && res.data?.id) {
-      const businessId = res.data.id;
-      // 3. Lanzar la consulta con IA de fondo para no demorar la respuesta
-      (async () => {
-        try {
-          const analysis = await analyzeBusiness(data.name, data.description, data.website);
-          await prisma.business.update({
-            where: { id: businessId },
-            data: {
-              industry: analysis.industry || "",
-              brandVoice: analysis.brandVoice || { tone: [], personality: [], values: [] },
-              targetAudience: analysis.targetAudience || { demographics: "", psychographics: "" }
-            }
-          });
-          console.log(`[IA] Análisis de negocio de fondo completado para ID: ${businessId}`);
-        } catch (aiError) {
-          console.error("AI background analysis failed:", aiError);
-        }
-      })();
-    }
 
     return res;
   } catch (error) {

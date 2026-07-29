@@ -96,18 +96,24 @@ export async function analyzeBusiness(name: string, description: string, website
   const { object } = await generateObject({
     model: openrouter('google/gemini-2.5-flash'),
     schema: businessAnalysisSchema,
-    system: `Eres un experto en estrategia de marca y marketing digital. 
-    Tu tarea es analizar la información de un negocio y extraer/generar su perfil estratégico.
-    Si se proporciona contenido de la web, úsalo para ser más preciso.
-    Sé creativo pero realista. Los tonos, personalidad y valores deben ser una lista de palabras o frases cortas.`,
+    system: `Eres un experto en estrategia de marca y análisis de mercado comercial. 
+    Tu tarea es analizar estrictamente el Nombre, Descripción y Contenido web de un negocio para identificar su industria comercial real.
+
+    REGLA CRÍTICA DE VALIDACIÓN DE RUBRO / INDUSTRIA:
+    1. Si el Nombre y la Descripción contienen texto aleatorio, incoherente, letras al azar (ej: "asdfghjk", "test 123", "qwerty"), o si la información es insuficiente para determinar objetivamente un sector comercial real:
+       - El campo 'industry' DEBE SER EXACTAMENTE: "Error al identificar rubro (Descripción o datos insuficientes)".
+    2. Si el Nombre o la Descripción indican un sector o actividad económica real (ej: Restaurante, Pastelería, Clínica Dental, Boutique de Ropa, Agencia de Software, etc.):
+       - Identifica la industria precisa en español (ej: "Gastronomía y Alimentación", "Salud y Medicina", "Moda y Belleza", "Tecnología y Software", "Servicios Profesionales", etc.).
+
+    NUNCA inventes o adivines un rubro ficticio si los datos ingresados por el usuario son texto aleatorio o insuficiente.`,
     prompt: `
       Analiza el siguiente negocio:
-      Nombre: ${name}
-      Descripción: ${description}
-      ${websiteContent ? `Contenido del sitio web: ${websiteContent}` : 'No se pudo obtener contenido del sitio web.'}
+      Nombre del Negocio: ${name}
+      Descripción: ${description || 'Sin descripción'}
+      ${websiteContent ? `Contenido extraído del sitio web: ${websiteContent}` : 'Sin sitio web disponible.'}
 
       Genera el objeto JSON con:
-      - industry: La industria principal.
+      - industry: La industria principal real detectada, o "Error al identificar rubro (Descripción o datos insuficientes)" si la información es incoherente o insuficiente.
       - brandVoice: Un objeto con tone (array), personality (array) y values (array).
       - targetAudience: Un objeto con demographics (string) y psychographics (string).
     `,

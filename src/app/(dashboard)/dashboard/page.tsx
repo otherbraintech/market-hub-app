@@ -85,7 +85,7 @@ function AgentStatusCard({
 }: {
   name: string;
   role: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   status: "ACTIVE" | "IDLE";
   color: string;
 }) {
@@ -246,7 +246,7 @@ export default async function DashboardPage() {
                   Lista de Negocios
                 </CardTitle>
                 <CardDescription className="text-xs text-slate-400 mt-0.5">
-                  Directorio de negocios con acceso directo al perfil y pipeline de operaciones.
+                  Directorio de negocios con acceso directo al perfil y flujo operativo.
                 </CardDescription>
               </div>
               <Button asChild variant="ghost" size="sm" className="text-xs font-bold text-cyan-400 hover:text-cyan-300 gap-1">
@@ -283,7 +283,7 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold border-cyan-500/20 text-slate-300 hover:text-white bg-slate-900/60 gap-1.5">
                         <Link href={`/business/${b.id}`}>
-                          <Layers className="h-3.5 w-3.5 text-cyan-400" /> Abrir Negocio & Pipeline
+                          <Layers className="h-3.5 w-3.5 text-cyan-400" /> Abrir Negocio & Flujo IA
                         </Link>
                       </Button>
                     </div>
@@ -316,7 +316,7 @@ export default async function DashboardPage() {
                 <div className="text-center py-8 text-slate-500 border border-dashed border-slate-800 rounded-xl bg-slate-900/30">
                   <Calendar className="h-8 w-8 mx-auto mb-2 text-slate-600" />
                   <p className="text-xs font-semibold">Sin publicaciones programadas aún</p>
-                  <p className="text-[11px] text-slate-500 mt-1">Ejecuta el paso 3 del pipeline para construir tu calendario.</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Ejecuta las etapas del flujo operativo para construir tu calendario.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -395,7 +395,7 @@ export default async function DashboardPage() {
               <Zap className="h-4 w-4" /> Acceso Rápido a Operaciones
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Selecciona un negocio para abrir su perfil y ejecutar los 3 pasos del pipeline autónomo.
+              Selecciona un negocio para abrir su perfil y ejecutar las 4 etapas del flujo operativo autónomo.
             </p>
             <Button asChild className="w-full text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950">
               <Link href="/business">

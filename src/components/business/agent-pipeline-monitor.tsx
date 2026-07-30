@@ -30,7 +30,7 @@ const stepsMeta = [
   { key: "ANALYSIS", label: "Agente de Canales y Métricas", icon: FileText, desc: "Diagnóstico inicial de canales", emoji: "📊", processingEmoji: "🔬" },
   { key: "DIAGNOSTIC", label: "Agente de Diagnóstico Competitivo", icon: Layers, desc: "Análisis competitivo de rivales", emoji: "🧠", processingEmoji: "⚡" },
   { key: "STRATEGY", label: "Agente de Growth & Estrategia", icon: Sparkles, desc: "Diseña buyer personas y plan estratégico", emoji: "🎯", processingEmoji: "✨" },
-  { key: "CAMPAIGN", label: "Agente de Campañas de Marketing", icon: Bot, desc: "Formula tus campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
+  { key: "CAMPAIGN", label: "Agente de Parametrización de Campañas de Marketing", icon: Bot, desc: "Formula tus campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
   { key: "CALENDAR", label: "Agente Editorial y de Contenidos", icon: ShieldCheck, desc: "Crea copys, hashtags y prompts de imagen", emoji: "📝", processingEmoji: "🤖" },
 ];
 

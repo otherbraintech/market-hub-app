@@ -11,6 +11,7 @@ export interface IndustryPlaceholdersMap {
   informationGaps: StrategicQuestionSuggestion;
   socialProof: StrategicQuestionSuggestion;
   differentialAdvantage: StrategicQuestionSuggestion;
+  businessHours: StrategicQuestionSuggestion;
   industryLabel: string;
 }
 
@@ -43,20 +44,27 @@ const GASTRO_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Tiempo y zonas de delivery", "Menú con precios actualizados", "Opciones vegetarianas o keto", "Reservas de mesas"]
   },
   socialProof: {
-    placeholder: "Ej. Fotos de clientes felices y 5 estrellas en Google Maps",
+    placeholder: "Ej. \"La comida llegó caliente en <20 mins y el sabor es único\"",
     chips: [
-      "Fotos o historias que comparten los clientes en redes",
-      "Reseñas y 5 estrellas en Google o Facebook",
-      "Mensajes de agradecimiento por WhatsApp",
-      "Recomendaciones boca a boca de clientes frecuentes",
-      "Menciones de influencers o creadores locales",
-      "Buenas notas y opiniones en apps de delivery",
-      "Fotos reales de platos y pedidos entregados"
+      "\"La comida llegó caliente en <20 mins y el sabor es único\"",
+      "\"Excelente atención, celebramos mi cumpleaños y nos regalaron postre\"",
+      "\"Porciones súper generosas y la mejor relación precio-calidad\"",
+      "\"El mejor delivery de la ciudad, recomendado 100%\"",
+      "\"Calidad 5 estrellas, súper recomendado por todo mi grupo de trabajo\""
     ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Ingredientes 100% artesanales y frescos con delivery express calientito en <30 mins",
     chips: ["Delivery express en <30 mins", "Ingredientes 100% frescos y artesanales", "Receta secreta con porciones generosas"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Viernes de 11:30 a 23:00, Sábados y Domingos de 11:00 a 00:00",
+    chips: [
+      "Lunes a Viernes de 11:30 a 23:00",
+      "Lunes a Sábado de 12:00 a 23:30",
+      "Lunes a Domingo de 11:00 a 00:00 (Delivery continuo)",
+      "Martes a Domingo de 18:00 a 01:00"
+    ]
   }
 };
 
@@ -89,19 +97,27 @@ const MODA_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Tabla de tallas y medidas exactas", "Políticas de cambio o devolución", "Costo y tiempo de envío nacional", "Fotos reales puestas"]
   },
   socialProof: {
-    placeholder: "Ej. Fotos de clientas vistiendo las prendas y reseñas de compra",
+    placeholder: "Ej. \"La calidad de la prenda es increíble y el calce perfecto\"",
     chips: [
-      "Fotos y videos de clientas vistiendo las prendas",
-      "Mensajes de agradecimiento y felicitaciones por WhatsApp",
-      "Recomendaciones y menciones de creadoras de contenido",
-      "Calificaciones de 5 estrellas en Facebook o Google",
-      "Comentarios positivos sobre el envío rápido",
-      "Años de trayectoria y marca reconocida"
+      "\"La calidad de la prenda es increíble y el calce perfecto\"",
+      "\"Llegó al día siguiente a mi casa y la atención por WhatsApp fue excelente\"",
+      "\"Superó mis expectativas, la tela se siente de alta costura\"",
+      "\"Mi boutique favorita, siempre tienen las últimas tendencias\"",
+      "\"100% confiable, me asesoraron con la talla exacta\""
     ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Diseños de edición limitada (pocas unidades) y asesoría de imagen personalizada gratis",
     chips: ["Edición limitada por colección", "Asesoría de imagen gratis por WhatsApp", "Envíos el mismo día con empaque de regalo"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Sábado de 10:00 a 20:00 (Tienda física) / Atención 24/7 en WhatsApp",
+    chips: [
+      "Lunes a Sábado de 10:00 a 20:00",
+      "Lunes a Viernes de 9:00 a 19:30, Sábados de 9:00 a 14:00",
+      "Atención en línea 24/7 por WhatsApp / Tienda Web",
+      "Martes a Domingo de 11:00 a 20:30"
+    ]
   }
 };
 
@@ -133,19 +149,27 @@ const TECH_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Integración con herramientas actuales", "Precios y planes de suscripción", "Facilidad de uso y capacitación", "Seguridad de datos y soporte 24/7"]
   },
   socialProof: {
-    placeholder: "Ej. Casos de éxito comprobados y empresas reconocidas que confían en nosotros",
+    placeholder: "Ej. \"Automatizamos nuestras ventas en 24h y ahorramos 15 horas a la semana\"",
     chips: [
-      "Casos de éxito con resultados reales y métricas",
-      "Empresas reconocidas que confían en el servicio",
-      "Testimonios en video de gerentes o clientes",
-      "Calificaciones y opiniones positivas en internet",
-      "Mensajes de felicitación del equipo de soporte",
-      "Certificaciones e hitos de calidad"
+      "\"Automatizamos nuestras ventas en 24h y ahorramos 15 horas a la semana\"",
+      "\"El soporte por WhatsApp responde en minutos y resolvió toda nuestra integración\"",
+      "\"Plataforma intuitiva que nos permitió duplicar nuestro flujo de leads\"",
+      "\"Excelente plataforma, la mejor inversión del año para nuestra empresa\"",
+      "\"Servicio 5 estrellas, la migración fue indolora y rápida\""
     ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Puesta en marcha en 24 horas con soporte en español 1 a 1 y garantía de satisfacción",
     chips: ["Implementación express en 24 horas", "Soporte dedicado en español por WhatsApp", "Plataforma todo-en-uno más intuitiva"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Viernes de 8:30 a 18:30 (Soporte 24/7 en plataforma)",
+    chips: [
+      "Lunes a Viernes de 8:30 a 18:30",
+      "Lunes a Sábado de 9:00 a 18:00",
+      "Soporte técnico 24/7 en línea",
+      "Atención comercial Lunes a Viernes de 9:00 a 19:00"
+    ]
   }
 };
 
@@ -177,19 +201,27 @@ const SALUD_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Si el tratamiento genera dolor/reposo", "Precio de la primera evaluación", "Acreditación y experiencia médica", "Facilidades de pago por sesiones"]
   },
   socialProof: {
-    placeholder: "Ej. Fotos de antes y después y testimonios reales de pacientes",
+    placeholder: "Ej. \"El tratamiento fue 100% indoloro y los resultados son visibles en la 1ra sesión\"",
     chips: [
-      "Fotos de cambios reales (antes y después)",
-      "Testimonios en video de pacientes satisfechos",
-      "Títulos, especializaciones y licencias médicas",
-      "Reseñas y 5 estrellas en Google Maps",
-      "Mensajes de agradecimiento por WhatsApp",
-      "Años de experiencia atendiendo a miles de pacientes"
+      "\"El tratamiento fue 100% indoloro y los resultados son visibles en la 1ra sesión\"",
+      "\"Atención impecable sin filas de espera, doctores muy humanos y profesionales\"",
+      "\"Me explicaron todo el procedimiento con mucha paciencia, súper recomendado\"",
+      "\"Excelente experiencia, recuperé mi confianza totalmente\"",
+      "\"Instalaciones de primera y seguimiento médico personalizado\""
     ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Tecnología de punta sin dolor, atención puntual sin filas y seguimiento personalizado",
     chips: ["Tecnología de última generación indolora", "Atención puntual sin filas de espera", "Diagnóstico integral y seguimiento continuo"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Viernes de 8:00 a 20:00, Sábados de 8:00 a 13:00",
+    chips: [
+      "Lunes a Viernes de 8:00 a 20:00",
+      "Lunes a Sábado de 8:30 a 19:00",
+      "Atención previa cita Lunes a Viernes 9:00 a 18:00",
+      "Emergencias / Consultas por WhatsApp 24/7"
+    ]
   }
 };
 
@@ -222,19 +254,27 @@ const SERVICIOS_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Certificación y validez oficial", "Precios y facilidades de pago", "Tiempos de ejecución / entrega", "Acompañamiento post-servicio"]
   },
   socialProof: {
-    placeholder: "Ej. Testimonios de clientes satisfechos y casos de éxito reales",
+    placeholder: "Ej. \"Superaron mis expectativas, resolviendo todo en tiempo récord\"",
     chips: [
-      "Testimonios de clientes o alumnos satisfechos",
-      "Casos de éxito reales con resultados comprobados",
-      "Reseñas y 5 estrellas en Google o redes",
-      "Mensajes de agradecimiento por WhatsApp o correo",
-      "Certificados oficiales y convenios institucionales",
-      "Proyectos ejecutados y empresas que nos recomiendan"
+      "\"Superaron mis expectativas, resolviendo todo en tiempo récord\"",
+      "\"Atención 1 a 1 personalizada y muy transparente con los costos\"",
+      "\"Excelente profesionalismo, los recomiendo a ojos cerrados\"",
+      "\"Metodología práctica que me permitió conseguir mi objetivo de inmediato\"",
+      "\"La mejor consultoría de la ciudad, profesionalismo total\""
     ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Metodología 100% práctica enfocada en resultados inmediatos con garantía de calidad",
     chips: ["Metodología 100% práctica y aplicada", "Acompañamiento 1 a 1 personalizado", "Garantía total de satisfacción"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Viernes de 8:30 a 18:30, Sábados de 9:00 a 13:00",
+    chips: [
+      "Lunes a Viernes de 8:30 a 18:30",
+      "Lunes a Viernes de 9:00 a 18:00, Sábados de 9:00 a 13:00",
+      "Atención previa cita Lunes a Viernes",
+      "Soporte al cliente por WhatsApp de 8:00 a 20:00"
+    ]
   }
 };
 
@@ -267,19 +307,27 @@ const GENERAL_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Precios y stock disponible", "Formas de pago (QR, transferencia, tarjeta)", "Ubicación exacta y horarios de atención"]
   },
   socialProof: {
-    placeholder: "Ej. Calificaciones positivas de clientes en redes y fotos de entregas",
+    placeholder: "Ej. \"Producto de excelente calidad, llegó muy rápido a mi ciudad\"",
     chips: [
-      "Fotos de entregas a clientes satisfechos",
-      "Reseñas y 5 estrellas en Google o Facebook",
-      "Mensajes de agradecimiento por WhatsApp",
-      "Recomendaciones boca a boca de clientes habituales",
-      "Publicaciones o fotos compartidas por compradores",
-      "Años de atención y local físico abierto"
+      "\"Producto de excelente calidad, llegó muy rápido a mi ciudad\"",
+      "\"Atención rápida y amable por WhatsApp, 100% confiables\"",
+      "\"Compré por recomendación y ahora soy cliente frecuente\"",
+      "\"Súper recomendados, respuestas inmediatas y envío puntual\"",
+      "\"Excelente relación precio-calidad, volveré a comprar\""
     ]
   },
   differentialAdvantage: {
     placeholder: "Ej. Excelente relación calidad-precio y atención inmediata personalizada por WhatsApp",
     chips: ["Excelente relación precio-calidad", "Atención amable y sin demoras", "Garantía de satisfacción garantizada"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Sábado de 8:30 a 19:30, Domingos de 9:00 a 13:00",
+    chips: [
+      "Lunes a Sábado de 8:30 a 19:30",
+      "Lunes a Viernes de 9:00 a 18:30, Sábados de 9:00 a 13:30",
+      "Atención continua Lunes a Domingo",
+      "Pedidos por WhatsApp las 24 horas"
+    ]
   }
 };
 
@@ -312,17 +360,25 @@ const ERROR_PRESETS: IndustryPlaceholdersMap = {
     chips: ["Precios y promociones", "Ubicación y horarios de atención", "Tiempos de entrega y envíos"]
   },
   socialProof: {
-    placeholder: "Ej. Reseñas de clientes, fotos reales o años de experiencia",
+    placeholder: "Ej. \"Excelente servicio y atención personalizada 100% garantizada\"",
     chips: [
-      "Fotos de clientes satisfechos",
-      "Reseñas de 5 estrellas en redes o Google",
-      "Mensajes de agradecimiento por WhatsApp",
-      "Recomendaciones boca a boca"
+      "\"Excelente servicio y atención personalizada 100% garantizada\"",
+      "\"Respuestas inmediatas y gran calidad en la atención\"",
+      "\"Recomendados por su puntualidad y transparencia\"",
+      "\"Muy satisfecho con la compra y el soporte brindado\""
     ]
   },
   differentialAdvantage: {
     placeholder: "Ej. ¿Cuál es el principal valor único o ventaja de tu negocio respecto a otros?",
     chips: ["Atención rápida e inmediata", "Excelente relación precio-calidad", "Garantía de servicio personalizado"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Viernes de 9:00 a 18:00, Sábados de 9:00 a 13:00",
+    chips: [
+      "Lunes a Viernes de 9:00 a 18:00",
+      "Lunes a Sábado de 8:30 a 19:00",
+      "Atención continua 24/7 por WhatsApp / Tienda Web"
+    ]
   }
 };
 

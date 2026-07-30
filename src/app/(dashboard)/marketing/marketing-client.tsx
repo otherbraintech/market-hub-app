@@ -162,7 +162,7 @@ export function MarketingClient({
             </TabsTrigger>
             <TabsTrigger value="campaigns" className="rounded-lg font-bold text-xs px-4 py-2">
               <Target className="h-3.5 w-3.5 mr-2 text-fuchsia-500" />
-              Campañas de Marketing ({campaigns.length})
+              Parametrización de Campañas de Marketing ({campaigns.length})
             </TabsTrigger>
           </TabsList>
 

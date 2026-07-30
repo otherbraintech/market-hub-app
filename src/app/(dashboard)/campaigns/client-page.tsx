@@ -170,7 +170,7 @@ export function CampaignsClientPage({
       {/* CABECERA PRINCIPAL */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Campañas de Marketing: {businessName}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Parametrización de Campaña de Marketing: {businessName}</h1>
           <p className="text-muted-foreground text-sm">Monitorea y previsualiza las campañas sincronizadas con tus estrategias.</p>
           {cooldownStatus && (
             <div className="mt-2">

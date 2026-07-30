@@ -90,7 +90,7 @@ export function CampaignList({ businessId, campaigns }: CampaignListProps) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Campañas de Marketing</h3>
+        <h3 className="text-lg font-medium">Parametrización de Campañas de Marketing</h3>
         <Button onClick={() => {
           setEditingCampaign(null);
           setIsDialogOpen(true);

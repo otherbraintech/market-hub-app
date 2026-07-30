@@ -241,7 +241,7 @@ export function AgentPipelineSidebar({
         {/* Step 3: Campaigns */}
         <AgentStepCard
           stepNumber={3}
-          title="3. Campañas de Marketing"
+          title="3. Parametrización de Campaña de Marketing"
           description="Formulación de campañas, presupuestos y objetivos"
           icon={Megaphone}
           status={campaignStatus}

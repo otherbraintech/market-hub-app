@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { 
   Check, Users, ArrowRight, ArrowLeft, Globe, 
-  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info, Phone, Store, CheckCircle2
+  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info, Phone, Store, CheckCircle2, Plus
 } from "lucide-react";
 import { BusinessForm } from "@/components/business/business-form";
 import { saveMultipleCompetitorsAction } from "@/app/(dashboard)/business/[id]/competitor-actions";
@@ -767,6 +767,7 @@ export function OnboardingContent() {
     informationGaps: "",
     socialProof: "",
     differentialAdvantage: "",
+    businessHours: "",
   });
 
   const handleFinishCompetitors = async () => {
@@ -1034,71 +1035,53 @@ export function OnboardingContent() {
 
   return (
     <div className={`${currentStep >= 3 ? 'max-w-7xl' : 'max-w-4xl'} mx-auto py-10 px-4 space-y-8`}>
-      {/* Indicador de pasos estilo Premium Glass (5 Pasos) */}
-      <div className="bg-card/45 backdrop-blur-md border border-slate-100 dark:border-slate-800/80 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 overflow-x-auto">
-        {/* Step 1 */}
-        <button type="button" onClick={() => (currentStep > 1 || isEdit || !!businessId) && goToStep(1)} className={`flex items-center gap-2.5 ${(currentStep > 1 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 1 ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105 border border-primary/20' : currentStep > 1 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
-            {currentStep > 1 ? <Check className="h-4 w-4 stroke-[3]" /> : "01"}
-          </div>
-          <div className="flex flex-col text-left">
-            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Perfil</span>
-            <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 1 ? 'text-primary' : 'text-foreground/80'}`}>Mi Negocio</span>
-          </div>
-        </button>
+      {/* Indicador Progresivo Elegante para las 10 Etapas */}
+      {(() => {
+        const stepMeta: Record<number, { subtitle: string; emoji: string; phase: string }> = {
+          1: { subtitle: "Perfil del Negocio", emoji: "🏢", phase: "Paso 1 de 10 · Configuración Inicial" },
+          2: { subtitle: "Competidores Directos", emoji: "🔍", phase: "Paso 2 de 10 · Análisis de Mercado" },
+          3: { subtitle: "Ubicación y Audiencia Objetivo", emoji: "📍", phase: "Paso 3 de 10 · Estrategia Base" },
+          4: { subtitle: "Gatillo de Compra y Necesidad Clave", emoji: "⚡", phase: "Paso 4 de 10 · Estrategia Base" },
+          5: { subtitle: "Canal Preferido de Conversión", emoji: "💬", phase: "Paso 5 de 10 · Estrategia Base" },
+          6: { subtitle: "Personalidad y Tono de Marca", emoji: "🎭", phase: "Paso 6 de 10 · Estrategia Base" },
+          7: { subtitle: "Ventaja Competitiva Diferencial", emoji: "🏆", phase: "Paso 7 de 10 · Estrategia Base" },
+          8: { subtitle: "Preguntas Frecuentes y Objeciones", emoji: "❓", phase: "Paso 8 de 10 · Estrategia Base" },
+          9: { subtitle: "Prueba Social y Testimonios", emoji: "⭐", phase: "Paso 9 de 10 · Estrategia Base" },
+          10: { subtitle: "Horarios y Días de Atención", emoji: "🕒", phase: "Paso 10 de 10 · Estrategia Base" },
+        };
+        const meta = stepMeta[currentStep] || stepMeta[1];
 
-        <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-emerald-500/30 to-slate-200 dark:to-slate-800 mx-1" />
+        return (
+          <div className="bg-card/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-6 rounded-3xl shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                    {meta.emoji} {meta.phase}
+                  </span>
+                </div>
+                <h3 className="text-base font-extrabold text-foreground tracking-tight">
+                  {meta.subtitle}
+                </h3>
+              </div>
 
-        {/* Step 2 */}
-        <button type="button" onClick={() => (currentStep > 2 || isEdit || !!businessId) && goToStep(2)} className={`flex items-center gap-2.5 ${(currentStep > 2 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 2 ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105 border border-primary/20' : currentStep > 2 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
-            {currentStep > 2 ? <Check className="h-4 w-4 stroke-[3]" /> : "02"}
-          </div>
-          <div className="flex flex-col text-left">
-            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Mercado</span>
-            <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 2 ? 'text-primary' : 'text-foreground/80'}`}>Competidores</span>
-          </div>
-        </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-3 py-1.5 rounded-xl border border-indigo-200/60">
+                  {Math.round((currentStep / 10) * 100)}% Completado
+                </span>
+              </div>
+            </div>
 
-        <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-indigo-500/30 mx-1" />
-
-        {/* Step 3 */}
-        <button type="button" onClick={() => (currentStep > 3 || isEdit || !!businessId) && goToStep(3)} className={`flex items-center gap-2.5 ${(currentStep > 3 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 3 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-105 border border-indigo-500/20' : currentStep > 3 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
-            {currentStep > 3 ? <Check className="h-4 w-4 stroke-[3]" /> : "03"}
+            {/* Barra Progresiva de Estado */}
+            <div className="h-3 w-full bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-slate-200/50 dark:border-slate-800">
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 shadow-md"
+                style={{ width: `${(currentStep / 10) * 100}%` }}
+              />
+            </div>
           </div>
-          <div className="flex flex-col text-left">
-            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Diagnóstico 1/3</span>
-            <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 3 ? 'text-indigo-600 dark:text-indigo-400' : 'text-foreground/80'}`}>Audiencia</span>
-          </div>
-        </button>
-
-        <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-indigo-500/30 mx-1" />
-
-        {/* Step 4 */}
-        <button type="button" onClick={() => (currentStep > 4 || isEdit || !!businessId) && goToStep(4)} className={`flex items-center gap-2.5 ${(currentStep > 4 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 4 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-105 border border-indigo-500/20' : currentStep > 4 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
-            {currentStep > 4 ? <Check className="h-4 w-4 stroke-[3]" /> : "04"}
-          </div>
-          <div className="flex flex-col text-left">
-            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Diagnóstico 2/3</span>
-            <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 4 ? 'text-indigo-600 dark:text-indigo-400' : 'text-foreground/80'}`}>Valor</span>
-          </div>
-        </button>
-
-        <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-indigo-500/30 mx-1" />
-
-        {/* Step 5 */}
-        <button type="button" onClick={() => (currentStep > 5 || isEdit || !!businessId) && goToStep(5)} className={`flex items-center gap-2.5 ${(currentStep > 5 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 5 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-105 border border-indigo-500/20' : currentStep > 5 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
-            {currentStep > 5 ? <Check className="h-4 w-4 stroke-[3]" /> : "05"}
-          </div>
-          <div className="flex flex-col text-left">
-            <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Diagnóstico 3/3</span>
-            <span className={`text-xs font-black uppercase tracking-wider transition-colors ${currentStep === 5 ? 'text-indigo-600 dark:text-indigo-400' : 'text-foreground/80'}`}>Confianza</span>
-          </div>
-        </button>
-      </div>
+        );
+      })()}
 
       {/* Content area with fixed min-height to prevent layout shifts */}
       <div className="min-h-[500px]">
@@ -1149,72 +1132,124 @@ export function OnboardingContent() {
         )}
 
         {currentStep === 2 && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/50 p-6 shadow-sm">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full blur-xl" />
-              <div className="flex items-start gap-4">
-                <div className="h-10 w-10 bg-orange-100 dark:bg-orange-950 rounded-xl flex items-center justify-center text-orange-600 shrink-0 border border-orange-200">
-                  <Users className="h-5 w-5" />
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-200/50 p-8 shadow-inner">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -z-10" />
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6 text-center md:text-left">
+                <div className="h-14 w-14 bg-emerald-500/15 rounded-2xl flex items-center justify-center text-emerald-600 shrink-0 shadow-sm border border-emerald-500/20">
+                  <Users className="h-7 w-7" />
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-400 px-2.5 py-0.5 rounded-full">
-                      Competidores: {competitors.length} / {maxCompetitorsLimit}
-                    </span>
+                <div className="space-y-2 max-w-2xl">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-bold text-emerald-600">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Paso 2: Análisis Competitivo</span>
                   </div>
-                  <h5 className="text-base font-bold text-foreground">
-                    Registra tu competencia directa{businessName ? ` para ${businessName}` : ""}
-                  </h5>
-                  <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
-                    Para que la IA diseñe una estrategia adaptada a tu mercado, necesitamos analizar la huella digital de tus principales rivales.
+                  <h2 className="text-2xl font-black tracking-tight text-foreground">
+                    Registra a tus Competidores Directos
+                  </h2>
+                  <p className="text-xs text-muted-foreground leading-relaxed font-medium">
+                    Ingresa los enlaces web o redes de tus principales competidores locales. El agente rastreará sus estrategias para identificar oportunidades de mercado para tu marca.
                   </p>
                 </div>
               </div>
             </div>
 
             <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
-              <CardContent className="pt-6 space-y-4">
-                {competitors.map((comp, idx) => (
-                  <div key={idx}>
-                    {renderCompetitorForm(idx, comp)}
-                  </div>
-                ))}
+              <CardContent className="pt-6 space-y-6">
+                <div className="space-y-4">
+                  {competitors.map((comp, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-muted/30 border space-y-3 relative group">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5" /> Competidor #{idx + 1}
+                        </span>
+                        {competitors.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeCompetitor(idx)}
+                            className="text-xs text-rose-500 hover:text-rose-700 font-semibold"
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
 
-                {competitors.length < maxCompetitorsLimit && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-[11px] font-medium">Nombre del Competidor *</Label>
+                          <Input
+                            placeholder="Ej. Hamburguesas El Rey"
+                            value={comp.name}
+                            onChange={(e) => updateCompetitor(idx, "name", e.target.value)}
+                            className="h-10 text-xs rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] font-medium">Sitio Web</Label>
+                          <Input
+                            placeholder="https://competidor.com"
+                            value={comp.website}
+                            onChange={(e) => updateCompetitor(idx, "website", e.target.value)}
+                            className="h-10 text-xs rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] font-medium">Instagram</Label>
+                          <Input
+                            placeholder="https://instagram.com/competidor"
+                            value={comp.instagram}
+                            onChange={(e) => updateCompetitor(idx, "instagram", e.target.value)}
+                            className="h-10 text-xs rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] font-medium">Facebook</Label>
+                          <Input
+                            placeholder="https://facebook.com/competidor"
+                            value={comp.facebook}
+                            onChange={(e) => updateCompetitor(idx, "facebook", e.target.value)}
+                            className="h-10 text-xs rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {competitors.length < maxCompetitorsLimit && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={addCompetitor}
+                      className="w-full border-dashed border-slate-300 dark:border-slate-700 rounded-xl h-11 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Agregar Otro Competidor
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={addCompetitor}
-                    className="w-full h-12 rounded-xl border-dashed text-sm font-bold text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
-                  >
-                    <Users className="h-4 w-4 mr-2" /> Añadir otro competidor
-                  </Button>
-                )}
-
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setCurrentStep(1)} 
+                    onClick={() => goToStep(1)}
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={handleFinishCompetitors} 
+                  <Button
+                    type="button"
+                    onClick={handleFinishCompetitors}
                     disabled={loading}
-                    className="rounded-xl h-11 px-8 font-bold"
+                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
                   >
                     {loading ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Guardando...
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...
                       </>
                     ) : (
                       <>
-                        Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                        Continuar al Diagnóstico <ArrowRight className="h-4 w-4 ml-2" />
                       </>
                     )}
                   </Button>
@@ -1224,21 +1259,21 @@ export function OnboardingContent() {
           </div>
         )}
 
+        {/* PREGUNTA 1 DE 7: Ubicación y Edad Objetivo (Step 3) */}
         {currentStep === 3 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-blue-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl" />
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
-                    <Target className="h-5 w-5" />
+                    <Sparkles className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
                     <h5 className="text-base font-bold text-foreground">
-                      Diagnóstico del Negocio (1/3): Audiencia & Canales
+                      Paso 3 de 10 · Ubicación y Audiencia Objetivo
                     </h5>
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
-                      Define la ubicación y edades de tus compradores principales, el momento de necesidad y los canales donde cierras ventas.
+                      Define en qué ciudad o zona se encuentran tus compradores clave y su rango de edad.
                     </p>
                   </div>
                 </div>
@@ -1253,7 +1288,6 @@ export function OnboardingContent() {
             <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
               <CardContent className="pt-6 space-y-6">
                 <TooltipProvider delayDuration={150}>
-                  {/* Pregunta 1 */}
                   <div className="space-y-2">
                     <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">1. Ubicación y Edad Objetivo</Label>
                     <div className="flex items-center gap-1.5">
@@ -1291,8 +1325,65 @@ export function OnboardingContent() {
                       ))}
                     </div>
                   </div>
+                </TooltipProvider>
 
-                  {/* Pregunta 2 */}
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => goToStep(2)} 
+                    className="rounded-xl h-11 px-6 font-bold"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
+                  </Button>
+
+                  <Button 
+                    type="button" 
+                    onClick={async () => {
+                      if (businessId) {
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
+                      }
+                      goToStep(4);
+                    }} 
+                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* PREGUNTA 2 DE 7: Momento Desencadenante (Step 4) */}
+        {currentStep === 4 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-base font-bold text-foreground">
+                      Paso 4 de 10 · Gatillo de Compra y Necesidad Clave
+                    </h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                      Identifica el momento o necesidad especial que motiva a tus clientes a adquirir tu producto.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse shrink-0" />
+                  <span>Rubro: <strong>{industryPlaceholders.industryLabel}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
+              <CardContent className="pt-6 space-y-6">
+                <TooltipProvider delayDuration={150}>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">2. Momento Desencadenante (Evento de Vida)</Label>
                     <div className="flex items-center gap-1.5">
@@ -1330,8 +1421,65 @@ export function OnboardingContent() {
                       ))}
                     </div>
                   </div>
+                </TooltipProvider>
 
-                  {/* Pregunta 4 (Multiselección) */}
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => goToStep(3)} 
+                    className="rounded-xl h-11 px-6 font-bold"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
+                  </Button>
+
+                  <Button 
+                    type="button" 
+                    onClick={async () => {
+                      if (businessId) {
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
+                      }
+                      goToStep(5);
+                    }} 
+                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* PREGUNTA 3 DE 7: Canal Crítico de Conversión (Step 5) */}
+        {currentStep === 5 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-base font-bold text-foreground">
+                      Paso 5 de 10 · Canal Preferido de Conversión
+                    </h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                      Define los medios principales por donde tus clientes prefieren comunicarse y cerrar sus compras.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse shrink-0" />
+                  <span>Rubro: <strong>{industryPlaceholders.industryLabel}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
+              <CardContent className="pt-6 space-y-6">
+                <TooltipProvider delayDuration={150}>
                   <MultiSelectQuestion
                     label="3. Canal Crítico de Conversión"
                     question="¿Por qué medio prefieren tus clientes cerrar la compra?"
@@ -1349,7 +1497,7 @@ export function OnboardingContent() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => goToStep(2)} 
+                    onClick={() => goToStep(4)} 
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
@@ -1361,11 +1509,11 @@ export function OnboardingContent() {
                       if (businessId) {
                         await saveOnboardingStrategyAction(businessId, strategyValues);
                       }
-                      setCurrentStep(4);
+                      goToStep(6);
                     }} 
                     className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
                   >
-                    Siguiente (2/3) <ArrowRight className="h-4 w-4 ml-2" />
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
               </CardContent>
@@ -1373,10 +1521,10 @@ export function OnboardingContent() {
           </div>
         )}
 
-        {currentStep === 4 && (
+        {/* PREGUNTA 4 DE 7: Personalidad del Negocio / Arquetipo (Step 6) */}
+        {currentStep === 6 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl" />
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
@@ -1384,10 +1532,10 @@ export function OnboardingContent() {
                   </div>
                   <div className="space-y-1">
                     <h5 className="text-base font-bold text-foreground">
-                      Diagnóstico del Negocio (2/3): Valor & Arquetipo
+                      Paso 6 de 10 · Personalidad y Tono de Marca
                     </h5>
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
-                      Establece el arquetipo de personalidad con el que se expresará tu marca y la ventaja única que la diferencia.
+                      Establece el estilo de comunicación con el que tu negocio conectará con la audiencia.
                     </p>
                   </div>
                 </div>
@@ -1402,9 +1550,8 @@ export function OnboardingContent() {
             <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
               <CardContent className="pt-6 space-y-6">
                 <TooltipProvider delayDuration={150}>
-                  {/* Pregunta 3 (Multiselección) */}
                   <MultiSelectQuestion
-                    label="1. Personalidad del Negocio (Arquetipo)"
+                    label="4. Personalidad del Negocio (Arquetipo)"
                     question="Si tu negocio fuera una persona, ¿cómo sería?"
                     tooltipText="Define el tono de voz (divertido, refinado, directo, cercano) con el que la IA redactará las publicaciones y guiones de Reels."
                     chips={industryPlaceholders.archetype.chips}
@@ -1412,10 +1559,67 @@ export function OnboardingContent() {
                     onChange={(val) => setStrategyValues({...strategyValues, archetype: val})}
                     otherPlaceholder="Especifica otra personalidad o arquetipo..."
                   />
+                </TooltipProvider>
 
-                  {/* Pregunta 7 */}
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => goToStep(5)} 
+                    className="rounded-xl h-11 px-6 font-bold"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
+                  </Button>
+
+                  <Button 
+                    type="button" 
+                    onClick={async () => {
+                      if (businessId) {
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
+                      }
+                      goToStep(7);
+                    }} 
+                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* PREGUNTA 5 DE 7: Ventaja Diferencial Única (Step 7) */}
+        {currentStep === 7 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-base font-bold text-foreground">
+                      Paso 7 de 10 · Ventaja Competitiva Diferencial
+                    </h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                      Fija la propuesta de valor y beneficio principal que destaca a tu marca frente a la competencia.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse shrink-0" />
+                  <span>Rubro: <strong>{industryPlaceholders.industryLabel}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
+              <CardContent className="pt-6 space-y-6">
+                <TooltipProvider delayDuration={150}>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">2. Ventaja Diferencial Única</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">5. Ventaja Diferencial Única</Label>
                     <div className="flex items-center gap-1.5">
                       <p className="text-[13px] font-bold text-foreground leading-snug">¿Cuál es tu mayor ventaja frente a otros negocios similares?</p>
                       <Tooltip>
@@ -1457,7 +1661,7 @@ export function OnboardingContent() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => goToStep(3)} 
+                    onClick={() => goToStep(6)} 
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
@@ -1469,11 +1673,11 @@ export function OnboardingContent() {
                       if (businessId) {
                         await saveOnboardingStrategyAction(businessId, strategyValues);
                       }
-                      setCurrentStep(5);
+                      goToStep(8);
                     }} 
                     className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
                   >
-                    Siguiente (3/3) <ArrowRight className="h-4 w-4 ml-2" />
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
               </CardContent>
@@ -1481,10 +1685,10 @@ export function OnboardingContent() {
           </div>
         )}
 
-        {currentStep === 5 && (
+        {/* PREGUNTA 6 DE 7: Dudas Frena-Ventas Comunes / Brechas (Step 8) */}
+        {currentStep === 8 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl" />
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
@@ -1492,10 +1696,10 @@ export function OnboardingContent() {
                   </div>
                   <div className="space-y-1">
                     <h5 className="text-base font-bold text-foreground">
-                      Diagnóstico del Negocio (3/3): Confianza & Cierre
+                      Paso 8 de 10 · Preguntas Frecuentes y Objeciones
                     </h5>
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
-                      Resuelve las principales objeciones de tus clientes y respalda tu oferta con pruebas sociales de impacto.
+                      Indica las dudas o consultas más repetidas de tus clientes antes de comprar para resolverlas en la estrategia.
                     </p>
                   </div>
                 </div>
@@ -1510,9 +1714,8 @@ export function OnboardingContent() {
             <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
               <CardContent className="pt-6 space-y-6">
                 <TooltipProvider delayDuration={150}>
-                  {/* Pregunta 5 */}
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">1. Dudas Frena-Ventas Comunes</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">6. Dudas Frena-Ventas Comunes</Label>
                     <div className="flex items-center gap-1.5">
                       <p className="text-[13px] font-bold text-foreground leading-snug">¿Qué es lo que más te preguntan los clientes antes de comprar?</p>
                       <Tooltip>
@@ -1548,10 +1751,67 @@ export function OnboardingContent() {
                       ))}
                     </div>
                   </div>
+                </TooltipProvider>
 
-                  {/* Pregunta 6 (Multiselección - Máximo 3 opciones) */}
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => goToStep(7)} 
+                    className="rounded-xl h-11 px-6 font-bold"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
+                  </Button>
+
+                  <Button 
+                    type="button" 
+                    onClick={async () => {
+                      if (businessId) {
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
+                      }
+                      goToStep(9);
+                    }} 
+                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* PREGUNTA 7 DE 7: Prueba Social & Testimonios (Step 9) */}
+        {currentStep === 9 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-base font-bold text-foreground">
+                      Paso 9 de 10 · Prueba Social y Testimonios
+                    </h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                      Destaca opiniones y comentarios reales de tus clientes para generar máxima confianza en tu oferta.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse shrink-0" />
+                  <span>Rubro: <strong>{industryPlaceholders.industryLabel}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
+              <CardContent className="pt-6 space-y-6">
+                <TooltipProvider delayDuration={150}>
                   <MultiSelectQuestion
-                    label="2. Prueba Social & Testimonios (UGC)"
+                    label="7. Prueba Social & Testimonios (UGC)"
                     question="¿Qué comentarios tienen tus clientes sobre tu producto?"
                     tooltipText="Menciona testimonios, reseñas o acreditaciones destacadas de tus clientes. El sistema los integrará para generar confianza inmediata en tus anuncios."
                     chips={industryPlaceholders.socialProof.chips}
@@ -1566,7 +1826,107 @@ export function OnboardingContent() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => goToStep(4)} 
+                    onClick={() => goToStep(8)} 
+                    className="rounded-xl h-11 px-6 font-bold"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
+                  </Button>
+
+                  <Button 
+                    type="button" 
+                    onClick={async () => {
+                      if (businessId) {
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
+                      }
+                      goToStep(10);
+                    }} 
+                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* PREGUNTA 8 DE 8: Horarios y Días de Atención (Step 10) */}
+        {currentStep === 10 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-base font-bold text-foreground">
+                      Paso 10 de 10 · Horarios y Días de Atención
+                    </h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                      Especifica los días y horas de atención al cliente para sincronizar las publicaciones y llamadas a la acción.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse shrink-0" />
+                  <span>Rubro: <strong>{industryPlaceholders.industryLabel}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
+              <CardContent className="pt-6 space-y-6">
+                <TooltipProvider delayDuration={150}>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">8. Horarios y Días de Atención</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿En qué días y horarios atiende tu negocio?</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
+                          Permite a la IA programar publicaciones y CTAs en horas donde tu equipo esté listo para responder consultas y atender llamadas.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Input 
+                      placeholder={industryPlaceholders.businessHours?.placeholder || "Ej. Lunes a Viernes de 9:00 a 18:00, Sábados de 9:00 a 13:00"} 
+                      value={strategyValues.businessHours} 
+                      onChange={(e) => setStrategyValues({...strategyValues, businessHours: e.target.value})}
+                      className="h-11 rounded-xl"
+                    />
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
+                      </span>
+                      {(industryPlaceholders.businessHours?.chips || [
+                        "Lunes a Viernes de 9:00 a 18:00",
+                        "Lunes a Sábado de 8:30 a 20:00",
+                        "Atención 24/7 por WhatsApp / Tienda Web"
+                      ]).map((chip, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setStrategyValues({...strategyValues, businessHours: chip})}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </TooltipProvider>
+
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => goToStep(9)} 
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
@@ -1595,8 +1955,6 @@ export function OnboardingContent() {
           </div>
         )}
       </div>
-
-
 
       <style>{`
         @keyframes bounceSlow {

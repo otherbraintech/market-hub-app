@@ -254,24 +254,21 @@ function EmptyState({ onAdd, onGenerate, loading }: { onAdd: () => void, onGener
 
 function GenerateIdeasDialog({ onGenerate, loading }: { onGenerate: (params: any) => Promise<void>, loading: boolean }) {
   const [open, setOpen] = useState(false);
-  const [quantity, setQuantity] = useState(5);
   const [selectedTypes, setSelectedTypes] = useState<string[]>(["POST", "REEL", "STORY"]);
   const [selectedChannels, setSelectedChannels] = useState<string[]>(["INSTAGRAM", "FACEBOOK", "TIKTOK"]);
+  const [distributionMode, setDistributionMode] = useState<"STAGGERED" | "SIMULTANEOUS">("STAGGERED");
 
   const contentTypes = [
     { id: "POST", label: "Post Estático" },
     { id: "REEL", label: "Reel / Video Corto" },
     { id: "STORY", label: "Story" },
-    { id: "ARTICLE", label: "Artículo / Blog" },
-    { id: "EMAIL", label: "Email Marketing" }
+    { id: "CAROUSEL", label: "Carrusel Informativo" }
   ];
 
   const channels = [
     { id: "INSTAGRAM", label: "Instagram" },
     { id: "FACEBOOK", label: "Facebook" },
-    { id: "TIKTOK", label: "TikTok" },
-    { id: "LINKEDIN", label: "LinkedIn" },
-    { id: "TWITTER", label: "Twitter / X" }
+    { id: "TIKTOK", label: "TikTok" }
   ];
 
   const handleToggleType = (typeId: string) => {
@@ -281,16 +278,19 @@ function GenerateIdeasDialog({ onGenerate, loading }: { onGenerate: (params: any
   };
 
   const handleToggleChannel = (channelId: string) => {
-    setSelectedChannels(prev => 
-      prev.includes(channelId) ? prev.filter(id => id !== channelId) : [...prev, channelId]
-    );
+    // Mantener siempre los 3 canales si intenta desmarcar todos
+    setSelectedChannels(prev => {
+      const next = prev.includes(channelId) ? prev.filter(id => id !== channelId) : [...prev, channelId];
+      return next.length === 0 ? ["INSTAGRAM", "FACEBOOK", "TIKTOK"] : next;
+    });
   };
 
   const handleGenerate = async () => {
     await onGenerate({
-      quantity,
+      quantity: 8, // Cantidad optimizada regida por el mix de campaña
       contentTypes: selectedTypes,
-      channels: selectedChannels,
+      channels: selectedChannels.length === 0 ? ["INSTAGRAM", "FACEBOOK", "TIKTOK"] : selectedChannels,
+      distributionMode
     });
     setOpen(false);
   };
@@ -298,29 +298,57 @@ function GenerateIdeasDialog({ onGenerate, loading }: { onGenerate: (params: any
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="hidden sm:flex">
-          <Sparkles className="mr-2 h-4 w-4" /> Generar con IA
+        <Button variant="outline" className="flex items-center gap-2 rounded-xl font-bold border-purple-200 hover:bg-purple-50 text-purple-700 dark:text-purple-300">
+          <Sparkles className="h-4 w-4 text-purple-500" /> Planificar con IA
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Generar Ideas con IA</DialogTitle>
-          <DialogDescription>
-            Nuestra IA analizará tu estrategia y productos para proponerte nuevas ideas de contenido.
+      <DialogContent className="max-w-md rounded-3xl p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-lg font-black tracking-tight">Planificación Inteligente con IA</DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            La IA estructurará 8 publicaciones estratégicas distribuidas entre Instagram, Facebook y TikTok.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="quantity">Cantidad de ideas</Label>
-            <Input 
-              id="quantity" 
-              type="number" 
-              min={1} 
-              max={20} 
-              value={quantity} 
-              onChange={(e) => setQuantity(parseInt(e.target.value))} 
-            />
+        <div className="space-y-5 py-3 text-xs">
+          {/* Modo de Distribución Estratégica */}
+          <div className="space-y-2.5 bg-purple-50/60 dark:bg-purple-950/40 p-4 rounded-2xl border border-purple-200/60">
+            <Label className="text-[11px] font-black uppercase text-purple-700 dark:text-purple-300 tracking-wider block">
+              Estrategia de Difusión Multicanal
+            </Label>
+            <div className="space-y-2">
+              <label className="flex items-start gap-2.5 cursor-pointer p-2 rounded-xl bg-background/80 border border-purple-100 dark:border-purple-900/40 hover:bg-purple-100/40 transition-colors">
+                <input 
+                  type="radio" 
+                  name="distributionMode" 
+                  checked={distributionMode === "STAGGERED"} 
+                  onChange={() => setDistributionMode("STAGGERED")} 
+                  className="mt-0.5 text-purple-600 focus:ring-purple-500"
+                />
+                <div className="space-y-0.5">
+                  <span className="font-bold text-foreground block">Distribución Escalonada Estratégica (Recomendado)</span>
+                  <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                    Ej. Idea #1 en Facebook el Lunes, en Instagram el Martes y en TikTok el Miércoles a las horas pico de atención.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-2.5 cursor-pointer p-2 rounded-xl bg-background/80 border border-purple-100 dark:border-purple-900/40 hover:bg-purple-100/40 transition-colors">
+                <input 
+                  type="radio" 
+                  name="distributionMode" 
+                  checked={distributionMode === "SIMULTANEOUS"} 
+                  onChange={() => setDistributionMode("SIMULTANEOUS")} 
+                  className="mt-0.5 text-purple-600 focus:ring-purple-500"
+                />
+                <div className="space-y-0.5">
+                  <span className="font-bold text-foreground block">Replicar Simultáneamente el mismo día</span>
+                  <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                    Publica exactamente el mismo día la idea en los 3 canales de distribución.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div className="space-y-3">

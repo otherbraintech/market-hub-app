@@ -202,6 +202,31 @@ export function OnboardingResultsPanel({
 
   const [selectedCompetitorId, setSelectedCompetitorId] = useState<string>("");
 
+  // Estados para la edición libre de parámetros de campaña
+  const [isEditingCampaignParams, setIsEditingCampaignParams] = useState(false);
+  const [editedCampName, setEditedCampName] = useState("");
+  const [editedCampObjective, setEditedCampObjective] = useState("AWARENESS");
+  const [editedCampDesc, setEditedCampDesc] = useState("");
+  const [editedCampStartDate, setEditedCampStartDate] = useState("");
+  const [editedCampEndDate, setEditedCampEndDate] = useState("");
+  const [editedCampBudget, setEditedCampBudget] = useState(150);
+  const [editedReelsCount, setEditedReelsCount] = useState(5);
+  const [editedCarouselsCount, setEditedCarouselsCount] = useState(2);
+  const [editedPostsCount, setEditedPostsCount] = useState(1);
+
+  // Estados para Segmentación (Targeting) y Canales Editables Directos
+  const [editedLocations, setEditedLocations] = useState<string>("");
+  const [editedAgeMin, setEditedAgeMin] = useState<number>(20);
+  const [editedAgeMax, setEditedAgeMax] = useState<number>(50);
+  const [editedInterests, setEditedInterests] = useState<string>("");
+
+  const [editedIgBudget, setEditedIgBudget] = useState<number>(50);
+  const [editedFbBudget, setEditedFbBudget] = useState<number>(50);
+  const [editedTiktokBudget, setEditedTiktokBudget] = useState<number>(50);
+  const [isIgActive, setIsIgActive] = useState<boolean>(true);
+  const [isFbActive, setIsFbActive] = useState<boolean>(true);
+  const [isTiktokActive, setIsTiktokActive] = useState<boolean>(true);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   interface AgentNotification {
@@ -495,14 +520,14 @@ export function OnboardingResultsPanel({
         );
       case 'failed':
         return (
-          <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-900/50 font-bold text-[9px] rounded-full py-0.5 px-2 flex items-center gap-1 shrink-0 shadow-sm">
-            <X className="h-2.5 w-2.5 stroke-[3]" /> FALLIDO
+          <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50 font-black text-[8.5px] rounded-full py-0.5 px-2 flex items-center gap-1 shrink-0 shadow-sm">
+            <AlertTriangle className="h-2.5 w-2.5 text-amber-600" /> EXTRACCIÓN PARCIAL
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/40 dark:text-slate-400 dark:border-slate-800 font-bold text-[9px] rounded-full py-0.5 px-2 flex items-center gap-1 shrink-0 shadow-sm">
-            <Clock className="h-2.5 w-2.5" /> EN COLA
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-300/40 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50 font-bold text-[8.5px] rounded-full py-0.5 px-2 flex items-center gap-1 shrink-0 shadow-sm animate-pulse">
+            <RefreshCw className="h-2.5 w-2.5 text-amber-600 animate-spin" /> REINTENTANDO...
           </Badge>
         );
     }
@@ -694,7 +719,7 @@ export function OnboardingResultsPanel({
   const pipelineStages = [
     { key: "BANCODEDATOS", label: "Banco de Datos", icon: Database, tab: "bancodedatos", color: "orange", desc: "Perfil, competencia e informes", emoji: "🗄️", processingEmoji: "⚡" },
     { key: "STRATEGY", label: "Estrategia de Growth", icon: Sparkles, tab: "estrategia", color: "purple", desc: "Buyer personas y plan", emoji: "🎯", processingEmoji: "✨" },
-    { key: "CAMPAIGN", label: "Campañas de Marketing", icon: Bot, tab: "campanas", color: "emerald", desc: "Campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
+    { key: "CAMPAIGN", label: "Parametrización de Campaña de Marketing", icon: Bot, tab: "campanas", color: "emerald", desc: "Campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
     { key: "CALENDAR", label: "Calendario Editorial", icon: ShieldCheck, tab: "calendario", color: "sky", desc: "Copies y publicaciones", emoji: "📝", processingEmoji: "🤖" },
   ];
 
@@ -977,7 +1002,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
     if (getStepStatus("CAMPAIGN") === "failed") {
       return {
         stage: -1,
-        title: "Fallo en las Campañas de Marketing",
+        title: "Fallo en la Parametrización de Campañas",
         description: "El Agente de Campañas reportó un error al estructurar tu presupuesto y ofertas. Por favor, reintenta."
       };
     }
@@ -1000,7 +1025,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
     if (isCampaignProcessing) {
       return {
         stage: 3,
-        title: "Etapa 3: Estructurando Campañas",
+        title: "Etapa 3: Parametrización de Campaña de Marketing",
         description: "El Agente de Campañas está configurando las metas comerciales, ofertas y canales ideales para capturar a tu cliente ideal."
       };
     }
@@ -1149,7 +1174,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
   const nextLabels: Record<string, string> = {
     estrategia: "Estrategias de Growth",
-    campanas: "Plan de Campañas",
+    campanas: "Parametrización de Campañas",
     calendario: "Calendario Editorial"
   };
 
@@ -1853,26 +1878,36 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                     <Badge variant="secondary" className="text-[8px] font-bold bg-orange-100 text-orange-700 border-none">NEGOCIO PRINCIPAL</Badge>
                   </div>
                   <div className="space-y-2.5">
-                    {data?.businessInfo?.website && (
-                      <div className="flex items-center justify-between p-2.5 bg-background/60 rounded-xl border gap-4">
-                        <div className="flex items-center gap-2 truncate min-w-0">
-                          {getSocialIcon("WEBSITE")}
-                          <span className="text-xs font-semibold text-slate-700 truncate">{data.businessInfo.website}</span>
+                    {data?.businessInfo?.website && (() => {
+                      const st = getChannelStatus(businessId, "WEBSITE", false);
+                      const isBlurred = st === 'idle' || st === 'failed';
+                      return (
+                        <div className={`flex items-center justify-between p-2.5 bg-background/60 rounded-xl border gap-4 transition-all duration-300 ${
+                          isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none shadow-inner border-amber-200/50' : ''
+                        }`}>
+                          <div className="flex items-center gap-2 truncate min-w-0">
+                            {getSocialIcon("WEBSITE")}
+                            <span className="text-xs font-semibold text-slate-700 truncate">{data.businessInfo.website}</span>
+                          </div>
+                          {renderStatusIcon(st)}
                         </div>
-                        {renderStatusIcon(getChannelStatus(businessId, "WEBSITE", false))}
-                      </div>
-                    )}
+                      );
+                    })()}
                     {(() => {
                       const socialLinks = parseJson(data?.businessInfo?.socialLinks) || {};
                       return Object.entries(socialLinks).map(([channel, url]) => {
                         if (!url || typeof url !== "string" || url.trim() === "") return null;
+                        const st = getChannelStatus(businessId, channel, false);
+                        const isBlurred = st === 'idle' || st === 'failed';
                         return (
-                          <div key={channel} className="flex items-center justify-between p-2.5 bg-background/60 rounded-xl border gap-4">
+                          <div key={channel} className={`flex items-center justify-between p-2.5 bg-background/60 rounded-xl border gap-4 transition-all duration-300 ${
+                            isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none shadow-inner border-amber-200/50' : ''
+                          }`}>
                             <div className="flex items-center gap-2 truncate min-w-0">
                               {getSocialIcon(channel)}
                               <span className="text-xs font-semibold text-slate-700 truncate">{url}</span>
                             </div>
-                            {renderStatusIcon(getChannelStatus(businessId, channel, false))}
+                            {renderStatusIcon(st)}
                           </div>
                         );
                       });
@@ -1891,30 +1926,54 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                       <div key={c.id} className="space-y-1.5 p-2.5 bg-background/30 rounded-xl border">
                         <span className="font-extrabold text-slate-800 text-[10.5px] uppercase tracking-wide block">{c.name}</span>
                         <div className="grid grid-cols-1 gap-1.5">
-                          {c.website && (
-                            <div className="flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px]">
-                              <span className="truncate max-w-[120px]">{c.website}</span>
-                              {renderStatusIcon(getChannelStatus(c.id, "WEBSITE", true))}
-                            </div>
-                          )}
-                          {c.facebook && (
-                            <div className="flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px]">
-                              <span className="truncate max-w-[120px]">Facebook</span>
-                              {renderStatusIcon(getChannelStatus(c.id, "FACEBOOK", true))}
-                            </div>
-                          )}
-                          {c.instagram && (
-                            <div className="flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px]">
-                              <span className="truncate max-w-[120px]">Instagram</span>
-                              {renderStatusIcon(getChannelStatus(c.id, "INSTAGRAM", true))}
-                            </div>
-                          )}
-                          {c.tiktok && (
-                            <div className="flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px]">
-                              <span className="truncate max-w-[120px]">TikTok</span>
-                              {renderStatusIcon(getChannelStatus(c.id, "TIKTOK", true))}
-                            </div>
-                          )}
+                          {c.website && (() => {
+                            const st = getChannelStatus(c.id, "WEBSITE", true);
+                            const isBlurred = st === 'idle' || st === 'failed';
+                            return (
+                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                                isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
+                              }`}>
+                                <span className="truncate max-w-[120px]">{c.website}</span>
+                                {renderStatusIcon(st)}
+                              </div>
+                            );
+                          })()}
+                          {c.facebook && (() => {
+                            const st = getChannelStatus(c.id, "FACEBOOK", true);
+                            const isBlurred = st === 'idle' || st === 'failed';
+                            return (
+                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                                isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
+                              }`}>
+                                <span className="truncate max-w-[120px]">Facebook</span>
+                                {renderStatusIcon(st)}
+                              </div>
+                            );
+                          })()}
+                          {c.instagram && (() => {
+                            const st = getChannelStatus(c.id, "INSTAGRAM", true);
+                            const isBlurred = st === 'idle' || st === 'failed';
+                            return (
+                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                                isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
+                              }`}>
+                                <span className="truncate max-w-[120px]">Instagram</span>
+                                {renderStatusIcon(st)}
+                              </div>
+                            );
+                          })()}
+                          {c.tiktok && (() => {
+                            const st = getChannelStatus(c.id, "TIKTOK", true);
+                            const isBlurred = st === 'idle' || st === 'failed';
+                            return (
+                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                                isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
+                              }`}>
+                                <span className="truncate max-w-[120px]">TikTok</span>
+                                {renderStatusIcon(st)}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     ))}
@@ -2370,6 +2429,26 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </div>
             </section>
 
+            {/* CEO Navigation Bar: Banco de Datos -> Generar Estrategia de Growth de Marketing */}
+            <div className="pt-6 border-t mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-purple-500/5 p-6 rounded-3xl border border-purple-500/20 shadow-sm">
+              <div className="space-y-1 text-center sm:text-left">
+                <span className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Paso 1 Completado · Auditoría & FODA</span>
+                <h4 className="text-sm font-black text-foreground">¿Listo para avanzar al Modelado Estratégico de Marketing?</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Haz clic para activar el agente autónomo y generar la Estrategia de Growth con Buyer Personas y Embudo de Ventas.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setActiveTab("estrategia");
+                  handleStartStrategy();
+                }}
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl font-black text-xs bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-xl shadow-purple-500/25 border-none transition-all duration-300 hover:scale-105 shrink-0"
+              >
+                Generar Estrategia de Growth de Marketing <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+
             {/* SENTINEL Y ESPACIO EXTRA AL BOTTOM */}
             <div ref={bottomRef} className="h-10 w-full" />
           </TabsContent>
@@ -2702,13 +2781,33 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 )}
               </div>
             )}
+
+            {/* CEO Navigation Bar: Estrategia -> Continuar y generar Parámetros de Campaña de Marketing */}
+            <div className="pt-6 border-t mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-emerald-500/5 p-6 rounded-3xl border border-emerald-500/20 shadow-sm">
+              <div className="space-y-1 text-center sm:text-left">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Paso 2 Completado · Estrategia de Growth</span>
+                <h4 className="text-sm font-black text-foreground">¿Listo para estructurar las Ofertas y Parámetros de Campaña?</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Haz clic para avanzar a la Parametrización de Campañas y generar automáticamente el Plan de Publicaciones.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setActiveTab("campanas");
+                  handleStartCampaign();
+                }}
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl font-black text-xs bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white shadow-xl shadow-emerald-500/25 border-none transition-all duration-300 hover:scale-105 shrink-0"
+              >
+                Continuar y generar Parámetros de Campaña de Marketing <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
           </TabsContent>
 
           {/* TAB 3: CAMPAÑAS (antigua Etapa 5) */}
           <TabsContent value="campanas" className="space-y-4 mt-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 mb-4">
               <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                <Megaphone className="h-3.5 w-3.5 text-emerald-500" /> Plan de Campañas y Calendario
+                <Megaphone className="h-3.5 w-3.5 text-emerald-500" /> Parametrización de Campaña de Marketing
               </h5>
               
               <div className="flex items-center gap-2">
@@ -2752,7 +2851,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
             </div>
 
             <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-emerald-500/5 p-3 rounded-xl border border-emerald-100 dark:border-emerald-850 mb-4">
-              💡 <strong>Agente de Campañas de Marketing:</strong> Estructura tu plan mensual, definiendo objetivos de conversión, segmentación detallada y presupuestos por canal.
+              💡 <strong>Agente de Parametrización de Campañas:</strong> Estructura tu plan mensual, definiendo objetivos de conversión, segmentación detallada y presupuestos por canal.
             </p>
 
             {isCampaignProcessing ? (
@@ -2783,125 +2882,350 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                   const startDateStr = camp.startDate ? new Date(camp.startDate).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "";
                   const endDateStr = camp.endDate ? new Date(camp.endDate).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" }) : "";
 
+                  const displayStartDate = editedCampStartDate || startDateStr;
+                  const displayEndDate = editedCampEndDate || endDateStr;
+                  const displayBudget = editedCampBudget || camp.budget || 150;
+                  const displayObjective = editedCampObjective || camp.objective || "AWARENESS";
+                  const displayName = editedCampName || camp.name;
+                  const displayDesc = editedCampDesc || camp.description;
+                  const totalPieces = editedReelsCount + editedCarouselsCount + editedPostsCount;
+
                   return (
                     <div key={camp.id} className="space-y-6">
-                      {/* 1. Header Principal de la Campaña */}
-                      <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 rounded-2xl border border-emerald-200/50 space-y-3 shadow-xs">
+                      {/* 1. Header Principal de la Campaña (Parámetros Directamente Editables) */}
+                      <div className="p-5 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 rounded-2xl border border-emerald-200/50 space-y-4 shadow-xs">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/40 pb-3">
-                          <div>
+                          <div className="flex-1 space-y-1">
                             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400 block">
-                              Campaña Principal de Marketing (30 Días)
+                              Campaña Principal de Marketing (Parámetros Editables)
                             </span>
-                            <h4 className="text-base font-extrabold text-foreground capitalize mt-0.5">{camp.name}</h4>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={displayName}
+                                onChange={(e) => setEditedCampName(e.target.value)}
+                                placeholder="Nombre de la campaña..."
+                                className="text-base font-extrabold text-foreground bg-background/70 border border-emerald-200/80 rounded-xl px-3 py-1 w-full max-w-md focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              />
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-black text-[9.5px] rounded-lg px-2.5 py-0.5">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-black text-[9.5px] rounded-lg px-2.5 py-1">
                               {camp.status || "ACTIVA"}
                             </Badge>
-                            {camp.objective && (
-                              <Badge variant="outline" className="bg-indigo-500/10 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-black text-[9.5px] rounded-lg px-2.5 py-0.5">
-                                OBJETIVO: {camp.objective}
-                              </Badge>
-                            )}
+                            <select
+                              value={displayObjective}
+                              onChange={(e) => setEditedCampObjective(e.target.value)}
+                              className="bg-indigo-500/10 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 font-black text-[9.5px] rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                            >
+                              <option value="AWARENESS">OBJETIVO: AWARENESS</option>
+                              <option value="CONVERSION">OBJETIVO: CONVERSIÓN</option>
+                              <option value="LEADS">OBJETIVO: LEADS</option>
+                              <option value="TRAFFIC">OBJETIVO: TRÁFICO</option>
+                            </select>
                           </div>
                         </div>
 
-                        {camp.description && (
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {camp.description}
-                          </p>
-                        )}
-
-                        {/* Fechas y Métricas de Presupuesto */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-                          <div className="p-3 bg-background/60 rounded-xl border border-emerald-200/40">
-                            <span className="text-[8px] font-black uppercase text-muted-foreground block">Duración de Campaña</span>
-                            <span className="text-xs font-bold text-foreground mt-0.5 block">{startDateStr} - {endDateStr}</span>
-                          </div>
-                          <div className="p-3 bg-background/60 rounded-xl border border-emerald-200/40">
-                            <span className="text-[8px] font-black uppercase text-muted-foreground block">Presupuesto Sugerido</span>
-                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">${camp.budget || 45} USD</span>
-                          </div>
-                          <div className="p-3 bg-background/60 rounded-xl border border-emerald-200/40 col-span-2 sm:col-span-1">
-                            <span className="text-[8px] font-black uppercase text-muted-foreground block">Plan de Publicaciones</span>
-                            <span className="text-xs font-bold text-foreground mt-0.5 block">8 Piezas (5 Reels, 2 Carruseles, 1 Post)</span>
-                          </div>
+                        {/* Descripción Editable */}
+                        <div>
+                          <textarea
+                            rows={2}
+                            value={displayDesc}
+                            onChange={(e) => setEditedCampDesc(e.target.value)}
+                            placeholder="Descripción o enfoque clave de la campaña..."
+                            className="w-full text-xs text-muted-foreground bg-background/60 border border-emerald-200/40 rounded-xl p-2.5 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
                         </div>
-                      </div>
 
-                      {/* 2. Distribución de Canales */}
-                      <div className="space-y-3 bg-background/50 border rounded-2xl p-5 shadow-sm">
-                        <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
-                          <Share2 className="h-3.5 w-3.5 text-emerald-500" /> Distribución por Canales de Difusión
-                        </span>
+                        {/* Fechas y Métricas de Presupuesto Editables Directamente */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                          {channels.length > 0 ? (
-                            channels.map((chan: any, idx: number) => {
-                              const platformName = typeof chan === "object" ? (chan.platform || "SOCIAL") : String(chan);
-                              const budgetVal = typeof chan === "object" ? chan.budget : Math.round((camp.budget || 45) / 3);
-                              return (
-                                <div key={idx} className="p-3.5 bg-muted/15 rounded-xl border flex flex-col justify-between space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-bold text-xs text-foreground uppercase tracking-wide">{platformName}</span>
-                                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-[8px] font-black">
-                                      ACTIVO
-                                    </Badge>
-                                  </div>
-                                  <div className="text-[10px] text-muted-foreground">
-                                    Presupuesto canal: <strong className="text-foreground font-extrabold">${budgetVal} USD</strong>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <>
-                              <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
-                                <span className="font-bold text-xs text-foreground block">FACEBOOK</span>
-                                <span className="text-[10px] text-muted-foreground">Pauta de Alcance & Anuncios Directos</span>
+                          <div className="p-3 bg-background/80 rounded-xl border border-emerald-200/50 space-y-1">
+                            <span className="text-[8.5px] font-black uppercase text-muted-foreground block">Duración (Inicio - Fin)</span>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="date"
+                                value={editedCampStartDate || (camp.startDate ? new Date(camp.startDate).toISOString().split('T')[0] : '')}
+                                onChange={(e) => setEditedCampStartDate(e.target.value)}
+                                className="text-[11px] font-bold text-foreground bg-muted/30 border border-emerald-200/50 rounded-lg px-1.5 py-1 w-full"
+                              />
+                              <span className="text-muted-foreground font-bold text-xs">-</span>
+                              <input
+                                type="date"
+                                value={editedCampEndDate || (camp.endDate ? new Date(camp.endDate).toISOString().split('T')[0] : '')}
+                                onChange={(e) => setEditedCampEndDate(e.target.value)}
+                                className="text-[11px] font-bold text-foreground bg-muted/30 border border-emerald-200/50 rounded-lg px-1.5 py-1 w-full"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-background/80 rounded-xl border border-emerald-200/50 space-y-1">
+                            <span className="text-[8.5px] font-black uppercase text-muted-foreground block">Presupuesto ($ USD)</span>
+                            <div className="flex items-center gap-1">
+                              <span className="font-extrabold text-xs text-emerald-600">$</span>
+                              <input
+                                type="number"
+                                min={10}
+                                max={10000}
+                                value={displayBudget}
+                                onChange={(e) => setEditedCampBudget(Number(e.target.value))}
+                                className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-muted/30 border border-emerald-200/50 rounded-lg px-2 py-1 w-full"
+                              />
+                              <span className="font-extrabold text-[10px] text-muted-foreground">USD</span>
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-background/80 rounded-xl border border-emerald-200/50 space-y-1">
+                            <span className="text-[8.5px] font-black uppercase text-muted-foreground block">Plan de Publicaciones</span>
+                            <span className="text-[11px] font-bold text-foreground block truncate">
+                              {totalPieces} Piezas ({editedReelsCount} Reels, {editedCarouselsCount} Carruseles, {editedPostsCount} Post{editedPostsCount !== 1 ? 's' : ''})
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mix de Piezas de Contenido (Contadores Directos) */}
+                        <div className="p-3 bg-background/70 rounded-xl border border-emerald-200/50 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Ajustar Piezas de Contenido</span>
+                            <Badge className="bg-emerald-600 text-white font-black text-[9px] rounded-md px-2 py-0.5">
+                              {totalPieces} Piezas Totales
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="flex items-center justify-between p-2 bg-muted/20 rounded-lg border text-xs">
+                              <span className="font-bold text-[10px]">Reels</span>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => setEditedReelsCount(Math.max(0, editedReelsCount - 1))} className="h-5 w-5 rounded bg-background border font-bold text-xs flex items-center justify-center hover:bg-muted">-</button>
+                                <span className="font-black text-xs w-4 text-center">{editedReelsCount}</span>
+                                <button type="button" onClick={() => setEditedReelsCount(editedReelsCount + 1)} className="h-5 w-5 rounded bg-background border font-bold text-xs flex items-center justify-center hover:bg-muted">+</button>
                               </div>
-                              <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
-                                <span className="font-bold text-xs text-foreground block">INSTAGRAM</span>
-                                <span className="text-[10px] text-muted-foreground">Reels & Historias de Engagement</span>
+                            </div>
+
+                            <div className="flex items-center justify-between p-2 bg-muted/20 rounded-lg border text-xs">
+                              <span className="font-bold text-[10px]">Carruseles</span>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => setEditedCarouselsCount(Math.max(0, editedCarouselsCount - 1))} className="h-5 w-5 rounded bg-background border font-bold text-xs flex items-center justify-center hover:bg-muted">-</button>
+                                <span className="font-black text-xs w-4 text-center">{editedCarouselsCount}</span>
+                                <button type="button" onClick={() => setEditedCarouselsCount(editedCarouselsCount + 1)} className="h-5 w-5 rounded bg-background border font-bold text-xs flex items-center justify-center hover:bg-muted">+</button>
                               </div>
-                              <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
-                                <span className="font-bold text-xs text-foreground block">TIKTOK</span>
-                                <span className="text-[10px] text-muted-foreground">Videos Cortos Orgánicos / Ads</span>
+                            </div>
+
+                            <div className="flex items-center justify-between p-2 bg-muted/20 rounded-lg border text-xs">
+                              <span className="font-bold text-[10px]">Posts</span>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => setEditedPostsCount(Math.max(0, editedPostsCount - 1))} className="h-5 w-5 rounded bg-background border font-bold text-xs flex items-center justify-center hover:bg-muted">-</button>
+                                <span className="font-black text-xs w-4 text-center">{editedPostsCount}</span>
+                                <button type="button" onClick={() => setEditedPostsCount(editedPostsCount + 1)} className="h-5 w-5 rounded bg-background border font-bold text-xs flex items-center justify-center hover:bg-muted">+</button>
                               </div>
-                            </>
-                          )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-end pt-1">
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              toast.success("¡Parámetros de campaña guardados! Plan de publicaciones actualizado.");
+                            }}
+                            className="rounded-xl h-9 px-5 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-1.5"
+                          >
+                            <Check className="h-3.5 w-3.5" /> Guardar Parámetros de Campaña
+                          </Button>
                         </div>
                       </div>
 
-                      {/* 3. Segmentación del Público Objetivo (Targeting) */}
+                      {/* 2. Distribución por Canales de Difusión (Directamente Editable) */}
                       <div className="space-y-3 bg-background/50 border rounded-2xl p-5 shadow-sm">
-                        <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
-                          <Users className="h-3.5 w-3.5 text-emerald-500" /> Segmentación del Público Objetivo (Targeting)
-                        </span>
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[9.5px] flex items-center gap-1.5">
+                            <Share2 className="h-3.5 w-3.5 text-emerald-500" /> Distribución por Canales de Difusión (Presupuesto & Estado Editable)
+                          </span>
+                          <Badge variant="outline" className="text-[8.5px] font-extrabold bg-emerald-50 text-emerald-700 border-emerald-200">
+                            EDICIÓN LIBRE
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                          {/* INSTAGRAM */}
+                          <div className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-2.5 transition-all ${
+                            isIgActive ? 'bg-background/80 border-pink-200/80 shadow-xs' : 'bg-muted/30 opacity-60 border-dashed'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Instagram className="h-4 w-4 text-pink-600" />
+                                <span className="font-bold text-xs text-foreground uppercase tracking-wide">INSTAGRAM</span>
+                              </div>
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-extrabold text-pink-600">
+                                <input
+                                  type="checkbox"
+                                  checked={isIgActive}
+                                  onChange={(e) => setIsIgActive(e.target.checked)}
+                                  className="rounded text-pink-600 focus:ring-pink-500"
+                                />
+                                {isIgActive ? "ACTIVO" : "INACTIVO"}
+                              </label>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[8.5px] font-black uppercase text-muted-foreground block">Presupuesto Canal</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-extrabold text-xs text-pink-600">$</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={editedIgBudget}
+                                  onChange={(e) => setEditedIgBudget(Number(e.target.value))}
+                                  disabled={!isIgActive}
+                                  className="w-full text-xs font-black text-pink-600 bg-muted/20 border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-pink-500"
+                                />
+                                <span className="font-extrabold text-[10px] text-muted-foreground">USD</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* FACEBOOK */}
+                          <div className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-2.5 transition-all ${
+                            isFbActive ? 'bg-background/80 border-blue-200/80 shadow-xs' : 'bg-muted/30 opacity-60 border-dashed'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Facebook className="h-4 w-4 text-blue-600" />
+                                <span className="font-bold text-xs text-foreground uppercase tracking-wide">FACEBOOK</span>
+                              </div>
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-extrabold text-blue-600">
+                                <input
+                                  type="checkbox"
+                                  checked={isFbActive}
+                                  onChange={(e) => setIsFbActive(e.target.checked)}
+                                  className="rounded text-blue-600 focus:ring-blue-500"
+                                />
+                                {isFbActive ? "ACTIVO" : "INACTIVO"}
+                              </label>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[8.5px] font-black uppercase text-muted-foreground block">Presupuesto Canal</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-extrabold text-xs text-blue-600">$</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={editedFbBudget}
+                                  onChange={(e) => setEditedFbBudget(Number(e.target.value))}
+                                  disabled={!isFbActive}
+                                  className="w-full text-xs font-black text-blue-600 bg-muted/20 border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                                <span className="font-extrabold text-[10px] text-muted-foreground">USD</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* TIKTOK */}
+                          <div className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-2.5 transition-all ${
+                            isTiktokActive ? 'bg-background/80 border-slate-300 dark:border-slate-700 shadow-xs' : 'bg-muted/30 opacity-60 border-dashed'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <TikTokIcon className="h-4 w-4 text-slate-800 dark:text-slate-200" />
+                                <span className="font-bold text-xs text-foreground uppercase tracking-wide">TIKTOK</span>
+                              </div>
+                              <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-extrabold text-slate-700 dark:text-slate-300">
+                                <input
+                                  type="checkbox"
+                                  checked={isTiktokActive}
+                                  onChange={(e) => setIsTiktokActive(e.target.checked)}
+                                  className="rounded text-slate-700 focus:ring-slate-500"
+                                />
+                                {isTiktokActive ? "ACTIVO" : "INACTIVO"}
+                              </label>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[8.5px] font-black uppercase text-muted-foreground block">Presupuesto Canal</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-extrabold text-xs text-slate-800 dark:text-slate-200">$</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={editedTiktokBudget}
+                                  onChange={(e) => setEditedTiktokBudget(Number(e.target.value))}
+                                  disabled={!isTiktokActive}
+                                  className="w-full text-xs font-black text-slate-800 dark:text-slate-200 bg-muted/20 border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                                />
+                                <span className="font-extrabold text-[10px] text-muted-foreground">USD</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. Segmentación del Público Objetivo (Targeting - Directamente Editable) */}
+                      <div className="space-y-3 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[9.5px] flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5 text-emerald-500" /> Segmentación del Público Objetivo (Targeting Editable)
+                          </span>
+                          <Badge variant="outline" className="text-[8.5px] font-extrabold bg-indigo-50 text-indigo-700 border-indigo-200">
+                            EDICIÓN DIRECTA
+                          </Badge>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                          <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
-                            <span className="text-[8.5px] font-black text-muted-foreground uppercase block">Ubicaciones Relevantes</span>
-                            <p className="text-xs font-semibold text-foreground">
-                              {Array.isArray(targeting.locations) && targeting.locations.length > 0 
-                                ? targeting.locations.join(", ") 
-                                : data?.businessInfo?.location || "Entorno Metropolitano Local"}
-                            </p>
+                          {/* Ubicaciones */}
+                          <div className="p-3.5 bg-background/80 rounded-xl border border-emerald-200/50 space-y-1.5">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase block">Ubicaciones Relevantes</label>
+                            <input
+                              type="text"
+                              value={editedLocations || (Array.isArray(targeting.locations) ? targeting.locations.join(", ") : data?.businessInfo?.location || "Entorno Metropolitano Local")}
+                              onChange={(e) => setEditedLocations(e.target.value)}
+                              placeholder="Ej. Santa Cruz, Equipetrol, Montero"
+                              className="w-full text-xs font-semibold text-foreground bg-muted/20 border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
                           </div>
-                          <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
-                            <span className="text-[8.5px] font-black text-muted-foreground uppercase block">Rango de Edad</span>
-                            <p className="text-xs font-semibold text-foreground">
-                              {Array.isArray(targeting.ageRange) && targeting.ageRange.length === 2 
-                                ? `${targeting.ageRange[0]} - ${targeting.ageRange[1]} años` 
-                                : "22 - 50 años"}
-                            </p>
+
+                          {/* Rango de Edad */}
+                          <div className="p-3.5 bg-background/80 rounded-xl border border-emerald-200/50 space-y-1.5">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase block">Rango de Edad (Mín - Máx)</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={13}
+                                max={99}
+                                value={editedAgeMin}
+                                onChange={(e) => setEditedAgeMin(Number(e.target.value))}
+                                className="w-full text-xs font-black text-foreground bg-muted/20 border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-center"
+                              />
+                              <span className="font-extrabold text-xs text-muted-foreground">-</span>
+                              <input
+                                type="number"
+                                min={13}
+                                max={99}
+                                value={editedAgeMax}
+                                onChange={(e) => setEditedAgeMax(Number(e.target.value))}
+                                className="w-full text-xs font-black text-foreground bg-muted/20 border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-center"
+                              />
+                              <span className="text-[10px] font-bold text-muted-foreground">años</span>
+                            </div>
                           </div>
-                          <div className="p-3.5 bg-muted/15 rounded-xl border space-y-1">
-                            <span className="text-[8.5px] font-black text-muted-foreground uppercase block">Intereses Psicográficos</span>
-                            <p className="text-xs font-semibold text-foreground line-clamp-2">
-                              {Array.isArray(targeting.interests) && targeting.interests.length > 0 
-                                ? targeting.interests.join(", ") 
-                                : "Compras locales, calidad de servicio, hábitos de consumo en redes"}
-                            </p>
+
+                          {/* Intereses Psicográficos */}
+                          <div className="p-3.5 bg-background/80 rounded-xl border border-emerald-200/50 space-y-1.5">
+                            <label className="text-[8.5px] font-black text-muted-foreground uppercase block">Intereses Psicográficos</label>
+                            <input
+                              type="text"
+                              value={editedInterests || (Array.isArray(targeting.interests) ? targeting.interests.join(", ") : "Compras locales, calidad de servicio, hábitos de consumo")}
+                              onChange={(e) => setEditedInterests(e.target.value)}
+                              placeholder="Ej. Gastronomía, Delivery, Compras WhatsApp"
+                              className="w-full text-xs font-semibold text-foreground bg-muted/20 border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            />
                           </div>
+                        </div>
+
+                        {/* Botón Final Consolidado de Guardar Todo */}
+                        <div className="flex items-center justify-end pt-3 border-t">
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              toast.success("¡Parámetros de campaña, canales y segmentación guardados exitosamente!");
+                            }}
+                            className="rounded-xl h-10 px-6 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-2"
+                          >
+                            <Check className="h-4 w-4" /> Guardar Todos los Parámetros & Segmentación
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -2999,73 +3323,31 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
         const isNextBlocked = nextTab ? isTabBlocked(nextTab) : false;
 
         return (
-          <div className="px-5 py-4 border-t bg-muted/20 flex flex-col gap-2 shadow-inner shrink-0">
-            {activeTab === "bancodedatos" && !hasScrolledToBottom && (
-              <div className="flex items-center justify-center gap-2 animate-pulse">
-                <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 tracking-wide">
-                  ⚠️ Por favor, realiza scroll hasta el final del informe para habilitar la navegación a Estrategias.
-                </span>
-              </div>
-            )}
-            {nextTab && !isNextBlocked && (
-              <div className="flex items-center justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className="h-1.5 w-1.5 rounded-full bg-violet-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400 tracking-wide">
-                  ¡Etapa completada! Presiona continuar para avanzar al siguiente paso
-                </span>
-                <div className="h-1.5 w-1.5 rounded-full bg-violet-500 animate-pulse" />
-              </div>
-            )}
-            {!nextTab && isCalendarReady && (
-              <div className="flex items-center justify-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wide">
-                  ¡Calendario Editorial generado con éxito! Presiona Confirmar y Guardar para finalizar.
-                </span>
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              </div>
+          <div className="px-5 py-4 border-t bg-muted/20 flex items-center justify-between shadow-inner shrink-0">
+            {prevTab ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab(prevTab)}
+                className="rounded-xl h-10 font-bold px-4 hover:bg-muted text-xs transition-all gap-1.5"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" /> Atrás
+              </Button>
+            ) : (
+              <div />
             )}
 
-            <div className="flex items-center justify-between">
-              {prevTab ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveTab(prevTab)}
-                  className="rounded-xl h-10 font-bold px-4 hover:bg-muted text-xs transition-all gap-1.5"
-                >
-                  <ArrowLeft className="h-3.5 w-3.5" /> Atrás
-                </Button>
-              ) : (
-                <div />
-              )}
-
-              {nextTab ? (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setActiveTab(nextTab)}
-                  disabled={isNextBlocked}
-                  className={`rounded-xl h-11 font-extrabold px-7 text-white shadow-md transition-all text-xs flex items-center gap-2 ${
-                    isNextBlocked
-                      ? 'bg-slate-300 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed shadow-none hover:scale-100'
-                      : 'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-700 hover:via-purple-700 hover:to-indigo-700 hover:shadow-xl scale-100 hover:scale-[1.03] active:scale-[0.98] continue-btn-pulse'
-                  }`}
-                >
-                  Continuar: {nextLabels[nextTab] || nextTab} <ArrowRight className={`h-4 w-4 ${!isNextBlocked ? 'nudge-arrow' : ''}`} />
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => {
-                    toast.success("¡Configuración y calendario guardados correctamente!");
-                    router.push(`/business/${businessId}?skipOnboarding=true`);
-                  }}
-                  className="rounded-xl h-11 font-extrabold px-7 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:via-teal-700 hover:to-cyan-700 text-white shadow-md hover:shadow-xl transition-all scale-100 hover:scale-[1.03] active:scale-[0.98] text-xs flex items-center gap-2 action-btn-pulse-emerald"
-                >
-                  Confirmar y Guardar <Check className="h-4 w-4 stroke-[3]" />
-                </Button>
-              )}
-            </div>
+            {!nextTab && (
+              <Button
+                onClick={() => {
+                  toast.success("¡Configuración y calendario guardados correctamente!");
+                  router.push(`/business/${businessId}?skipOnboarding=true`);
+                }}
+                className="rounded-xl h-11 font-extrabold px-7 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:via-teal-700 hover:to-cyan-700 text-white shadow-md hover:shadow-xl transition-all scale-100 hover:scale-[1.03] active:scale-[0.98] text-xs flex items-center gap-2 action-btn-pulse-emerald"
+              >
+                Confirmar y Guardar Negocio <Check className="h-4 w-4 stroke-[3]" />
+              </Button>
+            )}
           </div>
         );
       })()}

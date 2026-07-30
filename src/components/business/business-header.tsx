@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Building2, Pencil, Plus } from "lucide-react";
+import { Building2, Pencil } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -64,47 +64,11 @@ export function BusinessHeader({ business }: BusinessHeaderProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-            {isMounted && (
-              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                  <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Editar Negocio
-                      </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                          <DialogTitle>Editar {business.name}</DialogTitle>
-                          <DialogDescription>
-                              Actualiza la información y configuración estratégica de tu negocio.
-                          </DialogDescription>
-                      </DialogHeader>
-                      <BusinessForm 
-                          defaultValues={{
-                              ...business,
-                              description: business.description || "",
-                              industry: business.industry || "",
-                              website: business.website || "",
-                              phoneNumbers: business.phoneNumbers || "",
-                              location: business.location || "",
-                              socialLinks: (business.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
-                              brandVoice: (business.brandVoice as any) || { tone: [], personality: [], values: [] },
-                              targetAudience: (business.targetAudience as any) || { demographics: "", psychographics: "" }
-                          }}
-                          onSuccess={() => {
-                              setIsEditDialogOpen(false);
-                              window.location.reload();
-                          }}
-                      />
-                  </DialogContent>
-              </Dialog>
-            )}
-
-             <Button size="sm" asChild>
-                <Link href="/campaigns">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nueva Campaña
-                </Link>
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/business/create?businessId=${business.id}&edit=true`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar Negocio
+              </Link>
             </Button>
         </div>
       </div>

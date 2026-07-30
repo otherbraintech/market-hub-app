@@ -42,9 +42,9 @@ export async function POST(request: Request) {
           data: {
             businessId: resolvedBusinessId,
             title: "Agente de Extracción",
-            message: `Fallo en la extracción del canal ${report.channel} para el ${targetName}: ${error}.`,
+            message: `Canal ${report.channel} de ${targetName} omitido por falta de conexión (continuando con datos disponibles).`,
             step: "SCRAPING",
-            status: "FAILED"
+            status: "COMPLETED"
           }
         }).catch((err: any) => console.error("Error creating agent notification for callback error:", err));
 

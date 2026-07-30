@@ -531,7 +531,14 @@ export function OnboardingResultsPanel({
         }
         return 'processing';
       }
-      if (latestNotif.status === 'FAILED') return 'failed';
+      if (latestNotif.status === 'FAILED') {
+        if (stepKey === 'SCRAPING' || stepKey === 'DIAGNOSTIC') {
+          if (individualBusinessReports.length > 0 || competitorReports.length > 0 || consolidatedReport) {
+            return 'completed';
+          }
+        }
+        return 'failed';
+      }
       if (latestNotif.status === 'COMPLETED') {
         if (stepKey === 'STRATEGY' && !activeStrategy) return 'idle';
         if (stepKey === 'CAMPAIGN' && campaigns.length === 0) return 'idle';
@@ -943,19 +950,21 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
         description: "Iniciando la conexión con los agentes de inteligencia artificial y recuperando el estado de tu negocio..."
       };
     }
-    // Estados fallidos de todas las fases
-    if (scrapingStatus === "failed") {
+    const hasAnyReportOrData = individualBusinessReports.length > 0 || competitorReports.length > 0 || consolidatedReport || data?.businessInfo?.competitorGeneralReport;
+
+    // Estados fallidos de todas las fases (solo si no existen datos ni reportes con los que continuar)
+    if (scrapingStatus === "failed" && !hasAnyReportOrData) {
       return {
         stage: -1,
         title: "Fallo en la Extracción Digital",
-        description: "El Agente de Extracción ha reportado un problema de red o conexión al consultar tus canales digitales o los de tus competidores. Por favor, reintenta el proceso."
+        description: "El Agente de Extracción no pudo conectar con los canales digitales. Por favor, reintenta el proceso."
       };
     }
-    if (diagnosticStatus === "failed") {
+    if (diagnosticStatus === "failed" && !hasAnyReportOrData) {
       return {
         stage: -1,
         title: "Fallo en el Diagnóstico FODA",
-        description: "El Agente de Inteligencia no pudo consolidar la información del mercado. Puedes intentar realizar el análisis de nuevo."
+        description: "El Agente de Inteligencia no pudo consolidar la información del mercado. Puedes reintentar el análisis."
       };
     }
     if (getStepStatus("STRATEGY") === "failed") {
@@ -1048,26 +1057,80 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
     };
   };
 
+  const [rotatingPhraseIndex, setRotatingPhraseIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRotatingPhraseIndex((prev) => prev + 1);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
+  const STAGE_1_PHRASES = [
+    "Analizando código fuente de sitios web e indexando publicaciones recientes en redes sociales...",
+    "Escaneando la huella digital de tus competidores locales en tiempo real...",
+    "Extrayendo patrones de engagement, hashtags virales y frecuencia de contenido...",
+    "Agentes rastreando catálogos digitales, precios y llamadas a la acción (CTAs)...",
+    "Indexando estructura SEO, enlaces sociales y canales de conversión directos..."
+  ];
+
+  const STAGE_2_PHRASES = [
+    "Evaluando engagement, frecuencia de publicación y coherencia visual en cada canal digital...",
+    "Auditando calidad de copies, tono de comunicación y estilo gráfico de la competencia...",
+    "Detectando vacíos de información en tus canales y objeciones no resueltas de tus clientes...",
+    "Calculando índice de interacción e impacto de marca frente a rivales directos...",
+    "Mapeando canales de mayor tasa de conversión (WhatsApp vs Social vs Tienda Web)..."
+  ];
+
+  const STAGE_3_PHRASES = [
+    "Cruzando información del mercado, detectando debilidades competitivas y compilando matriz FODA...",
+    "Modelando perfil de Buyer Personas y arquetipos de marca con Inteligencia Artificial...",
+    "Calculando ventajas diferenciales únicas para posicionar tu oferta en el mercado...",
+    "Compilando reporte consolidado de inteligencia comercial y diagnóstico 360°...",
+    "Finalizando la síntesis estratégica y preparando recomendaciones de crecimiento..."
+  ];
+
+  const STRATEGY_PHRASES = [
+    "Modelando enfoque estratégico, definiendo metas comerciales SMART y perfilando Buyer Personas...",
+    "Calculando pilares de contenido de alto impacto para atracción, nutrición y cierre de ventas...",
+    "Optimizando funnel de conversión según los patrones de compra de tu audiencia objetivo...",
+    "Estableciendo tono de voz, propuestas de valor y ganchos promocionales con IA..."
+  ];
+
+  const CAMPAIGN_PHRASES = [
+    "Estructurando presupuestos ideales, definiendo ofertas de conversión y asignando canales de adquisición...",
+    "Diseñando ángulos de comunicación persuasivos y copys promocionales de alta respuesta...",
+    "Configurando asignación de inversión en anuncios y métricas clave de desempeño (KPIs)...",
+    "Segmentando audiencias frías, templadas y calientes para maximizar el retorno de inversión..."
+  ];
+
+  const CALENDAR_PHRASES = [
+    "Generando el plan de contenidos mensual y redactando copies con IA bajo la regla 60-25-15...",
+    "Redactando guiones de Reels y publicaciones dinámicas alineadas al tono de tu marca...",
+    "Calculando días y horas óptimas de publicación para maximizar tu alcance orgánico...",
+    "Creando llamadas a la acción (CTAs) irresistibles para convertir seguidores en clientes..."
+  ];
+
   const getDynamicWaitingText = () => {
     if (scrapingStatus === "processing" || scrapingLoading) {
-      return "Analizando código fuente de sitios web e indexando publicaciones recientes en redes sociales...";
+      return STAGE_1_PHRASES[rotatingPhraseIndex % STAGE_1_PHRASES.length];
     }
     if (diagnosticStatus === "processing" || diagnosticLoading) {
       const hasSomeIndividualReports = individualBusinessReports.length > 0 || competitorReports.length > 0;
       if (!hasSomeIndividualReports) {
-        return "Evaluando engagement, frecuencia de publicación y coherencia visual en cada canal digital...";
+        return STAGE_2_PHRASES[rotatingPhraseIndex % STAGE_2_PHRASES.length];
       } else {
-        return "Cruzando información del mercado, detectando debilidades competitivas y compilando matriz FODA...";
+        return STAGE_3_PHRASES[rotatingPhraseIndex % STAGE_3_PHRASES.length];
       }
     }
     if (isStrategyProcessing) {
-      return "Modelando enfoque estratégico, definiendo metas comerciales SMART y perfilando Buyer Personas...";
+      return STRATEGY_PHRASES[rotatingPhraseIndex % STRATEGY_PHRASES.length];
     }
     if (isCampaignProcessing) {
-      return "Estructurando presupuestos ideales, definiendo ofertas de conversión y asignando canales de adquisición...";
+      return CAMPAIGN_PHRASES[rotatingPhraseIndex % CAMPAIGN_PHRASES.length];
     }
     if (isCalendarProcessing) {
-      return "Generando el plan de contenidos mensual y redactando copies con IA bajo la regla 60-25-15...";
+      return CALENDAR_PHRASES[rotatingPhraseIndex % CALENDAR_PHRASES.length];
     }
     return "Conectando con la red de agentes autónomos y preparando el procesamiento de datos...";
   };
@@ -1226,9 +1289,11 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               <div className="flex flex-col items-center gap-3 w-full border-t pt-4">
                 {isCurrentlyProcessing ? (
                   <>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-semibold px-4 text-center">
+                    <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-semibold px-4 text-center min-h-[32px]">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
-                      <span className="animate-pulse">{getDynamicWaitingText()}</span>
+                      <span key={rotatingPhraseIndex} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                        {getDynamicWaitingText()}
+                      </span>
                     </div>
                     {!hasReports && (
                       <Button

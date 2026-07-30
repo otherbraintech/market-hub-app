@@ -103,15 +103,15 @@ export async function triggerAnalysis({
       data: { status: "ERROR", error: `Error al conectar con n8n: ${errorMessage}` },
     });
 
-    // Registrar fallo en las notificaciones
+    // Registrar evento de canal omitido en las notificaciones sin bloquear la canalización
     if (businessId) {
       await prisma.agentNotification.create({
         data: {
           businessId,
           title: "Agente de Extracción",
-          message: `Fallo al iniciar extracción de ${reportChannel} para el ${targetName}.`,
+          message: `Canal ${reportChannel} de ${targetName} omitido (continuando diagnóstico con datos disponibles).`,
           step: "SCRAPING",
-          status: "FAILED"
+          status: "COMPLETED"
         }
       }).catch((err) => console.error(err));
     }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { deleteBusiness, setSelectedBusinessAction } from "@/actions/business";
-import { BusinessForm } from "./business-form";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,13 +22,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -47,8 +40,7 @@ interface BusinessListProps {
 }
 
 export function BusinessList({ businesses }: BusinessListProps) {
-  const [editingBusiness, setEditingBusiness] = useState<any | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const router = useRouter();
   const [deletingBusinessId, setDeletingBusinessId] = useState<string | null>(null);
 
   async function handleDelete() {
@@ -99,8 +91,7 @@ export function BusinessList({ businesses }: BusinessListProps) {
                     <DropdownMenuItem 
                       className="text-xs hover:bg-slate-800 cursor-pointer"
                       onClick={() => {
-                        setEditingBusiness(business);
-                        setIsDialogOpen(true);
+                        router.push(`/business/create?businessId=${business.id}&edit=true`);
                       }}
                     >
                       <Edit className="mr-2 h-3.5 w-3.5" /> Editar Datos
@@ -159,37 +150,6 @@ export function BusinessList({ businesses }: BusinessListProps) {
           );
         })}
       </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        setIsDialogOpen(open);
-        if (!open) setEditingBusiness(null);
-      }}>
-        <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-white font-black">Editar Negocio</DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
-              Modifica la información corporativa y canales del negocio.
-            </DialogDescription>
-          </DialogHeader>
-          {editingBusiness && (
-            <BusinessForm 
-              defaultValues={{
-                id: editingBusiness.id,
-                name: editingBusiness.name,
-                description: editingBusiness.description || "",
-                industry: editingBusiness.industry || "",
-                website: editingBusiness.website || "",
-                phoneNumbers: editingBusiness.phoneNumbers || "",
-                location: editingBusiness.location || "",
-                socialLinks: (editingBusiness.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
-                brandVoice: (editingBusiness.brandVoice as any) || { tone: [], personality: [], values: [] },
-                targetAudience: (editingBusiness.targetAudience as any) || { demographics: "", psychographics: "" }
-              }} 
-              onSuccess={() => setIsDialogOpen(false)} 
-            />
-          )}
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={!!deletingBusinessId} onOpenChange={(open) => !open && setDeletingBusinessId(null)}>
         <AlertDialogContent className="bg-slate-900 border-slate-800 text-slate-100">

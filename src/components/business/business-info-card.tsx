@@ -1,69 +1,24 @@
 "use client"
 
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { BusinessForm } from "./business-form";
+import Link from "next/link";
 
 interface BusinessInfoCardProps {
   business: any;
 }
 
 export function BusinessInfoCard({ business }: BusinessInfoCardProps) {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   return (
     <Card className="card-shadow">
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-lg">Información del Negocio</CardTitle>
-        {isMounted && (
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Editar {business.name}</DialogTitle>
-                <DialogDescription>
-                  Actualiza los detalles básicos y estratégicos de tu negocio.
-                </DialogDescription>
-              </DialogHeader>
-              <BusinessForm 
-                defaultValues={{
-                  ...business,
-                  description: business.description || "",
-                  industry: business.industry || "",
-                  website: business.website || "",
-                  phoneNumbers: business.phoneNumbers || "",
-                  location: business.location || "",
-                  socialLinks: (business.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
-                  brandVoice: (business.brandVoice as any) || { tone: [], personality: [], values: [] },
-                  targetAudience: (business.targetAudience as any) || { demographics: "", psychographics: "" }
-                }}
-                onSuccess={() => {
-                  setIsEditDialogOpen(false);
-                  window.location.reload();
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-        )}
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" asChild>
+          <Link href={`/business/create?businessId=${business.id}&edit=true`}>
+            <Pencil className="h-4 w-4" />
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 gap-4 text-sm">

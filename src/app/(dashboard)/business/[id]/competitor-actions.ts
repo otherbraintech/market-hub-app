@@ -249,6 +249,7 @@ export async function deleteCompetitorAction(businessId: string, competitorId: s
 export async function saveMultipleCompetitorsAction(
   businessId: string,
   competitors: Array<{
+    id?: string
     name: string
     website?: string | null
     facebook?: string | null
@@ -258,10 +259,24 @@ export async function saveMultipleCompetitorsAction(
   skipAnalysis = false
 ) {
   try {
+    // Eliminar competidores de la BDD que hayan sido borrados por el usuario en la interfaz
+    const incomingIds = competitors.map(c => c.id).filter(Boolean) as string[];
+    const existingInDb = await prisma.competitor.findMany({
+      where: { businessId },
+      select: { id: true }
+    });
+    
+    const idsToDelete = existingInDb.map(c => c.id).filter(id => !incomingIds.includes(id));
+    if (idsToDelete.length > 0) {
+      await prisma.competitor.deleteMany({
+        where: { id: { in: idsToDelete } }
+      });
+    }
+
     const results = [];
     for (const comp of competitors) {
       if (!comp.name || comp.name.trim() === "") continue;
-      const res = await upsertCompetitorAction(businessId, undefined, {
+      const res = await upsertCompetitorAction(businessId, comp.id, {
         name: comp.name,
         website: comp.website || "",
         facebook: comp.facebook || "",

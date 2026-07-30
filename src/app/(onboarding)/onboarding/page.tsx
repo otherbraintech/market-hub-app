@@ -54,15 +54,98 @@ function MultiSelectQuestion({
   defaultPhoneNumber = "",
   allowSubInputs = false
 }: MultiSelectQuestionProps) {
-  const selectedItems = React.useMemo(() => {
-    if (!value) return [];
-    return value.split(",").map(s => s.trimStart()).filter(Boolean);
-  }, [value]);
 
-  const selectedPresetChips = chips.filter(chip => selectedItems.map(s => s.trim()).includes(chip));
-  const customOtrosItems = selectedItems.filter(item => !chips.includes(item.trim()) && !item.includes(":"));
+  // Known prefixes that can have comma-separated sub-values
+  const KNOWN_PREFIXES = ["Cadenas Canal Moderno", "Comercios Canal Tradicional", "Apps de Delivery", "Número WhatsApp"];
+
+  // Smart parser: splits the comma-separated string but keeps prefix items and chips-with-commas intact
+  const parseItems = React.useCallback((raw: string): string[] => {
+    if (!raw) return [];
+    const items: string[] = [];
+    let remaining = raw;
+
+    // Step 1: Extract all prefix items (they may contain commas in their value)
+    for (const prefix of KNOWN_PREFIXES) {
+      const marker = `${prefix}:`;
+      const idx = remaining.indexOf(marker);
+      if (idx !== -1) {
+        // Find where this prefix item ends - it ends at the next known prefix, chip, or "Otros"
+        let endIdx = remaining.length;
+        for (const otherPrefix of KNOWN_PREFIXES) {
+          if (otherPrefix === prefix) continue;
+          const otherMarker = `${otherPrefix}:`;
+          const searchStart = idx + marker.length;
+          let pos = remaining.indexOf(`, ${otherMarker}`, searchStart);
+          if (pos === -1) pos = remaining.indexOf(`,${otherMarker}`, searchStart);
+          if (pos !== -1 && pos < endIdx) endIdx = pos;
+        }
+        for (const chip of chips) {
+          const searchStart = idx + marker.length;
+          let pos = remaining.indexOf(`, ${chip}`, searchStart);
+          if (pos === -1) pos = remaining.indexOf(`,${chip}`, searchStart);
+          if (pos !== -1 && pos < endIdx) endIdx = pos;
+        }
+        {
+          const searchStart = idx + marker.length;
+          let pos = remaining.indexOf(`, Otros`, searchStart);
+          if (pos === -1) pos = remaining.indexOf(`,Otros`, searchStart);
+          if (pos !== -1 && pos < endIdx) endIdx = pos;
+        }
+        
+        let prefixItem = remaining.substring(idx, endIdx).trim();
+        if (prefixItem.endsWith(",")) prefixItem = prefixItem.slice(0, -1).trim();
+        items.push(prefixItem);
+        remaining = remaining.substring(0, idx) + remaining.substring(endIdx);
+      }
+    }
+
+    // Step 2: Extract chip names that contain commas (e.g. "Apps de Delivery (PedidosYa, Yango, etc.)")
+    // These must be extracted before naive comma-splitting
+    const chipsWithCommas = chips.filter(c => c.includes(","));
+    for (const chip of chipsWithCommas) {
+      let pos = remaining.indexOf(chip);
+      while (pos !== -1) {
+        items.push(chip);
+        remaining = remaining.substring(0, pos) + remaining.substring(pos + chip.length);
+        pos = remaining.indexOf(chip);
+      }
+    }
+
+    // Step 3: Split the remaining text by commas for simple items
+    const rest = remaining.split(",").map(s => s.trim()).filter(Boolean);
+    items.push(...rest);
+    
+    return items;
+  }, [chips]);
+
+  const selectedItems = React.useMemo(() => parseItems(value), [value, parseItems]);
+
+  // Determine which preset chips are selected
+  const isChipSelected = React.useCallback((chip: string): boolean => {
+    return selectedItems.some(item => {
+      const clean = item.trim();
+      // Exact match
+      if (clean === chip) return true;
+      // Skip prefix items for chip matching
+      if (clean.includes(":")) return false;
+      return false;
+    });
+  }, [selectedItems]);
+
+  // Items that don't match any chip and aren't prefix items and aren't "Otros"
+  const customOtrosItems = React.useMemo(() => {
+    return selectedItems.filter(item => {
+      const clean = item.trim();
+      if (!clean) return false;
+      if (clean.includes(":")) return false;
+      if (clean === "Otros") return false;
+      return !chips.includes(clean);
+    });
+  }, [selectedItems, chips]);
+
+  const selectedPresetChips = chips.filter(chip => isChipSelected(chip));
   const isOtrosActive = selectedItems.some(i => i.trim() === "Otros") || customOtrosItems.length > 0;
-  const otrosTextFromValue = customOtrosItems.filter(item => item.trim() !== "Otros").join(", ");
+  const otrosTextFromValue = customOtrosItems.join(", ");
 
   const [otrosInputText, setOtrosInputText] = useState(otrosTextFromValue);
 
@@ -72,14 +155,17 @@ function MultiSelectQuestion({
 
   const totalCount = selectedPresetChips.length + (isOtrosActive ? 1 : 0);
 
-  const isWhatsAppSelected = Boolean(allowSubInputs && selectedItems.some(item => item.toLowerCase().includes("whatsapp")));
-  const isDeliverySelected = Boolean(allowSubInputs && selectedItems.some(item => item.toLowerCase().includes("delivery") || item.toLowerCase().includes("pedidosya") || item.toLowerCase().includes("yango")));
-  const showModernoCard = selectedItems.some(i => i.toLowerCase().includes("moderno"));
-  const showTradicionalCard = selectedItems.some(i => i.toLowerCase().includes("tradicional"));
+  const isWhatsAppSelected = Boolean(allowSubInputs && selectedItems.some(item => item.trim() === "WhatsApp directo"));
+  const isDeliverySelected = Boolean(allowSubInputs && selectedItems.some(item => {
+    const clean = item.trim();
+    return clean === "Apps de Delivery (PedidosYa, Yango, etc.)" || clean.startsWith("Apps de Delivery:");
+  }));
+  const showModernoCard = selectedItems.some(i => i.trim() === "Canal Moderno");
+  const showTradicionalCard = selectedItems.some(i => i.trim() === "Canal Tradicional");
   const isRetailOrPhysicalSelected = showModernoCard || showTradicionalCard;
 
   const findPrefixText = (prefix: string) => {
-    const item = selectedItems.find(i => i.startsWith(`${prefix}:`));
+    const item = selectedItems.find(i => i.trim().startsWith(`${prefix}:`));
     if (!item) return "";
     return item.replace(`${prefix}:`, "").trimStart();
   };
@@ -93,15 +179,20 @@ function MultiSelectQuestion({
     return defaultPhoneNumber || "";
   });
 
+  // Rebuild the serialized value string from the item list
+  const serializeItems = (items: string[]): string => {
+    return items.filter(Boolean).join(", ");
+  };
+
   const updatePrefixItem = (prefix: string, text: string) => {
-    const filtered = selectedItems.filter(i => !i.startsWith(`${prefix}:`));
+    const filtered = selectedItems.filter(i => !i.trim().startsWith(`${prefix}:`));
     if (text !== "") {
       filtered.push(`${prefix}: ${text}`);
     }
-    onChange(filtered.join(", "));
+    onChange(serializeItems(filtered));
   };
 
-  // Pre-llenar teléfono de WhatsApp cuando la opción esté seleccionada y se disponga de un número por defecto
+  // Pre-fill WhatsApp number when selected
   useEffect(() => {
     if (isWhatsAppSelected && defaultPhoneNumber && !findPrefixText("Número WhatsApp")) {
       setWaNumber(defaultPhoneNumber);
@@ -109,65 +200,67 @@ function MultiSelectQuestion({
     }
   }, [isWhatsAppSelected, defaultPhoneNumber]);
 
-  const toggleSubOption = (subOption: string) => {
-    const isAlready = selectedItems.map(i => i.trim()).includes(subOption);
-    let nextSelected: string[];
-    if (isAlready) {
-      nextSelected = selectedItems.filter(i => i.trim() !== subOption);
-    } else {
-      nextSelected = [...selectedItems, subOption];
-    }
-    onChange(nextSelected.join(", "));
-  };
-
-  const updateStrategyValue = (newPresetChips: string[], otrosEnabled: boolean, newOtrosText: string) => {
-    const combined: string[] = [...newPresetChips];
-    const prefixItems = selectedItems.filter(i => i.includes(":"));
-    prefixItems.forEach(p => {
-      if (!combined.includes(p)) combined.push(p);
-    });
-
-    if (otrosEnabled) {
-      if (newOtrosText !== undefined && newOtrosText !== "") {
-        combined.push(newOtrosText);
-      } else {
-        combined.push("Otros");
-      }
-    }
-    onChange(combined.join(", "));
-  };
-
   const toggleChip = (chip: string) => {
-    const isSelected = selectedPresetChips.includes(chip);
+    const isSelected = isChipSelected(chip);
+    let nextItems: string[];
+
     if (isSelected) {
-      const nextPresets = selectedPresetChips.filter(c => c !== chip);
-      updateStrategyValue(nextPresets, isOtrosActive, otrosInputText);
+      nextItems = selectedItems.filter(item => item.trim() !== chip);
     } else {
       if (maxLimit && totalCount >= maxLimit) {
         toast.info(`Solo puedes seleccionar un máximo de ${maxLimit} opciones.`);
         return;
       }
-      const nextPresets = [...selectedPresetChips, chip];
-      updateStrategyValue(nextPresets, isOtrosActive, otrosInputText);
+      nextItems = [...selectedItems, chip];
     }
+    onChange(serializeItems(nextItems));
   };
 
   const toggleOtros = () => {
     if (isOtrosActive) {
       setOtrosInputText("");
-      updateStrategyValue(selectedPresetChips, false, "");
+      const nextItems = selectedItems.filter(item => {
+        const clean = item.trim();
+        if (clean === "Otros") return false;
+        if (clean.includes(":")) return true;
+        return chips.includes(clean);
+      });
+      onChange(serializeItems(nextItems));
     } else {
       if (maxLimit && totalCount >= maxLimit) {
         toast.info(`Solo puedes seleccionar un máximo de ${maxLimit} opciones.`);
         return;
       }
-      updateStrategyValue(selectedPresetChips, true, otrosInputText);
+      onChange(serializeItems([...selectedItems, "Otros"]));
     }
   };
 
   const handleOtrosInputChange = (text: string) => {
     setOtrosInputText(text);
-    updateStrategyValue(selectedPresetChips, true, text);
+    // Keep preset chips and prefix items, replace custom otros items
+    const presetAndPrefixItems = selectedItems.filter(item => {
+      const clean = item.trim();
+      if (clean.includes(":")) return true;
+      if (chips.includes(clean)) return true;
+      return false;
+    });
+
+    if (text.trim()) {
+      onChange(serializeItems([...presetAndPrefixItems, text.trim()]));
+    } else {
+      onChange(serializeItems([...presetAndPrefixItems, "Otros"]));
+    }
+  };
+
+  const toggleSubOption = (subOption: string) => {
+    const isAlready = selectedItems.some(i => i.trim() === subOption);
+    let nextItems: string[];
+    if (isAlready) {
+      nextItems = selectedItems.filter(i => i.trim() !== subOption);
+    } else {
+      nextItems = [...selectedItems, subOption];
+    }
+    onChange(serializeItems(nextItems));
   };
 
   const getChipTooltip = (chip: string) => {
@@ -245,7 +338,7 @@ function MultiSelectQuestion({
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {chips.map((chip, idx) => {
-          const isSelected = selectedPresetChips.includes(chip);
+          const isSelected = isChipSelected(chip);
           const info = getChipTooltip(chip);
 
           const chipButton = (
@@ -365,12 +458,13 @@ export function OnboardingContent() {
   const isPreview = searchParams.get("preview") === "true" || !!forceStep;
 
   const isNew = searchParams.get("new") === "true";
+  const isEdit = searchParams.get("edit") === "true";
 
   const [businessId, setBusinessId] = useState<string>(isNew ? "" : initialBusinessId);
   const [initializing, setInitializing] = useState(true);
   const [hasIncompleteBusiness, setHasIncompleteBusiness] = useState(false);
   const [currentStep, setCurrentStep] = useState(
-    forceStep ? parseInt(forceStep) : (initialBusinessId && !isNew) ? 2 : 1
+    forceStep ? parseInt(forceStep) : (initialBusinessId && !isNew && !isEdit) ? 2 : 1
   );
   const [loading, setLoading] = useState(false);
   const [businessName, setBusinessName] = useState("");
@@ -455,6 +549,44 @@ export function OnboardingContent() {
           return;
         }
 
+        // Si estamos en modo edición explícito (`edit=true`)
+        if (isEdit) {
+          setBusinessId(b.id);
+          setBusinessName(b.name);
+          setBusinessFormValues({
+            name: b.name,
+            description: b.description || "",
+            industry: b.industry || "",
+            website: b.website || "",
+            phoneNumbers: b.phoneNumbers || "",
+            location: (b.location as any) || "",
+            brandVoice: (b.brandVoice as any) || { tone: [], personality: [], values: [] },
+            targetAudience: (b.targetAudience as any) || { demographics: "", psychographics: "" },
+            socialLinks: (b.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
+          });
+          if (b.onboardingStrategy && typeof b.onboardingStrategy === "object") {
+            setStrategyValues((prev) => ({
+              ...prev,
+              ...(b.onboardingStrategy as any)
+            }));
+          }
+          if (b.competitors && b.competitors.length > 0) {
+            setCompetitors(b.competitors.map((c: any) => ({
+              id: c.id,
+              name: c.name || "",
+              website: c.website || "",
+              facebook: c.facebook || "",
+              instagram: c.instagram || "",
+              tiktok: c.tiktok || "",
+            })));
+          }
+          setHasIncompleteBusiness(false);
+          setHasStrategyInDb(true);
+          setCurrentStep(forceStep ? parseInt(forceStep) : 1);
+          setInitializing(false);
+          return;
+        }
+
         const hasStrategyData = isForm3Filled(b.onboardingStrategy);
 
         // Si el negocio actual o detectado carece del Formulario 3, CARGARLO E IR AL PASO 3
@@ -482,6 +614,7 @@ export function OnboardingContent() {
           }
           if (b.competitors && b.competitors.length > 0) {
             setCompetitors(b.competitors.map((c: any) => ({
+              id: c.id,
               name: c.name || "",
               website: c.website || "",
               facebook: c.facebook || "",
@@ -565,6 +698,13 @@ export function OnboardingContent() {
     };
   }, [businessId, isPreview, forceStep, router, isNew]);
 
+  const goToStep = async (targetStep: number) => {
+    if (businessId && currentStep >= 3) {
+      await saveOnboardingStrategyAction(businessId, strategyValues);
+    }
+    setCurrentStep(targetStep);
+  };
+
   const checkIfStrategyExists = () => {
     const hasSessionStrategy = Object.values(strategyValues).some(
       (val) => typeof val === "string" && val.trim().length > 0
@@ -587,6 +727,7 @@ export function OnboardingContent() {
   );
 
   const [competitors, setCompetitors] = useState<Array<{
+    id?: string;
     name: string;
     website: string;
     facebook: string;
@@ -726,7 +867,8 @@ export function OnboardingContent() {
         } else {
           // Si el negocio ya existe, actualizar sus datos del perfil (paso 1) y guardar onboardingStrategy en la base de datos
           if (businessFormValues) {
-            await updateBusiness(activeBusinessId, businessFormValues);
+            const { onboardingStrategy, ...cleanFormValues } = businessFormValues as any;
+            await updateBusiness(activeBusinessId, cleanFormValues);
           }
           const saveRes = await saveOnboardingStrategyAction(activeBusinessId, strategyValues);
           if (!saveRes.success) {
@@ -895,7 +1037,7 @@ export function OnboardingContent() {
       {/* Indicador de pasos estilo Premium Glass (5 Pasos) */}
       <div className="bg-card/45 backdrop-blur-md border border-slate-100 dark:border-slate-800/80 p-4 rounded-2xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-3 overflow-x-auto">
         {/* Step 1 */}
-        <button type="button" onClick={() => currentStep > 1 && setCurrentStep(1)} className={`flex items-center gap-2.5 ${currentStep > 1 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
+        <button type="button" onClick={() => (currentStep > 1 || isEdit || !!businessId) && goToStep(1)} className={`flex items-center gap-2.5 ${(currentStep > 1 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
           <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 1 ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105 border border-primary/20' : currentStep > 1 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
             {currentStep > 1 ? <Check className="h-4 w-4 stroke-[3]" /> : "01"}
           </div>
@@ -908,7 +1050,7 @@ export function OnboardingContent() {
         <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-emerald-500/30 to-slate-200 dark:to-slate-800 mx-1" />
 
         {/* Step 2 */}
-        <button type="button" onClick={() => currentStep > 2 && setCurrentStep(2)} className={`flex items-center gap-2.5 ${currentStep > 2 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
+        <button type="button" onClick={() => (currentStep > 2 || isEdit || !!businessId) && goToStep(2)} className={`flex items-center gap-2.5 ${(currentStep > 2 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
           <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 2 ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105 border border-primary/20' : currentStep > 2 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
             {currentStep > 2 ? <Check className="h-4 w-4 stroke-[3]" /> : "02"}
           </div>
@@ -921,7 +1063,7 @@ export function OnboardingContent() {
         <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-indigo-500/30 mx-1" />
 
         {/* Step 3 */}
-        <button type="button" onClick={() => currentStep > 3 && setCurrentStep(3)} className={`flex items-center gap-2.5 ${currentStep > 3 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
+        <button type="button" onClick={() => (currentStep > 3 || isEdit || !!businessId) && goToStep(3)} className={`flex items-center gap-2.5 ${(currentStep > 3 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
           <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 3 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-105 border border-indigo-500/20' : currentStep > 3 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
             {currentStep > 3 ? <Check className="h-4 w-4 stroke-[3]" /> : "03"}
           </div>
@@ -934,7 +1076,7 @@ export function OnboardingContent() {
         <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-indigo-500/30 mx-1" />
 
         {/* Step 4 */}
-        <button type="button" onClick={() => currentStep > 4 && setCurrentStep(4)} className={`flex items-center gap-2.5 ${currentStep > 4 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
+        <button type="button" onClick={() => (currentStep > 4 || isEdit || !!businessId) && goToStep(4)} className={`flex items-center gap-2.5 ${(currentStep > 4 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
           <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 4 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-105 border border-indigo-500/20' : currentStep > 4 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
             {currentStep > 4 ? <Check className="h-4 w-4 stroke-[3]" /> : "04"}
           </div>
@@ -947,7 +1089,7 @@ export function OnboardingContent() {
         <div className="hidden md:block flex-1 h-px bg-gradient-to-r from-slate-200 dark:from-slate-800 to-indigo-500/30 mx-1" />
 
         {/* Step 5 */}
-        <button type="button" onClick={() => currentStep > 5 && setCurrentStep(5)} className={`flex items-center gap-2.5 ${currentStep > 5 ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
+        <button type="button" onClick={() => (currentStep > 5 || isEdit || !!businessId) && goToStep(5)} className={`flex items-center gap-2.5 ${(currentStep > 5 || isEdit || !!businessId) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}>
           <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold text-xs transition-all duration-300 ${currentStep === 5 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20 scale-105 border border-indigo-500/20' : currentStep > 5 ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' : 'bg-muted text-muted-foreground border border-transparent'}`}>
             {currentStep > 5 ? <Check className="h-4 w-4 stroke-[3]" /> : "05"}
           </div>
@@ -970,10 +1112,12 @@ export function OnboardingContent() {
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-2xl font-black text-foreground tracking-tight italic uppercase">
-                    Crea tu negocio
+                    {isEdit ? "Edita tu negocio" : "Crea tu negocio"}
                   </h3>
                   <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
-                    Diseñemos tu estrategia de marca, segmentación de buyer personas y funnels en solo segundos utilizando Inteligencia Artificial.
+                    {isEdit 
+                      ? "Modifica el perfil de tu negocio, competidores y diagnóstico estratégico." 
+                      : "Diseñemos tu estrategia de marca, segmentación de buyer personas y funnels en solo segundos utilizando Inteligencia Artificial."}
                   </p>
                 </div>
               </div>
@@ -989,14 +1133,15 @@ export function OnboardingContent() {
                   setBusinessFormValues(data);
                   setBusinessName(data.name);
                   if (businessId) {
-                    const res = await updateBusiness(businessId, data);
+                    const { onboardingStrategy, ...cleanData } = data as any;
+                    const res = await updateBusiness(businessId, cleanData);
                     if (!res.success) {
                       toast.error(res.error || "Error al actualizar los datos del negocio");
                     } else {
                       toast.success("Perfil del negocio actualizado");
                     }
                   }
-                  setCurrentStep(2);
+                  goToStep(2);
                 }}
               />
             </div>
@@ -1204,7 +1349,7 @@ export function OnboardingContent() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setCurrentStep(2)} 
+                    onClick={() => goToStep(2)} 
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
@@ -1214,7 +1359,7 @@ export function OnboardingContent() {
                     type="button" 
                     onClick={async () => {
                       if (businessId) {
-                        saveOnboardingStrategyAction(businessId, strategyValues);
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
                       }
                       setCurrentStep(4);
                     }} 
@@ -1312,7 +1457,7 @@ export function OnboardingContent() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setCurrentStep(3)} 
+                    onClick={() => goToStep(3)} 
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
@@ -1322,7 +1467,7 @@ export function OnboardingContent() {
                     type="button" 
                     onClick={async () => {
                       if (businessId) {
-                        saveOnboardingStrategyAction(businessId, strategyValues);
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
                       }
                       setCurrentStep(5);
                     }} 
@@ -1421,7 +1566,7 @@ export function OnboardingContent() {
                   <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={() => setCurrentStep(4)} 
+                    onClick={() => goToStep(4)} 
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
@@ -1440,7 +1585,7 @@ export function OnboardingContent() {
                       </>
                     ) : (
                       <>
-                        Finalizar y Guardar Negocio <ArrowRight className="h-4 w-4 ml-2" />
+                        {isEdit ? "Guardar Cambios del Negocio" : "Finalizar y Guardar Negocio"} <ArrowRight className="h-4 w-4 ml-2" />
                       </>
                     )}
                   </Button>

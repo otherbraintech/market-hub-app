@@ -211,7 +211,9 @@ export async function updateBusiness(
       targetAudience: input.targetAudience as any,
       settings: input.settings as any,
       socialLinks: input.socialLinks as any,
-      onboardingStrategy: input.onboardingStrategy as any,
+      ...(input.onboardingStrategy && typeof input.onboardingStrategy === "object" && Object.values(input.onboardingStrategy).some(v => typeof v === "string" && v.trim().length > 0)
+        ? { onboardingStrategy: input.onboardingStrategy as any }
+        : {}),
     },
   })
 

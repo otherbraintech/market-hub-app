@@ -450,6 +450,198 @@ function MultiSelectQuestion({
   );
 }
 
+function BusinessHoursPicker({ value, onChange }: { value: string; onChange: (val: string) => void }) {
+  const ALL_DAYS = [
+    { key: "Lun", label: "Lunes" },
+    { key: "Mar", label: "Martes" },
+    { key: "Mié", label: "Miércoles" },
+    { key: "Jue", label: "Jueves" },
+    { key: "Vie", label: "Viernes" },
+    { key: "Sáb", label: "Sábado" },
+    { key: "Dom", label: "Domingo" },
+  ];
+
+  const [selectedDays, setSelectedDays] = useState<string[]>(["Lun", "Mar", "Mié", "Jue", "Vie"]);
+  const [openTime, setOpenTime] = useState<string>("09:00");
+  const [closeTime, setCloseTime] = useState<string>("18:00");
+  const [is247, setIs247] = useState<boolean>(false);
+  const [customDetail, setCustomDetail] = useState<string>("");
+
+  const applyPreset = (preset: "LV" | "LS" | "ALL" | "247") => {
+    setIs247(false);
+    if (preset === "LV") {
+      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie"]);
+    } else if (preset === "LS") {
+      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]);
+    } else if (preset === "ALL") {
+      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]);
+    } else if (preset === "247") {
+      setIs247(true);
+      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]);
+    }
+  };
+
+  const toggleDay = (key: string) => {
+    if (selectedDays.includes(key)) {
+      if (selectedDays.length === 1) return;
+      setSelectedDays(selectedDays.filter(d => d !== key));
+    } else {
+      setSelectedDays([...selectedDays, key]);
+    }
+  };
+
+  useEffect(() => {
+    if (is247) {
+      onChange("Atención 24/7 por WhatsApp / Tienda Web");
+      return;
+    }
+
+    let daysText = "";
+    if (selectedDays.length === 5 && ["Lun", "Mar", "Mié", "Jue", "Vie"].every(d => selectedDays.includes(d))) {
+      daysText = "Lunes a Viernes";
+    } else if (selectedDays.length === 6 && ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].every(d => selectedDays.includes(d))) {
+      daysText = "Lunes a Sábado";
+    } else if (selectedDays.length === 7) {
+      daysText = "Todos los días (Lunes a Domingo)";
+    } else {
+      const fullNames = selectedDays.map(d => ALL_DAYS.find(ad => ad.key === d)?.label).filter(Boolean);
+      daysText = fullNames.join(", ");
+    }
+
+    let result = `${daysText} de ${openTime} a ${closeTime}`;
+    if (customDetail.trim()) {
+      result += ` (${customDetail.trim()})`;
+    }
+    onChange(result);
+  }, [selectedDays, openTime, closeTime, is247, customDetail]);
+
+  return (
+    <div className="space-y-4 p-5 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/40">
+      {/* Selector de Presets Rápidos */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+          Selección Rápida de Días
+        </label>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => applyPreset("LV")}
+            className="text-xs font-semibold px-3 py-1 rounded-xl bg-background border hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-foreground transition-all"
+          >
+            📅 Lunes a Viernes
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset("LS")}
+            className="text-xs font-semibold px-3 py-1 rounded-xl bg-background border hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-foreground transition-all"
+          >
+            📅 Lunes a Sábado
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset("ALL")}
+            className="text-xs font-semibold px-3 py-1 rounded-xl bg-background border hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-foreground transition-all"
+          >
+            🗓️ Todos los Días
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset("247")}
+            className="text-xs font-semibold px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 transition-all"
+          >
+            ⚡ 24/7 Digital
+          </button>
+        </div>
+      </div>
+
+      {/* Selector Individual de Días de la Semana */}
+      <div className="space-y-1.5">
+        <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+          Días de Atención Activos
+        </label>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {ALL_DAYS.map((day) => {
+            const isSelected = selectedDays.includes(day.key);
+            return (
+              <button
+                key={day.key}
+                type="button"
+                onClick={() => toggleDay(day.key)}
+                className={`text-xs font-extrabold px-3 py-2 rounded-xl border transition-all ${
+                  isSelected
+                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs scale-[1.02]"
+                    : "bg-background text-muted-foreground border-slate-200 dark:border-slate-800 hover:bg-muted"
+                }`}
+              >
+                {day.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Selectores de Rango de Horarios */}
+      {!is247 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+              Hora de Apertura
+            </label>
+            <select
+              value={openTime}
+              onChange={(e) => setOpenTime(e.target.value)}
+              className="w-full h-10 rounded-xl bg-background border border-input px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {["06:00", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "12:00"].map(t => (
+                <option key={t} value={t}>{t} (Apertura)</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+              Hora de Cierre
+            </label>
+            <select
+              value={closeTime}
+              onChange={(e) => setCloseTime(e.target.value)}
+              className="w-full h-10 rounded-xl bg-background border border-input px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {["16:00", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "22:00", "23:00"].map(t => (
+                <option key={t} value={t}>{t} (Cierre)</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Visualización en tiempo real del resumen formateado */}
+      <div className="p-3.5 bg-background/80 rounded-xl border border-indigo-200/50 flex items-center justify-between gap-2 shadow-xs">
+        <div className="space-y-0.5">
+          <span className="text-[9px] font-black uppercase tracking-wider text-indigo-600 block">Horario Configurado</span>
+          <span className="text-xs font-extrabold text-foreground block">{value || "Selecciona un horario"}</span>
+        </div>
+        <div className="h-6 px-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-black text-[9px] flex items-center">
+          ✓ CONFIGURADO
+        </div>
+      </div>
+
+      {/* Campo opcional de detalles adicionales */}
+      <div className="space-y-1 pt-1">
+        <label className="text-[9.5px] font-semibold text-muted-foreground">
+          Detalle adicional (Opcional, ej. "Sábados de 9:00 a 13:00" o "Turno cortado")
+        </label>
+        <Input
+          placeholder="Ej. Sábados de 9:00 a 13:00"
+          value={customDetail}
+          onChange={(e) => setCustomDetail(e.target.value)}
+          className="h-9 text-xs rounded-xl bg-background border-slate-200 focus-visible:ring-indigo-500"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1079,6 +1271,56 @@ export function OnboardingContent() {
                 style={{ width: `${(currentStep / 10) * 100}%` }}
               />
             </div>
+
+            {/* Navegador Interactivo de Pasos (Disponible en Modo Edición / Negocio Existente) */}
+            {(isEdit || Boolean(businessId) || hasStrategyInDb) && (
+              <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> NAVEGACIÓN RÁPIDA ENTRE PASOS (EDICIÓN)
+                  </span>
+                  <span className="text-[9.5px] font-medium text-muted-foreground">
+                    Haz clic en cualquier paso para saltar directamente
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((stepNum) => {
+                    const isActive = currentStep === stepNum;
+                    const labels: Record<number, string> = {
+                      1: "1. Perfil",
+                      2: "2. Competidores",
+                      3: "3. Ubicación",
+                      4: "4. Gatillo",
+                      5: "5. Canales",
+                      6: "6. Marca",
+                      7: "7. Diferencial",
+                      8: "8. Objeciones",
+                      9: "9. Testimonios",
+                      10: "10. Horarios"
+                    };
+                    return (
+                      <button
+                        key={stepNum}
+                        type="button"
+                        onClick={async () => {
+                          if (businessId && currentStep >= 3) {
+                            await saveOnboardingStrategyAction(businessId, strategyValues);
+                          }
+                          setCurrentStep(stepNum);
+                        }}
+                        className={`text-[10.5px] font-extrabold px-2.5 py-1 rounded-xl border transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                          isActive
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-xs scale-105"
+                            : "bg-background/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-foreground border-slate-200 dark:border-slate-800 hover:border-indigo-300"
+                        }`}
+                      >
+                        {labels[stepNum]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -1879,7 +2121,7 @@ export function OnboardingContent() {
             <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
               <CardContent className="pt-6 space-y-6">
                 <TooltipProvider delayDuration={150}>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">8. Horarios y Días de Atención</Label>
                     <div className="flex items-center gap-1.5">
                       <p className="text-[13px] font-bold text-foreground leading-snug">¿En qué días y horarios atiende tu negocio?</p>
@@ -1894,31 +2136,12 @@ export function OnboardingContent() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
-                    <Input 
-                      placeholder={industryPlaceholders.businessHours?.placeholder || "Ej. Lunes a Viernes de 9:00 a 18:00, Sábados de 9:00 a 13:00"} 
-                      value={strategyValues.businessHours} 
-                      onChange={(e) => setStrategyValues({...strategyValues, businessHours: e.target.value})}
-                      className="h-11 rounded-xl"
+
+                    {/* Componente Dinámico de Selección de Días y Horarios */}
+                    <BusinessHoursPicker
+                      value={strategyValues.businessHours}
+                      onChange={(val) => setStrategyValues({...strategyValues, businessHours: val})}
                     />
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] font-medium text-muted-foreground/70 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3 text-indigo-500" /> Ejemplos:
-                      </span>
-                      {(industryPlaceholders.businessHours?.chips || [
-                        "Lunes a Viernes de 9:00 a 18:00",
-                        "Lunes a Sábado de 8:30 a 20:00",
-                        "Atención 24/7 por WhatsApp / Tienda Web"
-                      ]).map((chip, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setStrategyValues({...strategyValues, businessHours: chip})}
-                          className="text-[11px] font-semibold px-2 py-0.5 rounded-lg bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/50 transition-colors"
-                        >
-                          + {chip}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 </TooltipProvider>
 

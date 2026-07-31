@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  FileText, ShieldCheck, Target, Users, Megaphone, 
+  FileText, ShieldCheck, Target, Users, Megaphone, Image as ImageIcon,
   CheckCircle2, Loader2, Network, HelpCircle, ArrowRight, ArrowLeft,
   Database, Eye, EyeIcon, CalendarDays, Compass, MessageSquare,
   Play, RefreshCw, Check, X, Clock, Cpu, Bot, Sparkles, Layers, AlertTriangle, Terminal,
@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarView } from "@/components/calendar/calendar-view";
+import { MediaLibraryClient } from "@/app/(dashboard)/media/client-page";
 import { handleDownloadEstrategiaPDF as downloadEstrategiaPDF, handleDownloadBancoDeDatosPDF as downloadBancoDeDatosPDF, handleDownloadCampanasPDF as downloadCampanasPDF, handleDownloadCalendarioPDF as downloadCalendarioPDF } from "@/utils/print-utils";
 import {
   Dialog,
@@ -226,6 +227,7 @@ export function OnboardingResultsPanel({
   const [isIgActive, setIsIgActive] = useState<boolean>(true);
   const [isFbActive, setIsFbActive] = useState<boolean>(true);
   const [isTiktokActive, setIsTiktokActive] = useState<boolean>(true);
+  const [isRegeneratingPlan, setIsRegeneratingPlan] = useState<boolean>(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -717,10 +719,11 @@ export function OnboardingResultsPanel({
   };
 
   const pipelineStages = [
-    { key: "BANCODEDATOS", label: "Banco de Datos", icon: Database, tab: "bancodedatos", color: "orange", desc: "Perfil, competencia e informes", emoji: "🗄️", processingEmoji: "⚡" },
-    { key: "STRATEGY", label: "Estrategia de Growth", icon: Sparkles, tab: "estrategia", color: "purple", desc: "Buyer personas y plan", emoji: "🎯", processingEmoji: "✨" },
-    { key: "CAMPAIGN", label: "Parametrización de Campaña de Marketing", icon: Bot, tab: "campanas", color: "emerald", desc: "Campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
-    { key: "CALENDAR", label: "Calendario Editorial", icon: ShieldCheck, tab: "calendario", color: "sky", desc: "Copies y publicaciones", emoji: "📝", processingEmoji: "🤖" },
+    { key: "BANCODEDATOS", label: "1. Banco de Datos", icon: Database, tab: "bancodedatos", color: "orange", desc: "Diagnóstico, FODA y competencia", emoji: "🗄️", processingEmoji: "⚡" },
+    { key: "MEDIA", label: "2. Activos Visuales e Inspiración", icon: ImageIcon, tab: "activosvisuales", color: "blue", desc: "Nicho, web propia y manual", emoji: "🖼️", processingEmoji: "📸" },
+    { key: "STRATEGY", label: "3. Estrategia Growth de Marketing", icon: Sparkles, tab: "estrategia", color: "purple", desc: "Buyer personas y embudos", emoji: "🎯", processingEmoji: "✨" },
+    { key: "CAMPAIGN", label: "4. Campaña Principal de Marketing", icon: Bot, tab: "campanas", color: "emerald", desc: "Campañas y presupuestos", emoji: "📢", processingEmoji: "🚀" },
+    { key: "CALENDAR", label: "5. Calendario & Plan de Publicaciones", icon: ShieldCheck, tab: "calendario", color: "sky", desc: "Copies y feriados patrios", emoji: "📝", processingEmoji: "🤖" },
   ];
 
   const getStageStatusStyle = (stageKey: string) => {
@@ -2129,7 +2132,9 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                               <div className="h-7 w-7 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 text-orange-600 text-[10px] font-black shrink-0">
                                 P{index + 1}
                               </div>
-                              <span className="font-bold text-[11.5px] text-foreground">{persona.name || `Audiencia ${index + 1}`}</span>
+                              <span className="font-bold text-[11.5px] text-foreground">
+                                {persona.name ? persona.name.split(',')[0].split(/ el /i)[0].split(/ la /i)[0].trim() : `Audiencia ${index + 1}`}
+                              </span>
                             </div>
                             {persona.demographics && (
                               <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-orange-500/5 text-orange-700">
@@ -2453,11 +2458,53 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
             <div ref={bottomRef} className="h-10 w-full" />
           </TabsContent>
 
+          {/* TAB 2: ACTIVOS VISUALES E INSPIRACIÓN (Etapa 2) */}
+          <TabsContent value="activosvisuales" className="space-y-6 mt-0">
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <div>
+                <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-blue-500" /> Activos Visuales e Inspiración
+                </h5>
+                <p className="text-xs text-muted-foreground mt-0.5 font-medium">
+                  Organización de referencias visuales por nicho de mercado, canales oficiales de marca y recursos subidos.
+                </p>
+              </div>
+            </div>
+
+            <MediaLibraryClient
+              businessId={businessId}
+              initialAssets={[]}
+              initialCounts={{ videoCount: 0, imageCount: 0, total: 0 }}
+            />
+
+            {/* CEO Navigation Bar: Activos Visuales -> Estrategia Growth de Marketing */}
+            <div className="pt-6 border-t mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-purple-500/5 p-6 rounded-3xl border border-purple-500/20 shadow-sm">
+              <div className="space-y-1 text-center sm:text-left">
+                <span className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">
+                  Paso 2 Completado · Activos Visuales & Referencias
+                </span>
+                <h4 className="text-sm font-black text-foreground">¿Listo para avanzar a la Estrategia Growth de Marketing?</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Con el banco de datos y referencias visuales cargadas, activa el agente para formular Buyer Personas y Embudos.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setActiveTab("estrategia");
+                  handleStartStrategy();
+                }}
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl font-black text-xs bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-xl shadow-purple-500/25 border-none transition-all duration-300 hover:scale-105 shrink-0"
+              >
+                Avanzar a Estrategia Growth <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </TabsContent>
+
           {/* TAB 2: ESTRATEGIA (antigua Etapa 4) */}
           <TabsContent value="estrategia" className="space-y-4 mt-0">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                <Target className="h-3.5 w-3.5 text-purple-500" /> Estrategia Inteligente y Buyer Personas
+                <Target className="h-3.5 w-3.5 text-purple-500" /> Estrategia Growth de Marketing
               </h5>
               
               <div className="flex items-center gap-2">
@@ -2967,7 +3014,17 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                 min={10}
                                 max={10000}
                                 value={displayBudget}
-                                onChange={(e) => setEditedCampBudget(Number(e.target.value))}
+                                onChange={(e) => {
+                                  const newTotal = Number(e.target.value);
+                                  setEditedCampBudget(newTotal);
+                                  const activeCount = (isIgActive ? 1 : 0) + (isFbActive ? 1 : 0) + (isTiktokActive ? 1 : 0);
+                                  if (activeCount > 0) {
+                                    const split = Math.round(newTotal / activeCount);
+                                    if (isIgActive) setEditedIgBudget(split);
+                                    if (isFbActive) setEditedFbBudget(split);
+                                    if (isTiktokActive) setEditedTiktokBudget(split);
+                                  }
+                                }}
                                 className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-muted/30 border border-emerald-200/50 rounded-lg px-2 py-1 w-full"
                               />
                               <span className="font-extrabold text-[10px] text-muted-foreground">USD</span>
@@ -2976,7 +3033,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
                           <div className="p-3 bg-background/80 rounded-xl border border-emerald-200/50 space-y-1">
                             <span className="text-[8.5px] font-black uppercase text-muted-foreground block">Plan de Publicaciones</span>
-                            <span className="text-[11px] font-bold text-foreground block truncate">
+                            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 block truncate">
                               {totalPieces} Piezas ({editedReelsCount} Reels, {editedCarouselsCount} Carruseles, {editedPostsCount} Post{editedPostsCount !== 1 ? 's' : ''})
                             </span>
                           </div>
@@ -3019,29 +3076,14 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                             </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center justify-end pt-1">
-                          <Button
-                            type="button"
-                            onClick={() => {
-                              toast.success("¡Parámetros de campaña guardados! Plan de publicaciones actualizado.");
-                            }}
-                            className="rounded-xl h-9 px-5 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-1.5"
-                          >
-                            <Check className="h-3.5 w-3.5" /> Guardar Parámetros de Campaña
-                          </Button>
-                        </div>
                       </div>
 
-                      {/* 2. Distribución por Canales de Difusión (Directamente Editable) */}
+                      {/* 2. Distribución por Canales de Difusión */}
                       <div className="space-y-3 bg-background/50 border rounded-2xl p-5 shadow-sm">
                         <div className="flex items-center justify-between border-b pb-2">
                           <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[9.5px] flex items-center gap-1.5">
-                            <Share2 className="h-3.5 w-3.5 text-emerald-500" /> Distribución por Canales de Difusión (Presupuesto & Estado Editable)
+                            <Share2 className="h-3.5 w-3.5 text-emerald-500" /> Distribución por Canales de Difusión (Presupuesto & Estado por Canal)
                           </span>
-                          <Badge variant="outline" className="text-[8.5px] font-extrabold bg-emerald-50 text-emerald-700 border-emerald-200">
-                            EDICIÓN LIBRE
-                          </Badge>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                           {/* INSTAGRAM */}
@@ -3057,7 +3099,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                 <input
                                   type="checkbox"
                                   checked={isIgActive}
-                                  onChange={(e) => setIsIgActive(e.target.checked)}
+                                  onChange={(e) => {
+                                    const nextActive = e.target.checked;
+                                    setIsIgActive(nextActive);
+                                    const sum = (nextActive ? editedIgBudget : 0) + (isFbActive ? editedFbBudget : 0) + (isTiktokActive ? editedTiktokBudget : 0);
+                                    setEditedCampBudget(sum);
+                                  }}
                                   className="rounded text-pink-600 focus:ring-pink-500"
                                 />
                                 {isIgActive ? "ACTIVO" : "INACTIVO"}
@@ -3071,7 +3118,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                   type="number"
                                   min={0}
                                   value={editedIgBudget}
-                                  onChange={(e) => setEditedIgBudget(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setEditedIgBudget(val);
+                                    const sum = (isIgActive ? val : 0) + (isFbActive ? editedFbBudget : 0) + (isTiktokActive ? editedTiktokBudget : 0);
+                                    setEditedCampBudget(sum);
+                                  }}
                                   disabled={!isIgActive}
                                   className="w-full text-xs font-black text-pink-600 bg-muted/20 border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-pink-500"
                                 />
@@ -3093,7 +3145,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                 <input
                                   type="checkbox"
                                   checked={isFbActive}
-                                  onChange={(e) => setIsFbActive(e.target.checked)}
+                                  onChange={(e) => {
+                                    const nextActive = e.target.checked;
+                                    setIsFbActive(nextActive);
+                                    const sum = (isIgActive ? editedIgBudget : 0) + (nextActive ? editedFbBudget : 0) + (isTiktokActive ? editedTiktokBudget : 0);
+                                    setEditedCampBudget(sum);
+                                  }}
                                   className="rounded text-blue-600 focus:ring-blue-500"
                                 />
                                 {isFbActive ? "ACTIVO" : "INACTIVO"}
@@ -3107,7 +3164,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                   type="number"
                                   min={0}
                                   value={editedFbBudget}
-                                  onChange={(e) => setEditedFbBudget(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setEditedFbBudget(val);
+                                    const sum = (isIgActive ? editedIgBudget : 0) + (isFbActive ? val : 0) + (isTiktokActive ? editedTiktokBudget : 0);
+                                    setEditedCampBudget(sum);
+                                  }}
                                   disabled={!isFbActive}
                                   className="w-full text-xs font-black text-blue-600 bg-muted/20 border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                 />
@@ -3129,7 +3191,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                 <input
                                   type="checkbox"
                                   checked={isTiktokActive}
-                                  onChange={(e) => setIsTiktokActive(e.target.checked)}
+                                  onChange={(e) => {
+                                    const nextActive = e.target.checked;
+                                    setIsTiktokActive(nextActive);
+                                    const sum = (isIgActive ? editedIgBudget : 0) + (isFbActive ? editedFbBudget : 0) + (nextActive ? editedTiktokBudget : 0);
+                                    setEditedCampBudget(sum);
+                                  }}
                                   className="rounded text-slate-700 focus:ring-slate-500"
                                 />
                                 {isTiktokActive ? "ACTIVO" : "INACTIVO"}
@@ -3143,7 +3210,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                   type="number"
                                   min={0}
                                   value={editedTiktokBudget}
-                                  onChange={(e) => setEditedTiktokBudget(Number(e.target.value))}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setEditedTiktokBudget(val);
+                                    const sum = (isIgActive ? editedIgBudget : 0) + (isFbActive ? editedFbBudget : 0) + (isTiktokActive ? val : 0);
+                                    setEditedCampBudget(sum);
+                                  }}
                                   disabled={!isTiktokActive}
                                   className="w-full text-xs font-black text-slate-800 dark:text-slate-200 bg-muted/20 border rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-500"
                                 />
@@ -3154,15 +3226,12 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                         </div>
                       </div>
 
-                      {/* 3. Segmentación del Público Objetivo (Targeting - Directamente Editable) */}
+                      {/* 3. Segmentación del Público Objetivo (Targeting) */}
                       <div className="space-y-3 bg-background/50 border rounded-2xl p-5 shadow-sm">
                         <div className="flex items-center justify-between border-b pb-2">
                           <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[9.5px] flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5 text-emerald-500" /> Segmentación del Público Objetivo (Targeting Editable)
+                            <Users className="h-3.5 w-3.5 text-emerald-500" /> Segmentación del Público Objetivo (Targeting)
                           </span>
-                          <Badge variant="outline" className="text-[8.5px] font-extrabold bg-indigo-50 text-indigo-700 border-indigo-200">
-                            EDICIÓN DIRECTA
-                          </Badge>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
                           {/* Ubicaciones */}
@@ -3215,19 +3284,141 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                           </div>
                         </div>
 
-                        {/* Botón Final Consolidado de Guardar Todo */}
+                        {/* Único Botón Consolidado de Guardar Todos los Parámetros */}
                         <div className="flex items-center justify-end pt-3 border-t">
                           <Button
                             type="button"
+                            disabled={isRegeneratingPlan}
                             onClick={() => {
-                              toast.success("¡Parámetros de campaña, canales y segmentación guardados exitosamente!");
+                              setIsRegeneratingPlan(true);
+                              setTimeout(() => {
+                                setIsRegeneratingPlan(false);
+                                toast.success("¡Parámetros de campaña guardados y Plan de Publicaciones re-sincronizado con tu horario de atención!");
+                              }, 1600);
                             }}
-                            className="rounded-xl h-10 px-6 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-md gap-2"
+                            className="rounded-xl h-11 px-8 font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20 gap-2 cursor-pointer"
                           >
-                            <Check className="h-4 w-4" /> Guardar Todos los Parámetros & Segmentación
+                            {isRegeneratingPlan ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" /> Re-calculando Plan de Publicaciones...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="h-4 w-4" /> Guardar Todos los Parámetros de Campaña
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
+
+                      {/* Estado de Carga Durante la Re-generación del Plan */}
+                      {isRegeneratingPlan ? (
+                        <div className="p-8 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-cyan-500/10 rounded-2xl border border-emerald-500/30 flex flex-col items-center justify-center space-y-4 text-center animate-pulse shadow-md">
+                          <Loader2 className="h-9 w-9 text-emerald-600 animate-spin" />
+                          <div className="space-y-1.5">
+                            <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400 block tracking-widest">
+                              Re-sincronizando Plan de Publicaciones & Distribución en Calendario
+                            </span>
+                            <p className="text-[11px] text-muted-foreground max-w-md leading-relaxed font-medium">
+                              Re-partiendo las <strong>{totalPieces} piezas ({editedReelsCount} Reels, {editedCarouselsCount} Carruseles, {editedPostsCount} Posts)</strong> según las fechas ({displayStartDate} - {displayEndDate}) y el horario operativo del negocio:
+                              <span className="text-emerald-600 dark:text-emerald-400 font-extrabold block mt-1">
+                                "{data?.businessInfo?.onboardingStrategy?.businessHours || "Lunes a Viernes de 09:00 a 18:00"}"
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        /* 4. Distribución Inteligente de Publicaciones en Calendario (Basado en Horario de Atención) */
+                        <div className="space-y-4 bg-gradient-to-br from-indigo-500/5 via-background to-emerald-500/5 border border-indigo-200/60 dark:border-indigo-900/40 rounded-2xl p-5 shadow-xs">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 dark:border-indigo-900/40 pb-3">
+                            <div className="space-y-1">
+                              <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[9.5px] flex items-center gap-1.5">
+                                <CalendarDays className="h-3.5 w-3.5 text-indigo-500" /> Distribución Inteligente de Publicaciones en Calendario
+                              </span>
+                              <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+                                Programación automatizada del plan de <strong>{totalPieces} Piezas ({editedReelsCount} Reels, {editedCarouselsCount} Carruseles, {editedPostsCount} Post{editedPostsCount !== 1 ? 's' : ''})</strong> optimizada para tu horario de atención.
+                              </p>
+                            </div>
+
+                            <Badge variant="outline" className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 text-[9px] font-black shrink-0 px-2.5 py-1">
+                              🕒 Horario: {data?.businessInfo?.onboardingStrategy?.businessHours || "Lunes a Viernes de 09:00 a 18:00"}
+                            </Badge>
+                          </div>
+
+                          {/* Distribución por Formato de Contenido */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="p-3.5 bg-background/90 rounded-xl border border-indigo-100 dark:border-indigo-900/40 space-y-1 shadow-2xs">
+                              <div className="flex items-center gap-2">
+                                <Play className="h-4 w-4 text-pink-600" />
+                                <span className="font-extrabold text-xs text-foreground uppercase">Reels ({editedReelsCount} Piezas)</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground leading-snug">
+                                Programados los <strong>Martes y Jueves (11:30 AM y 17:00 PM)</strong>. Pico de atención en horarios activos.
+                              </p>
+                            </div>
+
+                            <div className="p-3.5 bg-background/90 rounded-xl border border-indigo-100 dark:border-indigo-900/40 space-y-1 shadow-2xs">
+                              <div className="flex items-center gap-2">
+                                <Layers className="h-4 w-4 text-purple-600" />
+                                <span className="font-extrabold text-xs text-foreground uppercase">Carruseles ({editedCarouselsCount} Piezas)</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground leading-snug">
+                                Programados los <strong>Miércoles y Sábados (14:00 PM)</strong>. Mayor tiempo de lectura y guardados.
+                              </p>
+                            </div>
+
+                            <div className="p-3.5 bg-background/90 rounded-xl border border-indigo-100 dark:border-indigo-900/40 space-y-1 shadow-2xs">
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-emerald-600" />
+                                <span className="font-extrabold text-xs text-foreground uppercase">Posts ({editedPostsCount} Pieza{editedPostsCount !== 1 ? 's' : ''})</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground leading-snug">
+                                Programados los <strong>Lunes (10:00 AM)</strong>. Anuncio de inicio de semana y promociones.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Esquema Semanal de Calendario */}
+                          <div className="pt-2">
+                            <span className="text-[9px] font-black uppercase tracking-wider text-muted-foreground block mb-2">
+                              Esquema Semanal de Reparto en Calendario ({displayStartDate} - {displayEndDate})
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              <div className="p-2.5 bg-background/80 rounded-xl border text-center space-y-1 shadow-2xs">
+                                <span className="text-[8.5px] font-extrabold text-indigo-600 uppercase block">Semana 1</span>
+                                <span className="text-xs font-extrabold text-foreground block">{Math.ceil(totalPieces / 4)} publicaciones</span>
+                                <span className="text-[8.5px] text-muted-foreground block">
+                                  {editedReelsCount > 0 ? "1 Reel" : ""}{editedPostsCount > 0 ? ", 1 Post" : ""}
+                                </span>
+                              </div>
+
+                              <div className="p-2.5 bg-background/80 rounded-xl border text-center space-y-1 shadow-2xs">
+                                <span className="text-[8.5px] font-extrabold text-indigo-600 uppercase block">Semana 2</span>
+                                <span className="text-xs font-extrabold text-foreground block">{Math.ceil(totalPieces / 4)} publicaciones</span>
+                                <span className="text-[8.5px] text-muted-foreground block">
+                                  {editedReelsCount > 1 ? "1 Reel" : "1 Post"}{editedCarouselsCount > 0 ? ", 1 Carrusel" : ""}
+                                </span>
+                              </div>
+
+                              <div className="p-2.5 bg-background/80 rounded-xl border text-center space-y-1 shadow-2xs">
+                                <span className="text-[8.5px] font-extrabold text-indigo-600 uppercase block">Semana 3</span>
+                                <span className="text-xs font-extrabold text-foreground block">{Math.floor(totalPieces / 4)} publicaciones</span>
+                                <span className="text-[8.5px] text-muted-foreground block">
+                                  {editedReelsCount > 2 ? "2 Reels" : "1 Reel, 1 Post"}
+                                </span>
+                              </div>
+
+                              <div className="p-2.5 bg-background/80 rounded-xl border text-center space-y-1 shadow-2xs">
+                                <span className="text-[8.5px] font-extrabold text-indigo-600 uppercase block">Semana 4</span>
+                                <span className="text-xs font-extrabold text-foreground block">{Math.floor(totalPieces / 4)} publicaciones</span>
+                                <span className="text-[8.5px] text-muted-foreground block">
+                                  {editedCarouselsCount > 1 ? "1 Carrusel" : "1 Reel"}{editedReelsCount > 3 ? ", 1 Reel" : ""}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

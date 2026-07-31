@@ -755,6 +755,9 @@ export function OnboardingContent() {
             brandVoice: (b.brandVoice as any) || { tone: [], personality: [], values: [] },
             targetAudience: (b.targetAudience as any) || { demographics: "", psychographics: "" },
             socialLinks: (b.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
+            logo: b.logo || "",
+            branches: (b.branches as any) || [],
+            catalog: (b.catalog as any) || { fileUrl: "", fileName: "", summary: "" },
           });
           if (b.onboardingStrategy && typeof b.onboardingStrategy === "object") {
             setStrategyValues((prev) => ({
@@ -796,6 +799,9 @@ export function OnboardingContent() {
             brandVoice: (b.brandVoice as any) || { tone: [], personality: [], values: [] },
             targetAudience: (b.targetAudience as any) || { demographics: "", psychographics: "" },
             socialLinks: (b.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
+            logo: b.logo || "",
+            branches: (b.branches as any) || [],
+            catalog: (b.catalog as any) || { fileUrl: "", fileName: "", summary: "" },
           });
           setHasStrategyInDb(false);
           if (b.onboardingStrategy && typeof b.onboardingStrategy === "object") {
@@ -847,6 +853,9 @@ export function OnboardingContent() {
           brandVoice: (b.brandVoice as any) || { tone: [], personality: [], values: [] },
           targetAudience: (b.targetAudience as any) || { demographics: "", psychographics: "" },
           socialLinks: (b.socialLinks as any) || { facebook: "", instagram: "", tiktok: "" },
+          logo: b.logo || "",
+          branches: (b.branches as any) || [],
+          catalog: (b.catalog as any) || { fileUrl: "", fileName: "", summary: "" },
         });
 
         if (forceStep) {

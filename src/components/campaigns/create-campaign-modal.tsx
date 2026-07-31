@@ -779,6 +779,24 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
                     </div>
                   </div>
 
+                  {/* Tarjeta de Detección de Festivos / Feriados Patrios (ej. 6 de Agosto) */}
+                  <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-amber-600 animate-pulse" />
+                        <span className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                          🎉 Detección de Feriados Patrios & Festividades
+                        </span>
+                      </div>
+                      <Badge className="bg-amber-500 text-white font-black text-[9px] px-2 py-0.5">
+                        AUTOMÁTICO 3 REDES
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-amber-900/80 dark:text-amber-200/80 leading-relaxed font-medium">
+                      El planificador programará publicaciones conmemorativas especiales para el <strong>6 de Agosto (Día de la Patria / Independencia)</strong> y feriados festivos dentro del periodo de campaña, con artes y copies multicanal para <strong>Instagram, Facebook y TikTok</strong>.
+                    </p>
+                  </div>
+
                   {/* Resumen e inversión final */}
                   <div className="pt-4 border-t border-muted/20 space-y-4">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-muted/10 p-3.5 rounded-xl border border-muted/20">

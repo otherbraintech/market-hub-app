@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { listMediaAssetsAction, createMediaAssetAction, deleteMediaAssetAction } from "@/actions/media";
+import { listMediaAssetsAction, createMediaAssetAction, deleteMediaAssetAction, purgeOldInspirationAssetsAction } from "@/actions/media";
 import { toast } from "sonner";
 
 export function formatBytes(bytes: number, decimals = 2) {
@@ -35,6 +35,8 @@ interface MediaAsset {
   url: string;
   mimeType: string;
   size: number;
+  category?: string;
+  formatCategory?: string;
   createdAt: string;
 }
 
@@ -54,6 +56,8 @@ export function MediaLibraryClient({ businessId, initialAssets, initialCounts }:
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [activeTab, setActiveTab] = useState<"nicho" | "web" | "manual">("manual");
+  const [selectedFormatCategory, setSelectedFormatCategory] = useState<"ART" | "CAROUSEL" | "REEL" | "VIDEO">("ART");
 
   const fetchAssets = async () => {
     const res = await listMediaAssetsAction(businessId);
@@ -64,6 +68,20 @@ export function MediaLibraryClient({ businessId, initialAssets, initialCounts }:
         imageCount: res.imageCount ?? 0,
         total: res.total ?? 0
       });
+    }
+  };
+
+  const handlePurge = async () => {
+    try {
+      const res = await purgeOldInspirationAssetsAction(businessId);
+      if (res.success) {
+        toast.success(res.message);
+        await fetchAssets();
+      } else {
+        toast.error(res.error || "No se pudo depurar el almacenamiento");
+      }
+    } catch (e) {
+      toast.error("Error al ejecutar depuración de storage");
     }
   };
 

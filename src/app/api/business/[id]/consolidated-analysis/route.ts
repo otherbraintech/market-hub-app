@@ -350,6 +350,9 @@ function generatePlaceholderAnalysis(context: any) {
     },
     buyerPersonas: [
       {
+        "name": "Carlos",
+        "demographics": "Varón, 25-40 años, trabajador activo, compras por WhatsApp",
+        "goals": "Obtener rapidez en la atención y entregas confiables.",
         "painPoints": "Poco tiempo de cocina, valora la rapidez de compra a través de WhatsApp, prefiere delivery rápido.",
         "communication": {
           "tone": "Moderno, directo y entusiasta",
@@ -358,7 +361,7 @@ function generatePlaceholderAnalysis(context: any) {
         }
       },
       {
-        "name": "Sofía, la Buscadora de Novedades",
+        "name": "Sofía",
         "demographics": "Mujer, 18-24 años, estudiante o joven trabajadora, activa en TikTok e Instagram",
         "goals": "Probar sabores únicos, productos estéticamente atractivos para compartir en sus redes sociales.",
         "painPoints": "Aburrimiento con productos comunes, busca experiencias visuales y sabores exóticos o tradicionales innovadores.",
@@ -369,7 +372,7 @@ function generatePlaceholderAnalysis(context: any) {
         }
       },
       {
-        "name": "Roberto, el Cliente Corporativo",
+        "name": "Roberto",
         "demographics": "Varón, 40-55 años, administrador o dueño de negocio, compras de volumen",
         "goals": "Abastecer eventos corporativos y reuniones con productos confiables y de excelente presentación.",
         "painPoints": "Exigencia de puntualidad extrema, requiere facturación y cotizaciones rápidas, teme fallas en el stock.",

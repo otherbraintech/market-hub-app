@@ -79,6 +79,8 @@ model Business {
   socialLinks                        Json?
   userId                             String?
   location                           String?
+  branches                           Json?
+  catalog                            Json?
   settings                           Json?
   competitorGeneralReport            Json?
   competitorGeneralReportGeneratedAt DateTime?
@@ -245,6 +247,8 @@ model MediaAsset {
   generatedByJobId String?
   promptUsed       String?
   folder           String?
+  category         String?
+  formatCategory   String?
   tags             Json?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt

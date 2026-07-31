@@ -29,7 +29,7 @@ export function ClientStatsBar({
     {
       label: "Flujo Operativo",
       value: `${flowPercentage}%`,
-      sub: `${flowDone}/4 etapas listos`,
+      sub: `${flowDone}/5 etapas listos`,
       color: flowPercentage === 100 ? "#10B981" : "#00B4D8",
       icon: CheckCircle2
     },

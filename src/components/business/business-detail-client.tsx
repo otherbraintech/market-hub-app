@@ -9,6 +9,7 @@ import { BusinessHeader } from "@/components/business/business-header";
 interface BusinessDetailClientProps {
   business: any;
   hasAudit: boolean;
+  hasMediaAnalysis?: boolean;
   hasStrategy: boolean;
   hasCampaign: boolean;
   hasCalendar: boolean;
@@ -28,6 +29,7 @@ interface BusinessDetailClientProps {
 export function BusinessDetailClient({
   business,
   hasAudit,
+  hasMediaAnalysis = false,
   hasStrategy,
   hasCampaign,
   hasCalendar,
@@ -43,7 +45,7 @@ export function BusinessDetailClient({
   strategyId,
   calendarId
 }: BusinessDetailClientProps) {
-  // Stage tabs: "bancodedatos" | "estrategia" | "campanas" | "calendario"
+  // Stage tabs: "bancodedatos" | "activosvisuales" | "estrategia" | "campanas" | "calendario"
   const [activeTab, setActiveTab] = useState<string>("bancodedatos");
 
   return (
@@ -75,11 +77,12 @@ export function BusinessDetailClient({
             />
           </div>
 
-          {/* Right Column (1/3): 4-Step Operative Agent Pipeline */}
+          {/* Right Column (1/3): 5-Step Operative Agent Pipeline */}
           <div className="lg:col-span-1">
             <AgentPipelineSidebar
               businessId={business.id}
               hasAudit={hasAudit}
+              hasMediaAnalysis={hasMediaAnalysis}
               hasStrategy={hasStrategy}
               hasCampaign={hasCampaign}
               hasCalendar={hasCalendar}

@@ -40,6 +40,26 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
   const [useAI, setUseAI] = useState(!defaultValues?.id);
   const [step, setStep] = useState(1);
   const isEditing = !!defaultValues?.id;
+  const [branches, setBranches] = useState<Array<{ name: string; address: string; googleMapsUrl: string }>>(
+    (defaultValues as any)?.branches || [{ name: "Sucursal Principal", address: defaultValues?.location || "", googleMapsUrl: "" }]
+  );
+  const [catalogUrl, setCatalogUrl] = useState<string>((defaultValues as any)?.catalog?.fileUrl || "");
+  const [catalogSummary, setCatalogSummary] = useState<string>((defaultValues as any)?.catalog?.summary || "");
+
+  const addBranch = () => {
+    setBranches([...branches, { name: `Sucursal ${branches.length + 1}`, address: "", googleMapsUrl: "" }]);
+  };
+
+  const updateBranch = (index: number, field: string, val: string) => {
+    const updated = [...branches];
+    (updated[index] as any)[field] = val;
+    setBranches(updated);
+  };
+
+  const removeBranch = (index: number) => {
+    if (branches.length === 1) return;
+    setBranches(branches.filter((_, i) => i !== index));
+  };
 
   const form = useForm<BusinessFormValues>({
     resolver: zodResolver(businessSchema) as any,
@@ -83,8 +103,14 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
   }, [defaultValues, form]);
 
   async function onSubmit(data: BusinessFormValues) {
+    const finalData = {
+      ...data,
+      branches,
+      catalog: { fileUrl: catalogUrl, fileName: catalogUrl ? "Catálogo_Productos.pdf" : "", summary: catalogSummary }
+    };
+
     if (onSubmitOverride) {
-      onSubmitOverride(data);
+      onSubmitOverride(finalData);
       return;
     }
 

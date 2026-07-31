@@ -46,6 +46,17 @@ export const businessSchema = z.object({
   }),
   phoneNumbers: z.string().optional().default(""),
   location: z.string().optional().default(""),
+  logo: z.string().optional().default(""),
+  branches: z.array(z.object({
+    name: z.string().default(""),
+    address: z.string().default(""),
+    googleMapsUrl: z.string().default("")
+  })).optional().default([]),
+  catalog: z.object({
+    fileUrl: z.string().default(""),
+    fileName: z.string().default(""),
+    summary: z.string().default("")
+  }).optional().default({ fileUrl: "", fileName: "", summary: "" }),
   socialLinks: z.object({
     facebook: z.preprocess(normalizeSocialLink("facebook"), z.string().url("URL de Facebook inválida").optional().or(z.literal(""))),
     instagram: z.preprocess(normalizeSocialLink("instagram"), z.string().url("URL de Instagram inválida").optional().or(z.literal(""))),

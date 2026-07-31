@@ -5,19 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AgentStepCard, StepStatus } from "./agent-step-card";
-import { Cpu, Search, Target, Megaphone, Calendar, RefreshCw, Sparkles, Activity } from "lucide-react";
+import { Cpu, Search, Target, Megaphone, Calendar, RefreshCw, Sparkles, Activity, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { 
   startScrapingStage, 
   startStrategyStage, 
   startCampaignStage,
   startCalendarStage 
 } from "@/actions/business";
-import { useRouter } from "next/navigation";
 
 interface AgentPipelineSidebarProps {
   businessId: string;
   hasAudit: boolean;
+  hasMediaAnalysis?: boolean;
   hasStrategy: boolean;
   hasCampaign?: boolean;
   hasCalendar: boolean;
@@ -26,12 +27,13 @@ interface AgentPipelineSidebarProps {
   calendarId?: string;
   activeTab?: string;
   onSelectTab?: (tab: string) => void;
-  onRunStage?: (stageName: "scraping" | "strategy" | "campaign" | "calendar") => void;
+  onRunStage?: (stageName: "scraping" | "media" | "strategy" | "campaign" | "calendar") => void;
 }
 
 export function AgentPipelineSidebar({
   businessId,
   hasAudit,
+  hasMediaAnalysis = false,
   hasStrategy,
   hasCampaign = false,
   hasCalendar,
@@ -46,9 +48,9 @@ export function AgentPipelineSidebar({
   const [runningStep, setRunningStep] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
 
-  // Calculate total progress (4 steps total)
-  const completedStepsCount = (hasAudit ? 1 : 0) + (hasStrategy ? 1 : 0) + (hasCampaign ? 1 : 0) + (hasCalendar ? 1 : 0);
-  const progressPercentage = Math.round((completedStepsCount / 4) * 100);
+  // Calculate total progress (5 steps total)
+  const completedStepsCount = (hasAudit ? 1 : 0) + (hasMediaAnalysis ? 1 : 0) + (hasStrategy ? 1 : 0) + (hasCampaign ? 1 : 0) + (hasCalendar ? 1 : 0);
+  const progressPercentage = Math.round((completedStepsCount / 5) * 100);
 
   const fetchNotifications = async () => {
     try {
@@ -72,11 +74,9 @@ export function AgentPipelineSidebar({
     const matching = notifications.filter(n => stepKeys.includes(n.step));
     if (matching.length === 0) return null;
 
-    // Obtener la notificación más reciente para estos pasos
     const latest = matching[0];
     if (latest.status !== "PROCESSING") return null;
 
-    // Ignorar si la notificación fue creada hace más de 3 minutos (proceso atascado o viejo)
     const createdMs = new Date(latest.createdAt).getTime();
     const ageMinutes = (Date.now() - createdMs) / 60000;
     if (ageMinutes > 3) return null;
@@ -98,6 +98,26 @@ export function AgentPipelineSidebar({
       }
     } catch (err) {
       toast.error("Error al conectar con los agentes de extracción.");
+    } finally {
+      setRunningStep(null);
+    }
+  };
+
+  const handleRunMediaAnalysis = async () => {
+    if (onRunStage) return onRunStage("media");
+    setRunningStep("media");
+    toast.info("Agente Vision IA analizando composición y patrones estéticos...");
+    try {
+      const { startMediaAnalysisStage } = await import("@/actions/business");
+      const res = await startMediaAnalysisStage(businessId);
+      if (res.success) {
+        toast.success("Análisis visual de IA completado.");
+        router.refresh();
+      } else {
+        toast.error(res.error || "No se pudo realizar el análisis visual.");
+      }
+    } catch (err) {
+      toast.error("Error al ejecutar el agente de visión.");
     } finally {
       setRunningStep(null);
     }
@@ -161,6 +181,7 @@ export function AgentPipelineSidebar({
   };
 
   const auditProcessingMsg = getStepProcessingStatus(["SCRAPING", "DIAGNOSTIC"]);
+  const mediaProcessingMsg = getStepProcessingStatus(["MEDIA"]);
   const strategyProcessingMsg = getStepProcessingStatus(["STRATEGY"]);
   const campaignProcessingMsg = getStepProcessingStatus(["CAMPAIGN"]);
   const calendarProcessingMsg = getStepProcessingStatus(["CALENDAR"]);
@@ -168,6 +189,10 @@ export function AgentPipelineSidebar({
   const auditStatus: StepStatus = runningStep === "audit" || !!auditProcessingMsg
     ? "processing"
     : hasAudit ? "completed" : "idle";
+
+  const mediaStatus: StepStatus = runningStep === "media" || !!mediaProcessingMsg
+    ? "processing"
+    : hasMediaAnalysis ? "completed" : !hasAudit ? "locked" : "idle";
 
   const strategyStatus: StepStatus = runningStep === "strategy" || !!strategyProcessingMsg
     ? "processing"
@@ -193,11 +218,11 @@ export function AgentPipelineSidebar({
             </CardTitle>
           </div>
           <Badge className="bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20 text-[10px] font-black">
-            {progressPercentage}% Listo (4 Etapas)
+            {progressPercentage}% Listo (5 Etapas)
           </Badge>
         </div>
         <CardDescription className="text-[10.5px] text-muted-foreground dark:text-slate-400 mt-1">
-          Ejecuta paso a paso las 4 etapas con agentes autónomos de IA.
+          Ejecuta paso a paso las 5 etapas del flujo inteligente.
         </CardDescription>
 
         {/* Global Progress Bar */}
@@ -213,8 +238,8 @@ export function AgentPipelineSidebar({
         {/* Step 1: Digital Audit */}
         <AgentStepCard
           stepNumber={1}
-          title="1. Auditoría Digital & FODA"
-          description="Escaneo web, redes sociales y competidores"
+          title="1. Banco de Datos & Auditoría Digital"
+          description="Diagnóstico, FODA y análisis de competencia"
           icon={Search}
           status={auditStatus}
           processingMessage={auditProcessingMsg || "Escaneando sitio y competidores..."}
@@ -224,11 +249,25 @@ export function AgentPipelineSidebar({
           isActive={activeTab === "bancodedatos"}
         />
 
-        {/* Step 2: Strategic Plan */}
+        {/* Step 2: Visual Assets & Inspiration */}
         <AgentStepCard
           stepNumber={2}
-          title="2. Plan Estratégico IA"
-          description="Modelado de 8 pilares, buyer personas y gaps"
+          title="2. Activos Visuales e Inspiración"
+          description="Nicho de terceros, redes propias y recursos manuales"
+          icon={ImageIcon}
+          status={mediaStatus}
+          processingMessage={mediaProcessingMsg || "Agente Vision IA analizando composición y estilos..."}
+          onExecute={handleRunMediaAnalysis}
+          onViewReport={() => onSelectTab?.("activosvisuales")}
+          actionText="Analizar Recursos"
+          isActive={activeTab === "activosvisuales"}
+        />
+
+        {/* Step 3: Strategic Plan */}
+        <AgentStepCard
+          stepNumber={3}
+          title="3. Estrategia Growth de Marketing"
+          description="Buyer personas, embudos de conversión y 8 pilares"
           icon={Target}
           status={strategyStatus}
           processingMessage={strategyProcessingMsg || "Agente analizando 8 pilares..."}
@@ -238,11 +277,11 @@ export function AgentPipelineSidebar({
           isActive={activeTab === "estrategia"}
         />
 
-        {/* Step 3: Campaigns */}
+        {/* Step 4: Campaigns */}
         <AgentStepCard
-          stepNumber={3}
-          title="3. Parametrización de Campaña de Marketing"
-          description="Formulación de campañas, presupuestos y objetivos"
+          stepNumber={4}
+          title="4. Campaña Principal de Marketing"
+          description="Objetivos, presupuestos y distribución por canales"
           icon={Megaphone}
           status={campaignStatus}
           processingMessage={campaignProcessingMsg || "Agente diseñando campañas..."}
@@ -252,11 +291,11 @@ export function AgentPipelineSidebar({
           isActive={activeTab === "campanas"}
         />
 
-        {/* Step 4: Content Calendar */}
+        {/* Step 5: Content Calendar */}
         <AgentStepCard
-          stepNumber={4}
-          title="4. Calendario Editorial"
-          description="Contenido mensual 60-25-15, copies y prompts"
+          stepNumber={5}
+          title="5. Calendario & Plan de Publicaciones"
+          description="Programación semanal, feriados patrios y artes 3 redes"
           icon={Calendar}
           status={calendarStatus}
           processingMessage={calendarProcessingMsg || "Redactando copies y guiones..."}
@@ -269,7 +308,7 @@ export function AgentPipelineSidebar({
         {/* Footer info */}
         <div className="pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
           <span className="flex items-center gap-1">
-            <Activity className="h-3 w-3 text-cyan-400" /> 4 Agentes Autónomos Activos
+            <Activity className="h-3 w-3 text-cyan-400" /> 5 Etapas del Pipeline Activas
           </span>
           <Button
             variant="ghost"

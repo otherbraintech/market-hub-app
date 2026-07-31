@@ -75,13 +75,16 @@ export default async function BusinessDetailPage({
 
   const { campaigns } = campaignsData;
 
+  const visualReport = (business.settings as any)?.visualAnalysisReport;
+  const hasMediaAnalysis = !!visualReport && typeof visualReport === "object";
+
   const hasAudit = !!myAnalysis || !!business.competitorGeneralReport;
   const hasStrategy = !!activeStrategy || (Array.isArray((business as any).strategies) && (business as any).strategies.length > 0);
   const hasCampaign = campaigns.length > 0;
   const hasCalendar = contents.length > 0;
 
-  const flowDone = (hasAudit ? 1 : 0) + (hasStrategy ? 1 : 0) + (hasCampaign ? 1 : 0) + (hasCalendar ? 1 : 0);
-  const flowPercentage = Math.round((flowDone / 4) * 100);
+  const flowDone = (hasAudit ? 1 : 0) + (hasMediaAnalysis ? 1 : 0) + (hasStrategy ? 1 : 0) + (hasCampaign ? 1 : 0) + (hasCalendar ? 1 : 0);
+  const flowPercentage = Math.round((flowDone / 5) * 100);
 
   const approvedPiecesCount = contents.filter(c => c.status === "PUBLISHED" || c.status === "SCHEDULED").length;
 
@@ -99,6 +102,7 @@ export default async function BusinessDetailPage({
     <BusinessDetailClient
       business={business}
       hasAudit={hasAudit}
+      hasMediaAnalysis={hasMediaAnalysis}
       hasStrategy={hasStrategy}
       hasCampaign={hasCampaign}
       hasCalendar={hasCalendar}

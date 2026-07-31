@@ -59,31 +59,10 @@ export async function createMediaAssetAction(data: {
   url: string;
   mimeType: string;
   size: number;
+  category?: string;
+  formatCategory?: string;
 }) {
   try {
-    // Verificar límites
-    if (data.type === "VIDEO") {
-      const count = await prisma.mediaAsset.count({
-        where: { businessId: data.businessId, type: "VIDEO" },
-      });
-      if (count >= 5) {
-        return { 
-          success: false, 
-          error: "Límite alcanzado: Tu plan solo permite hasta 5 videos en el catálogo multimedia privado." 
-        };
-      }
-    } else if (data.type === "IMAGE") {
-      const count = await prisma.mediaAsset.count({
-        where: { businessId: data.businessId, type: "IMAGE" },
-      });
-      if (count >= 50) {
-        return { 
-          success: false, 
-          error: "Límite alcanzado: Tu plan solo permite hasta 50 imágenes en el catálogo multimedia privado." 
-        };
-      }
-    }
-
     const asset = await prisma.mediaAsset.create({
       data: {
         businessId: data.businessId,
@@ -92,6 +71,8 @@ export async function createMediaAssetAction(data: {
         url: data.url,
         mimeType: data.mimeType,
         size: data.size,
+        category: data.category || "MANUAL",
+        formatCategory: data.formatCategory || (data.type === "VIDEO" ? "VIDEO" : "ART"),
       },
     });
 
@@ -111,5 +92,29 @@ export async function deleteMediaAssetAction(id: string, businessId: string) {
     return { success: true, message: "Asset eliminado correctamente" };
   } catch (error: any) {
     return { success: false, error: error.message || "Error al eliminar el asset" };
+  }
+}
+
+export async function purgeOldInspirationAssetsAction(businessId: string) {
+  try {
+    // Depura automáticamente assets de nicho/terceros antiguos si existen más de 20
+    const oldAssets = await prisma.mediaAsset.findMany({
+      where: { businessId, category: "NICHO_TERCEROS" },
+      orderBy: { createdAt: "asc" },
+      take: 10
+    });
+
+    if (oldAssets.length > 0) {
+      await prisma.mediaAsset.deleteMany({
+        where: {
+          id: { in: oldAssets.map(a => a.id) }
+        }
+      });
+    }
+
+    revalidatePath("/media");
+    return { success: true, message: `Se liberó espacio depurando ${oldAssets.length} archivos antiguos de inspiración.`, count: oldAssets.length };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Error al depurar assets antiguos" };
   }
 }

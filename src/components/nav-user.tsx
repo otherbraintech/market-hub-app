@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/sidebar"
 import { logout } from "@/app/(auth)/login/actions"
 
+import Link from "next/link"
+
 export function NavUser({
   user,
 }: {
@@ -85,13 +87,17 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem className="cursor-pointer">
-                <BadgeCheck className="mr-2 h-4 w-4" />
-                Cuenta
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/settings">
+                  <BadgeCheck className="mr-2 h-4 w-4" />
+                  Ver mi cuenta
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
-                <Bell className="mr-2 h-4 w-4" />
-                Notificaciones
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/settings">
+                  <Bell className="mr-2 h-4 w-4" />
+                  Notificaciones
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

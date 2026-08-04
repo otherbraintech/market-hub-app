@@ -36,6 +36,15 @@ export async function upsertCompetitorAction(
 
     let dbCompetitor;
 
+    if (!competitorId && data.name) {
+      const existingByName = await prisma.competitor.findFirst({
+        where: { businessId, name: { equals: data.name.trim(), mode: 'insensitive' } }
+      });
+      if (existingByName) {
+        competitorId = existingByName.id;
+      }
+    }
+
     if (competitorId) {
       dbCompetitor = await prisma.competitor.update({
         where: { id: competitorId },
@@ -88,8 +97,6 @@ export async function upsertCompetitorAction(
       const promises = channelUrls
         .filter((ch) => ch.url && ch.url.trim() !== "")
         .map(async (ch) => {
-          // Evitar re-analizar si ya existe un reporte con la misma URL y canal para este competidor,
-          // a menos que el reporte lleve más de 5 minutos en estado PENDING (lo que indica que se quedó atascado)
           const existing = await prisma.analysisReport.findFirst({
             where: {
               entityId: dbCompetitor.id,
@@ -100,11 +107,7 @@ export async function upsertCompetitorAction(
             orderBy: { createdAt: "desc" }
           });
 
-          const isStuck = existing && 
-            existing.status === "PENDING" && 
-            (Date.now() - new Date(existing.createdAt).getTime() > 5 * 60 * 1000);
-
-          if (!existing || isStuck) {
+          if (!existing || existing.status === "FAILED") {
             return triggerAnalysis({
               type: "COMPETITOR",
               entityId: dbCompetitor.id,
@@ -259,22 +262,42 @@ export async function saveMultipleCompetitorsAction(
   skipAnalysis = false
 ) {
   try {
-    // Eliminar competidores de la BDD que hayan sido borrados por el usuario en la interfaz
-    const incomingIds = competitors.map(c => c.id).filter(Boolean) as string[];
     const existingInDb = await prisma.competitor.findMany({
       where: { businessId },
-      select: { id: true }
+      select: { id: true, name: true }
     });
-    
-    const idsToDelete = existingInDb.map(c => c.id).filter(id => !incomingIds.includes(id));
+
+    const incomingIds: string[] = [];
+    const competitorsToUpsert = competitors.map((comp) => {
+      let targetId = comp.id;
+      if (!targetId && comp.name) {
+        const matched = existingInDb.find(e => (e.name || '').trim().toLowerCase() === comp.name.trim().toLowerCase());
+        if (matched) {
+          targetId = matched.id;
+        }
+      }
+      if (targetId) {
+        incomingIds.push(targetId);
+      }
+      return { ...comp, id: targetId };
+    });
+
+    // Delete competitors in DB that were explicitly removed in UI
+    const idsToDelete = existingInDb
+      .map(c => c.id)
+      .filter(id => !incomingIds.includes(id));
+
     if (idsToDelete.length > 0) {
+      await prisma.analysisReport.deleteMany({
+        where: { entityId: { in: idsToDelete }, type: "COMPETITOR" }
+      });
       await prisma.competitor.deleteMany({
         where: { id: { in: idsToDelete } }
       });
     }
 
     const results = [];
-    for (const comp of competitors) {
+    for (const comp of competitorsToUpsert) {
       if (!comp.name || comp.name.trim() === "") continue;
       const res = await upsertCompetitorAction(businessId, comp.id, {
         name: comp.name,

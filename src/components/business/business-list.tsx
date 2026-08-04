@@ -63,17 +63,17 @@ export function BusinessList({ businesses }: BusinessListProps) {
           const competitorCount = business.competitors?.length || 0;
 
           return (
-            <Card key={business.id} className="border border-slate-800 bg-[#0D1526] text-slate-100 shadow-xl rounded-2xl flex flex-col justify-between hover:border-cyan-500/30 transition-all duration-300 group">
+            <Card key={business.id} className="border border-border dark:border-slate-800 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-md dark:shadow-xl rounded-2xl flex flex-col justify-between hover:border-cyan-500/40 transition-all duration-300 group">
               <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-black text-white text-base shrink-0 shadow-md">
                     {business.name?.[0]?.toUpperCase()}
                   </div>
                   <div>
-                    <CardTitle className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">
+                    <CardTitle className="text-base font-bold text-foreground dark:text-white group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors">
                       {business.name}
                     </CardTitle>
-                    <CardDescription className="text-xs text-slate-400 truncate max-w-[170px] mt-0.5 font-medium">
+                    <CardDescription className="text-xs text-muted-foreground dark:text-slate-400 truncate max-w-[170px] mt-0.5 font-medium">
                       {business.industry || "General / Pyme"}
                     </CardDescription>
                   </div>
@@ -81,24 +81,24 @@ export function BusinessList({ businesses }: BusinessListProps) {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-slate-800">
+                    <Button variant="ghost" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white hover:bg-muted dark:hover:bg-slate-800">
                       <span className="sr-only">Abrir menú</span>
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-slate-900 text-slate-100 border-slate-800">
-                    <DropdownMenuLabel className="text-xs text-slate-400">Acciones</DropdownMenuLabel>
+                  <DropdownMenuContent align="end" className="bg-popover text-popover-foreground border-border dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground dark:text-slate-400">Acciones</DropdownMenuLabel>
                     <DropdownMenuItem 
-                      className="text-xs hover:bg-slate-800 cursor-pointer"
+                      className="text-xs hover:bg-muted dark:hover:bg-slate-800 cursor-pointer"
                       onClick={() => {
                         router.push(`/business/create?businessId=${business.id}&edit=true`);
                       }}
                     >
                       <Edit className="mr-2 h-3.5 w-3.5" /> Editar Datos
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-slate-800" />
+                    <DropdownMenuSeparator className="bg-border dark:bg-slate-800" />
                     <DropdownMenuItem 
-                      className="text-xs text-rose-400 focus:text-rose-400 hover:bg-rose-950/40 cursor-pointer"
+                      className="text-xs text-rose-500 dark:text-rose-400 focus:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
                       onClick={() => setDeletingBusinessId(business.id)}
                     >
                       <Trash className="mr-2 h-3.5 w-3.5" /> Eliminar
@@ -108,25 +108,25 @@ export function BusinessList({ businesses }: BusinessListProps) {
               </CardHeader>
 
               <CardContent className="space-y-3 pt-0">
-                <p className="text-xs text-slate-400 line-clamp-2 min-h-[36px] font-normal leading-relaxed">
+                <p className="text-xs text-muted-foreground dark:text-slate-400 line-clamp-2 min-h-[36px] font-normal leading-relaxed">
                   {business.description || "Sin descripción corporativa."}
                 </p>
 
                 {/* Metrics Badges */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  <Badge variant="outline" className="text-[10px] font-bold text-cyan-400 border-cyan-500/20 bg-cyan-500/5 gap-1">
+                  <Badge variant="outline" className="text-[10px] font-bold text-cyan-600 dark:text-cyan-400 border-cyan-300 dark:border-cyan-500/20 bg-cyan-50 dark:bg-cyan-500/5 gap-1">
                     <Target className="h-3 w-3" /> {campaignCount} Campañas
                   </Badge>
-                  <Badge variant="outline" className="text-[10px] font-bold text-purple-400 border-purple-500/20 bg-purple-500/5 gap-1">
+                  <Badge variant="outline" className="text-[10px] font-bold text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-500/20 bg-purple-50 dark:bg-purple-500/5 gap-1">
                     <Package className="h-3 w-3" /> {productCount} Productos
                   </Badge>
-                  <Badge variant="outline" className="text-[10px] font-bold text-amber-400 border-amber-500/20 bg-amber-500/5 gap-1">
+                  <Badge variant="outline" className="text-[10px] font-bold text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5 gap-1">
                     <Users className="h-3 w-3" /> {competitorCount} Rivales
                   </Badge>
                 </div>
 
                 {business.website && (
-                  <div className="pt-2 border-t border-slate-800/60 flex items-center text-xs text-cyan-400 hover:underline">
+                  <div className="pt-2 border-t border-border dark:border-slate-800/60 flex items-center text-xs text-cyan-600 dark:text-cyan-400 hover:underline">
                     <Globe className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                     <a href={business.website.startsWith('http') ? business.website : `https://${business.website}`} target="_blank" rel="noopener noreferrer" className="truncate">
                       {business.website.replace(/^https?:\/\//, '')}

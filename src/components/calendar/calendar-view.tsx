@@ -985,6 +985,15 @@ export function CalendarView({
     
     if (!draggedContent) return;
 
+    // Prevenir mover a fechas pasadas
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    if (targetDate < todayMidnight) {
+      toast.warning("No se pueden mover publicaciones a fechas pasadas.");
+      setDraggedContent(null);
+      return;
+    }
+
     // Si es una publicación simulada
     if (draggedContent.id.startsWith("sim-")) {
       const idx = parseInt(draggedContent.id.split("-")[1]);
@@ -1422,8 +1431,8 @@ export function CalendarView({
                         return (
                           <div
                             key={post.id}
-                            draggable={!isEditMode}
-                            onDragStart={(e) => !isEditMode && handleDragStart(e, post)}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, post)}
                             onDragEnd={handleDragEnd}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1510,8 +1519,8 @@ export function CalendarView({
                         return (
                           <div
                             key={`sim-${post.originalIndex}`}
-                            draggable={!isEditMode}
-                            onDragStart={(e) => !isEditMode && handleDragStart(e, simulatedContent)}
+                            draggable={true}
+                            onDragStart={(e) => handleDragStart(e, simulatedContent)}
                             onDragEnd={handleDragEnd}
                             onClick={(e) => {
                               e.stopPropagation();

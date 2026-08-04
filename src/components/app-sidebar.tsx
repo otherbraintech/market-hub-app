@@ -5,6 +5,7 @@ import {
   Building2,
   PlusCircle,
   Eye,
+  Bot,
   Moon,
   Sun
 } from "lucide-react"
@@ -56,6 +57,11 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         title: "Ver Detalle del Negocio",
         url: selectedId ? `/business/${selectedId}?skipOnboarding=true` : "/business",
         icon: Eye,
+      },
+      {
+        title: "Equipo de Agentes IA",
+        url: "/agentes",
+        icon: Bot,
       },
     ]
   }, [selectedId]);

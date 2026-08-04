@@ -126,8 +126,11 @@ function MultiSelectQuestion({
       const clean = item.trim();
       // Exact match
       if (clean === chip) return true;
-      // Skip prefix items for chip matching
-      if (clean.includes(":")) return false;
+      // Matching prefix items with chip
+      if (chip === "Canal Moderno" && (clean.startsWith("Cadenas Canal Moderno:") || clean.startsWith("Canal Moderno:"))) return true;
+      if (chip === "Canal Tradicional" && (clean.startsWith("Comercios Canal Tradicional:") || clean.startsWith("Canal Tradicional:"))) return true;
+      if (chip === "Apps de Delivery (PedidosYa, Yango, etc.)" && clean.startsWith("Apps de Delivery:")) return true;
+      if (chip === "WhatsApp directo" && clean.startsWith("Número WhatsApp:")) return true;
       return false;
     });
   }, [selectedItems]);
@@ -155,13 +158,22 @@ function MultiSelectQuestion({
 
   const totalCount = selectedPresetChips.length + (isOtrosActive ? 1 : 0);
 
-  const isWhatsAppSelected = Boolean(allowSubInputs && selectedItems.some(item => item.trim() === "WhatsApp directo"));
+  const isWhatsAppSelected = Boolean(allowSubInputs && selectedItems.some(item => {
+    const clean = item.trim();
+    return clean === "WhatsApp directo" || clean.startsWith("Número WhatsApp:");
+  }));
   const isDeliverySelected = Boolean(allowSubInputs && selectedItems.some(item => {
     const clean = item.trim();
     return clean === "Apps de Delivery (PedidosYa, Yango, etc.)" || clean.startsWith("Apps de Delivery:");
   }));
-  const showModernoCard = selectedItems.some(i => i.trim() === "Canal Moderno");
-  const showTradicionalCard = selectedItems.some(i => i.trim() === "Canal Tradicional");
+  const showModernoCard = Boolean(allowSubInputs && selectedItems.some(item => {
+    const clean = item.trim();
+    return clean === "Canal Moderno" || clean.startsWith("Cadenas Canal Moderno:") || clean.startsWith("Canal Moderno:");
+  }));
+  const showTradicionalCard = Boolean(allowSubInputs && selectedItems.some(item => {
+    const clean = item.trim();
+    return clean === "Canal Tradicional" || clean.startsWith("Comercios Canal Tradicional:") || clean.startsWith("Canal Tradicional:");
+  }));
   const isRetailOrPhysicalSelected = showModernoCard || showTradicionalCard;
 
   const findPrefixText = (prefix: string) => {
@@ -205,7 +217,15 @@ function MultiSelectQuestion({
     let nextItems: string[];
 
     if (isSelected) {
-      nextItems = selectedItems.filter(item => item.trim() !== chip);
+      nextItems = selectedItems.filter(item => {
+        const clean = item.trim();
+        if (clean === chip) return false;
+        if (chip === "Canal Moderno" && (clean.startsWith("Cadenas Canal Moderno:") || clean.startsWith("Canal Moderno:"))) return false;
+        if (chip === "Canal Tradicional" && (clean.startsWith("Comercios Canal Tradicional:") || clean.startsWith("Canal Tradicional:"))) return false;
+        if (chip === "Apps de Delivery (PedidosYa, Yango, etc.)" && clean.startsWith("Apps de Delivery:")) return false;
+        if (chip === "WhatsApp directo" && clean.startsWith("Número WhatsApp:")) return false;
+        return true;
+      });
     } else {
       if (maxLimit && totalCount >= maxLimit) {
         toast.info(`Solo puedes seleccionar un máximo de ${maxLimit} opciones.`);
@@ -446,6 +466,42 @@ function MultiSelectQuestion({
           />
         </div>
       )}
+
+      {/* Sub-input para Canal Moderno */}
+      {allowSubInputs && showModernoCard && (
+        <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200 space-y-1.5 p-3 bg-purple-50/50 dark:bg-purple-950/20 rounded-xl border border-purple-200/60 dark:border-purple-900/40">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-400">
+            <span>🛒</span> Especifica las cadenas o supermercados del Canal Moderno (ej. Hipermaxi, Ketal, Fidalga, OXXO, Tambo, etc.):
+          </div>
+          <Input
+            placeholder="Ej. Hipermaxi, Ketal y Fidalga"
+            value={modernoText}
+            onChange={(e) => {
+              setModernoText(e.target.value);
+              updatePrefixItem("Cadenas Canal Moderno", e.target.value);
+            }}
+            className="h-9 text-xs rounded-xl bg-background border-purple-300 dark:border-purple-800 focus-visible:ring-purple-500 font-medium"
+          />
+        </div>
+      )}
+
+      {/* Sub-input para Canal Tradicional */}
+      {allowSubInputs && showTradicionalCard && (
+        <div className="pt-2 animate-in fade-in slide-in-from-top-1 duration-200 space-y-1.5 p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-900/40">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+            <span>🏪</span> Especifica los comercios o puntos del Canal Tradicional (ej. Tiendas de barrio, pulperías, carnicerías, mercados locales):
+          </div>
+          <Input
+            placeholder="Ej. Tiendas de barrio en la zona central y pulperías locales"
+            value={tradicionalText}
+            onChange={(e) => {
+              setTradicionalText(e.target.value);
+              updatePrefixItem("Comercios Canal Tradicional", e.target.value);
+            }}
+            className="h-9 text-xs rounded-xl bg-background border-amber-300 dark:border-amber-800 focus-visible:ring-amber-500 font-medium"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -461,33 +517,48 @@ function BusinessHoursPicker({ value, onChange }: { value: string; onChange: (va
     { key: "Dom", label: "Domingo" },
   ];
 
-  const [selectedDays, setSelectedDays] = useState<string[]>(["Lun", "Mar", "Mié", "Jue", "Vie"]);
-  const [openTime, setOpenTime] = useState<string>("09:00");
-  const [closeTime, setCloseTime] = useState<string>("18:00");
+  const [daySchedules, setDaySchedules] = useState<Record<string, { active: boolean; open: string; close: string }>>({
+    Lun: { active: true, open: "09:00", close: "18:00" },
+    Mar: { active: true, open: "09:00", close: "18:00" },
+    Mié: { active: true, open: "09:00", close: "18:00" },
+    Jue: { active: true, open: "09:00", close: "18:00" },
+    Vie: { active: true, open: "09:00", close: "18:00" },
+    Sáb: { active: false, open: "09:00", close: "13:00" },
+    Dom: { active: false, open: "09:00", close: "13:00" },
+  });
+
   const [is247, setIs247] = useState<boolean>(false);
   const [customDetail, setCustomDetail] = useState<string>("");
 
   const applyPreset = (preset: "LV" | "LS" | "ALL" | "247") => {
-    setIs247(false);
-    if (preset === "LV") {
-      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie"]);
-    } else if (preset === "LS") {
-      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]);
-    } else if (preset === "ALL") {
-      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]);
-    } else if (preset === "247") {
+    if (preset === "247") {
       setIs247(true);
-      setSelectedDays(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]);
+      return;
     }
+    setIs247(false);
+    setDaySchedules({
+      Lun: { active: true, open: "09:00", close: "18:00" },
+      Mar: { active: true, open: "09:00", close: "18:00" },
+      Mié: { active: true, open: "09:00", close: "18:00" },
+      Jue: { active: true, open: "09:00", close: "18:00" },
+      Vie: { active: true, open: "09:00", close: "18:00" },
+      Sáb: { active: preset === "LS" || preset === "ALL", open: "09:00", close: "13:00" },
+      Dom: { active: preset === "ALL", open: "09:00", close: "13:00" },
+    });
   };
 
-  const toggleDay = (key: string) => {
-    if (selectedDays.includes(key)) {
-      if (selectedDays.length === 1) return;
-      setSelectedDays(selectedDays.filter(d => d !== key));
-    } else {
-      setSelectedDays([...selectedDays, key]);
-    }
+  const toggleDayActive = (key: string) => {
+    setDaySchedules(prev => ({
+      ...prev,
+      [key]: { ...prev[key], active: !prev[key].active }
+    }));
+  };
+
+  const updateDayTime = (key: string, field: "open" | "close", val: string) => {
+    setDaySchedules(prev => ({
+      ...prev,
+      [key]: { ...prev[key], [field]: val }
+    }));
   };
 
   useEffect(() => {
@@ -496,31 +567,39 @@ function BusinessHoursPicker({ value, onChange }: { value: string; onChange: (va
       return;
     }
 
-    let daysText = "";
-    if (selectedDays.length === 5 && ["Lun", "Mar", "Mié", "Jue", "Vie"].every(d => selectedDays.includes(d))) {
-      daysText = "Lunes a Viernes";
-    } else if (selectedDays.length === 6 && ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].every(d => selectedDays.includes(d))) {
-      daysText = "Lunes a Sábado";
-    } else if (selectedDays.length === 7) {
-      daysText = "Todos los días (Lunes a Domingo)";
-    } else {
-      const fullNames = selectedDays.map(d => ALL_DAYS.find(ad => ad.key === d)?.label).filter(Boolean);
-      daysText = fullNames.join(", ");
+    const activeKeys = ALL_DAYS.filter(d => daySchedules[d.key]?.active).map(d => d.key);
+    if (activeKeys.length === 0) {
+      onChange("Cerrado");
+      return;
     }
 
-    let result = `${daysText} de ${openTime} a ${closeTime}`;
+    let daysText = "";
+    if (activeKeys.length === 5 && ["Lun", "Mar", "Mié", "Jue", "Vie"].every(k => activeKeys.includes(k))) {
+      daysText = "Lunes a Viernes";
+    } else if (activeKeys.length === 6 && ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].every(k => activeKeys.includes(k))) {
+      daysText = "Lunes a Sábado";
+    } else if (activeKeys.length === 7) {
+      daysText = "Todos los días (Lunes a Domingo)";
+    } else {
+      daysText = ALL_DAYS.filter(d => activeKeys.includes(d.key)).map(d => d.label).join(", ");
+    }
+
+    const firstActive = daySchedules[activeKeys[0]];
+    let result = `${daysText} (${firstActive?.open} - ${firstActive?.close})`;
     if (customDetail.trim()) {
-      result += ` (${customDetail.trim()})`;
+      result += ` [${customDetail.trim()}]`;
     }
     onChange(result);
-  }, [selectedDays, openTime, closeTime, is247, customDetail]);
+  }, [daySchedules, is247, customDetail]);
+
+  const TIME_OPTIONS = ["06:00", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
 
   return (
     <div className="space-y-4 p-5 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/40">
       {/* Selector de Presets Rápidos */}
       <div className="space-y-1.5">
         <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-          Selección Rápida de Días
+          Selección Rápida de Formato
         </label>
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -528,7 +607,7 @@ function BusinessHoursPicker({ value, onChange }: { value: string; onChange: (va
             onClick={() => applyPreset("LV")}
             className="text-xs font-semibold px-3 py-1 rounded-xl bg-background border hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-foreground transition-all"
           >
-            📅 Lunes a Viernes
+            📅 Lunes a Viernes (9:00 - 18:00)
           </button>
           <button
             type="button"
@@ -554,64 +633,67 @@ function BusinessHoursPicker({ value, onChange }: { value: string; onChange: (va
         </div>
       </div>
 
-      {/* Selector Individual de Días de la Semana */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-          Días de Atención Activos
-        </label>
-        <div className="flex flex-wrap items-center gap-1.5">
+      {/* Lista Vertical de Días (Lunes a Domingo) */}
+      {!is247 && (
+        <div className="space-y-2 pt-1">
+          <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
+            Horarios por Día (Lunes a Domingo)
+          </label>
+
           {ALL_DAYS.map((day) => {
-            const isSelected = selectedDays.includes(day.key);
+            const sched = daySchedules[day.key] || { active: false, open: "09:00", close: "18:00" };
             return (
-              <button
+              <div 
                 key={day.key}
-                type="button"
-                onClick={() => toggleDay(day.key)}
-                className={`text-xs font-extrabold px-3 py-2 rounded-xl border transition-all ${
-                  isSelected
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs scale-[1.02]"
-                    : "bg-background text-muted-foreground border-slate-200 dark:border-slate-800 hover:bg-muted"
+                className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
+                  sched.active 
+                    ? "bg-background border-indigo-200 dark:border-indigo-800 shadow-xs" 
+                    : "bg-muted/30 border-slate-200 dark:border-slate-800/60 opacity-60"
                 }`}
               >
-                {day.label}
-              </button>
+                <div className="flex items-center gap-2.5 min-w-[120px]">
+                  <input
+                    type="checkbox"
+                    id={`day-${day.key}`}
+                    checked={sched.active}
+                    onChange={() => toggleDayActive(day.key)}
+                    className="h-4 w-4 rounded-md border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor={`day-${day.key}`} className="text-xs font-bold text-foreground cursor-pointer">
+                    {day.label}
+                  </label>
+                </div>
+
+                {sched.active ? (
+                  <div className="flex items-center gap-2 flex-1 justify-end">
+                    <span className="text-[10px] font-semibold text-muted-foreground">Apertura:</span>
+                    <select
+                      value={sched.open}
+                      onChange={(e) => updateDayTime(day.key, "open", e.target.value)}
+                      className="h-8 rounded-lg bg-muted/40 border border-input px-2 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {TIME_OPTIONS.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+
+                    <span className="text-[10px] font-semibold text-muted-foreground ml-1">Cierre:</span>
+                    <select
+                      value={sched.close}
+                      onChange={(e) => updateDayTime(day.key, "close", e.target.value)}
+                      className="h-8 rounded-lg bg-muted/40 border border-input px-2 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {TIME_OPTIONS.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <span className="text-[11px] font-semibold text-muted-foreground italic pr-2">Cerrado</span>
+                )}
+              </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Selectores de Rango de Horarios */}
-      {!is247 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-          <div className="space-y-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-              Hora de Apertura
-            </label>
-            <select
-              value={openTime}
-              onChange={(e) => setOpenTime(e.target.value)}
-              className="w-full h-10 rounded-xl bg-background border border-input px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {["06:00", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "12:00"].map(t => (
-                <option key={t} value={t}>{t} (Apertura)</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-              Hora de Cierre
-            </label>
-            <select
-              value={closeTime}
-              onChange={(e) => setCloseTime(e.target.value)}
-              className="w-full h-10 rounded-xl bg-background border border-input px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              {["16:00", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "22:00", "23:00"].map(t => (
-                <option key={t} value={t}>{t} (Cierre)</option>
-              ))}
-            </select>
-          </div>
         </div>
       )}
 
@@ -629,10 +711,10 @@ function BusinessHoursPicker({ value, onChange }: { value: string; onChange: (va
       {/* Campo opcional de detalles adicionales */}
       <div className="space-y-1 pt-1">
         <label className="text-[9.5px] font-semibold text-muted-foreground">
-          Detalle adicional (Opcional, ej. "Sábados de 9:00 a 13:00" o "Turno cortado")
+          Detalle adicional (Opcional, ej. "Atención continua" o "Turno cortado 12:30 a 14:30")
         </label>
         <Input
-          placeholder="Ej. Sábados de 9:00 a 13:00"
+          placeholder="Ej. Atención continua sin pausa al mediodía"
           value={customDetail}
           onChange={(e) => setCustomDetail(e.target.value)}
           className="h-9 text-xs rounded-xl bg-background border-slate-200 focus-visible:ring-indigo-500"
@@ -860,8 +942,26 @@ export function OnboardingContent() {
 
         if (forceStep) {
           setBusinessId(b.id);
+          if (b.competitors && b.competitors.length > 0) {
+            setCompetitors(b.competitors.map((c: any) => ({
+              id: c.id,
+              name: c.name || "",
+              website: c.website || "",
+              facebook: c.facebook || "",
+              instagram: c.instagram || "",
+              tiktok: c.tiktok || "",
+            })));
+          }
           setCurrentStep(parseInt(forceStep));
         } else if (b.competitors && b.competitors.length > 0) {
+          setCompetitors(b.competitors.map((c: any) => ({
+            id: c.id,
+            name: c.name || "",
+            website: c.website || "",
+            facebook: c.facebook || "",
+            instagram: c.instagram || "",
+            tiktok: c.tiktok || "",
+          })));
           if (isPreview) {
             setBusinessId(b.id);
             setCurrentStep(3);
@@ -1409,7 +1509,7 @@ export function OnboardingContent() {
               <CardContent className="pt-6 space-y-6">
                 <div className="space-y-4">
                   {competitors.map((comp, idx) => (
-                    <div key={idx} className="p-4 rounded-2xl bg-muted/30 border space-y-3 relative group">
+                    <div key={comp.id || `comp-${idx}`} className="p-4 rounded-2xl bg-muted/30 border space-y-3 relative group">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
                           <Users className="h-3.5 w-3.5" /> Competidor #{idx + 1}
@@ -1459,6 +1559,15 @@ export function OnboardingContent() {
                             placeholder="https://facebook.com/competidor"
                             value={comp.facebook}
                             onChange={(e) => updateCompetitor(idx, "facebook", e.target.value)}
+                            className="h-10 text-xs rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px] font-medium">TikTok</Label>
+                          <Input
+                            placeholder="https://tiktok.com/@competidor"
+                            value={comp.tiktok}
+                            onChange={(e) => updateCompetitor(idx, "tiktok", e.target.value)}
                             className="h-10 text-xs rounded-xl"
                           />
                         </div>

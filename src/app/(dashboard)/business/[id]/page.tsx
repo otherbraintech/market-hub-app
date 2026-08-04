@@ -83,21 +83,6 @@ export default async function BusinessDetailPage({
   const hasCampaign = campaigns.length > 0;
   const hasCalendar = contents.length > 0;
 
-  const flowDone = (hasAudit ? 1 : 0) + (hasMediaAnalysis ? 1 : 0) + (hasStrategy ? 1 : 0) + (hasCampaign ? 1 : 0) + (hasCalendar ? 1 : 0);
-  const flowPercentage = Math.round((flowDone / 5) * 100);
-
-  const approvedPiecesCount = contents.filter(c => c.status === "PUBLISHED" || c.status === "SCHEDULED").length;
-
-  let activeNetworksList: string[] = [];
-  if (business.socialLinks) {
-    try {
-      const links = typeof business.socialLinks === "string" ? JSON.parse(business.socialLinks) : business.socialLinks;
-      if (links && typeof links === "object") {
-        activeNetworksList = Object.keys(links).filter(k => typeof links[k] === "string" && links[k].trim() !== "");
-      }
-    } catch (e) {}
-  }
-
   return (
     <BusinessDetailClient
       business={business}
@@ -106,14 +91,6 @@ export default async function BusinessDetailPage({
       hasStrategy={hasStrategy}
       hasCampaign={hasCampaign}
       hasCalendar={hasCalendar}
-      flowPercentage={flowPercentage}
-      flowDone={flowDone}
-      activeNetworksCount={socialAccounts.length + activeNetworksList.length}
-      activeNetworksList={activeNetworksList}
-      calendarCount={hasCalendar ? 1 : 0}
-      latestCalendarStatus={hasCalendar ? `${contents.length} piezas` : "Sin generar"}
-      approvedPiecesCount={approvedPiecesCount}
-      totalPiecesCount={contents.length}
       auditId={myAnalysis?.id}
       strategyId={activeStrategy?.id}
       calendarId={contents?.[0]?.id}

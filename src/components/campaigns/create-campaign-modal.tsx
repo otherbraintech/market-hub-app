@@ -680,7 +680,17 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
                             </div>
                             <div>
                               <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">Fecha Inicio</label>
-                              <Input type="date" value={editForm.startDate} onChange={(e) => setEditForm(p => ({ ...p, startDate: e.target.value }))} className="text-xs h-9 bg-background" />
+                              <Input 
+                                type="date" 
+                                min={format(new Date(), "yyyy-MM-dd")} 
+                                value={editForm.startDate} 
+                                onChange={(e) => {
+                                  const todayStr = format(new Date(), "yyyy-MM-dd");
+                                  const val = e.target.value < todayStr ? todayStr : e.target.value;
+                                  setEditForm(p => ({ ...p, startDate: val }));
+                                }} 
+                                className="text-xs h-9 bg-background font-bold" 
+                              />
                             </div>
                           </div>
                         </div>
@@ -779,22 +789,41 @@ export default function CreateCampaignModal({ businessId, trigger, initialAiMode
                     </div>
                   </div>
 
-                  {/* Tarjeta de Detección de Festivos / Feriados Patrios (ej. 6 de Agosto) */}
-                  <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 space-y-2">
+                  {/* Tarjeta de Detección de Festivos / Feriados Patrios (Bolivia) */}
+                  <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-amber-600 animate-pulse" />
                         <span className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-300">
-                          🎉 Detección de Feriados Patrios & Festividades
+                          🎉 Feriados Patrios (Bolivia) & Selección de Festividades
                         </span>
                       </div>
                       <Badge className="bg-amber-500 text-white font-black text-[9px] px-2 py-0.5">
-                        AUTOMÁTICO 3 REDES
+                        3 REDES PREVIA APROBACIÓN
                       </Badge>
                     </div>
                     <p className="text-[11px] text-amber-900/80 dark:text-amber-200/80 leading-relaxed font-medium">
-                      El planificador programará publicaciones conmemorativas especiales para el <strong>6 de Agosto (Día de la Patria / Independencia)</strong> y feriados festivos dentro del periodo de campaña, con artes y copies multicanal para <strong>Instagram, Facebook y TikTok</strong>.
+                      Selecciona qué fechas festivas incluir. Al aprobarse un feriado, el planificador programará contenido automáticamente en las <strong>3 redes (Facebook, Instagram y TikTok)</strong> sujeto a tu aprobación final:
                     </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <label className="flex items-center gap-2 p-2 rounded-xl bg-background border border-amber-200 dark:border-amber-900/60 cursor-pointer text-xs font-bold text-foreground hover:bg-amber-50/50">
+                        <input type="checkbox" defaultChecked className="h-3.5 w-3.5 rounded text-amber-600 focus:ring-amber-500" />
+                        <span>🇧🇴 6 de Agosto (Día de la Patria)</span>
+                      </label>
+                      <label className="flex items-center gap-2 p-2 rounded-xl bg-background border border-amber-200 dark:border-amber-900/60 cursor-pointer text-xs font-bold text-foreground hover:bg-amber-50/50">
+                        <input type="checkbox" defaultChecked className="h-3.5 w-3.5 rounded text-amber-600 focus:ring-amber-500" />
+                        <span>💐 27 de Mayo (Día de la Madre)</span>
+                      </label>
+                      <label className="flex items-center gap-2 p-2 rounded-xl bg-background border border-amber-200 dark:border-amber-900/60 cursor-pointer text-xs font-bold text-foreground hover:bg-amber-50/50">
+                        <input type="checkbox" defaultChecked className="h-3.5 w-3.5 rounded text-amber-600 focus:ring-amber-500" />
+                        <span>👷 1 de Mayo (Día del Trabajo)</span>
+                      </label>
+                      <label className="flex items-center gap-2 p-2 rounded-xl bg-background border border-amber-200 dark:border-amber-900/60 cursor-pointer text-xs font-bold text-foreground hover:bg-amber-50/50">
+                        <input type="checkbox" defaultChecked className="h-3.5 w-3.5 rounded text-amber-600 focus:ring-amber-500" />
+                        <span>🎄 25 de Diciembre (Navidad)</span>
+                      </label>
+                    </div>
                   </div>
 
                   {/* Resumen e inversión final */}

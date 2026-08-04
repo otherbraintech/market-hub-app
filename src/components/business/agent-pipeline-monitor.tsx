@@ -111,15 +111,15 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
   };
 
   return (
-    <Card className="border border-cyan-500/20 bg-[#0D1526] text-slate-100 shadow-2xl overflow-hidden rounded-2xl mh-glow-cyan">
+    <Card className="border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-lg dark:shadow-2xl overflow-hidden rounded-2xl mh-glow-cyan">
       {/* Cabecera futurista estilo Terminal Base44 */}
-      <CardHeader className="border-b border-cyan-500/10 bg-[#080E1A]/60 pb-4 flex flex-row items-center justify-between">
+      <CardHeader className="border-b border-border dark:border-cyan-500/10 bg-slate-50/80 dark:bg-[#080E1A]/60 pb-4 flex flex-row items-center justify-between">
         <div className="space-y-1">
           <CardTitle className="text-base font-extrabold tracking-tight flex items-center gap-2">
-            <Cpu className="h-4.5 w-4.5 text-cyan-400 animate-pulse" />
+            <Cpu className="h-4.5 w-4.5 text-cyan-600 dark:text-cyan-400 animate-pulse" />
             <span className="mh-gradient-text font-black">Progreso de Procesamiento Inteligente</span>
           </CardTitle>
-          <CardDescription className="text-[11px] text-slate-400">
+          <CardDescription className="text-[11px] text-muted-foreground dark:text-slate-400">
             Visualiza el avance del diagnóstico y planificación estratégica en tiempo real.
           </CardDescription>
         </div>
@@ -129,7 +129,7 @@ export function AgentPipelineMonitor({ businessId }: AgentPipelineMonitorProps) 
             variant="ghost"
             size="icon"
             onClick={() => fetchNotifications()}
-            className="h-7 w-7 rounded-lg border border-cyan-500/20 text-slate-400 hover:text-white hover:bg-cyan-500/10 bg-[#132035]"
+            className="h-7 w-7 rounded-lg border border-border dark:border-cyan-500/20 text-muted-foreground dark:text-slate-400 hover:text-foreground dark:hover:text-white bg-muted/60 dark:bg-[#132035]"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </Button>

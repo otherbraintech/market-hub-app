@@ -48,18 +48,18 @@ function StatCard({
   color?: "cyan" | "violet" | "emerald" | "amber";
 }) {
   const colorMap = {
-    cyan: { text: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20" },
-    violet: { text: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20" },
-    emerald: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-    amber: { text: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+    cyan: { text: "text-cyan-600 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-200 dark:border-cyan-500/20" },
+    violet: { text: "text-violet-600 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", border: "border-violet-200 dark:border-violet-500/20" },
+    emerald: { text: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", border: "border-emerald-200 dark:border-emerald-500/20" },
+    amber: { text: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20" },
   };
 
   const style = colorMap[color];
 
   return (
-    <Card className="border border-slate-800 bg-[#0D1526] text-slate-100 hover:border-slate-700 transition-all duration-300 shadow-xl rounded-2xl">
+    <Card className="border border-border dark:border-slate-800 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 hover:border-cyan-500/40 transition-all duration-300 shadow-sm dark:shadow-xl rounded-2xl">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+        <CardTitle className="text-xs font-bold text-muted-foreground dark:text-slate-400 uppercase tracking-wider">
           {title}
         </CardTitle>
         <div className={cn("p-2.5 rounded-xl border", style.bg, style.border)}>
@@ -67,9 +67,9 @@ function StatCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-black tracking-tight text-white">{value}</div>
+        <div className="text-3xl font-black tracking-tight text-foreground dark:text-white">{value}</div>
         {description && (
-          <p className="text-xs text-slate-400 mt-1.5 font-medium">{description}</p>
+          <p className="text-xs text-muted-foreground dark:text-slate-400 mt-1.5 font-medium">{description}</p>
         )}
       </CardContent>
     </Card>
@@ -90,7 +90,7 @@ function AgentStatusCard({
   color: string;
 }) {
   return (
-    <div className="p-3.5 rounded-xl bg-[#132035] border border-slate-800 flex items-center justify-between gap-3">
+    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#132035] border border-border dark:border-slate-800 flex items-center justify-between gap-3">
       <div className="flex items-center gap-3">
         <div
           className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
@@ -99,8 +99,8 @@ function AgentStatusCard({
           <Icon className="h-4.5 w-4.5" style={{ color }} />
         </div>
         <div>
-          <h5 className="text-xs font-bold text-white leading-tight">{name}</h5>
-          <p className="text-[10.5px] text-slate-400 mt-0.5">{role}</p>
+          <h5 className="text-xs font-bold text-foreground dark:text-white leading-tight">{name}</h5>
+          <p className="text-[10.5px] text-muted-foreground dark:text-slate-400 mt-0.5">{role}</p>
         </div>
       </div>
       <Badge
@@ -108,8 +108,8 @@ function AgentStatusCard({
         className={cn(
           "text-[9.5px] font-black uppercase px-2 py-0.5 border",
           status === "ACTIVE" 
-            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 animate-pulse" 
-            : "bg-slate-800 text-slate-400 border-slate-700"
+            ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/30 animate-pulse" 
+            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
         )}
       >
         {status === "ACTIVE" ? "Operativo" : "En Espera"}
@@ -175,26 +175,26 @@ export default async function DashboardPage() {
   const monthName = new Date().toLocaleDateString("es-ES", { month: "long", year: "numeric" });
 
   return (
-    <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto animate-fade-in text-slate-100">
+    <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto animate-fade-in text-foreground">
       {/* Executive Command Center Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border dark:border-slate-800 pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-cyan-400 animate-pulse" />
-            <span className="text-[11px] font-black text-cyan-400 uppercase tracking-widest">
+            <Sparkles className="h-4 w-4 text-cyan-600 dark:text-cyan-400 animate-pulse" />
+            <span className="text-[11px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-widest">
               Centro de Comando
             </span>
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-white">
+          <h1 className="text-3xl font-black tracking-tight text-foreground dark:text-white">
             Dashboard General
           </h1>
-          <p className="text-xs text-slate-400 capitalize">
+          <p className="text-xs text-muted-foreground dark:text-slate-400 capitalize">
             {monthName} • {allBusinesses.length} negocio(s) registrado(s) • Todos los sistemas operativos
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Button asChild className="gradient-primary text-xs font-bold gap-2 rounded-xl shadow-lg shadow-blue-950/40">
+          <Button asChild className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs gap-2 rounded-xl shadow-md">
             <Link href={activeBusinessId ? `/onboarding?businessId=${activeBusinessId}&preview=true` : "/onboarding"}>
               <Plus className="h-4 w-4" /> Nuevo Negocio
             </Link>
@@ -238,18 +238,18 @@ export default async function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Left Column: Businesses List (2/3) */}
         <div className="lg:col-span-2 space-y-6">
-          <Card className="border border-slate-800 bg-[#0D1526] text-slate-100 shadow-xl rounded-2xl overflow-hidden">
-            <CardHeader className="border-b border-slate-800/80 bg-[#080E1A]/60 flex flex-row items-center justify-between pb-4">
+          <Card className="border border-border dark:border-slate-800 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-md dark:shadow-xl rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-border dark:border-slate-800/80 bg-muted/40 dark:bg-[#080E1A]/60 flex flex-row items-center justify-between pb-4">
               <div>
-                <CardTitle className="text-base font-extrabold tracking-tight text-white flex items-center gap-2">
-                  <Building2 className="h-4.5 w-4.5 text-cyan-400" />
+                <CardTitle className="text-base font-extrabold tracking-tight text-foreground dark:text-white flex items-center gap-2">
+                  <Building2 className="h-4.5 w-4.5 text-cyan-600 dark:text-cyan-400" />
                   Lista de Negocios
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-400 mt-0.5">
+                <CardDescription className="text-xs text-muted-foreground dark:text-slate-400 mt-0.5">
                   Directorio de negocios con acceso directo al perfil y flujo operativo.
                 </CardDescription>
               </div>
-              <Button asChild variant="ghost" size="sm" className="text-xs font-bold text-cyan-400 hover:text-cyan-300 gap-1">
+              <Button asChild variant="ghost" size="sm" className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 gap-1">
                 <Link href="/business">
                   Ver Todos <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
@@ -257,22 +257,22 @@ export default async function DashboardPage() {
             </CardHeader>
 
             <CardContent className="p-0">
-              <div className="divide-y divide-slate-800/60">
+              <div className="divide-y divide-border dark:divide-slate-800/60">
                 {allBusinesses.slice(0, 5).map((b) => (
                   <div
                     key={b.id}
-                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-[#132035]/50 transition-colors"
+                    className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-[#132035]/50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-black text-white text-sm shrink-0">
                         {b.name?.[0]?.toUpperCase()}
                       </div>
                       <div>
-                        <h4 className="font-bold text-sm text-slate-100">{b.name}</h4>
+                        <h4 className="font-bold text-sm text-foreground dark:text-slate-100">{b.name}</h4>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[11px] text-slate-400 font-medium">{b.industry || "General"}</span>
+                          <span className="text-[11px] text-muted-foreground dark:text-slate-400 font-medium">{b.industry || "General"}</span>
                           {b.website && (
-                            <span className="text-[10px] text-cyan-400/80 flex items-center gap-1">
+                            <span className="text-[10px] text-cyan-600 dark:text-cyan-400/80 flex items-center gap-1">
                               • <Globe className="h-3 w-3" /> {b.website.replace(/^https?:\/\//, '')}
                             </span>
                           )}
@@ -281,9 +281,9 @@ export default async function DashboardPage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold border-cyan-500/20 text-slate-300 hover:text-white bg-slate-900/60 gap-1.5">
+                      <Button asChild size="sm" variant="outline" className="h-8 text-xs font-bold border-cyan-500/30 text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-white bg-background dark:bg-slate-900/60 gap-1.5 shadow-xs">
                         <Link href={`/business/${b.id}`}>
-                          <Layers className="h-3.5 w-3.5 text-cyan-400" /> Abrir Negocio & Flujo IA
+                          <Layers className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" /> Abrir Negocio & Flujo IA
                         </Link>
                       </Button>
                     </div>
@@ -294,18 +294,18 @@ export default async function DashboardPage() {
           </Card>
 
           {/* Upcoming Content Table */}
-          <Card className="border border-slate-800 bg-[#0D1526] text-slate-100 shadow-xl rounded-2xl">
+          <Card className="border border-border dark:border-slate-800 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-md dark:shadow-xl rounded-2xl">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base font-extrabold text-white flex items-center gap-2">
-                  <Calendar className="h-4.5 w-4.5 text-emerald-400" />
+                <CardTitle className="text-base font-extrabold text-foreground dark:text-white flex items-center gap-2">
+                  <Calendar className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
                   Próximas Piezas del Calendario
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-400">
+                <CardDescription className="text-xs text-muted-foreground dark:text-slate-400">
                   Contenidos generados listos para su publicación en redes.
                 </CardDescription>
               </div>
-              <Button asChild variant="ghost" size="sm" className="text-xs font-bold text-cyan-400 hover:text-cyan-300">
+              <Button asChild variant="ghost" size="sm" className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300">
                 <Link href="/calendar">
                   Ver Calendario <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
@@ -313,27 +313,27 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               {recentContents.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 border border-dashed border-slate-800 rounded-xl bg-slate-900/30">
-                  <Calendar className="h-8 w-8 mx-auto mb-2 text-slate-600" />
+                <div className="text-center py-8 text-muted-foreground border border-dashed border-border dark:border-slate-800 rounded-xl bg-muted/20 dark:bg-slate-900/30">
+                  <Calendar className="h-8 w-8 mx-auto mb-2 text-muted-foreground/60" />
                   <p className="text-xs font-semibold">Sin publicaciones programadas aún</p>
-                  <p className="text-[11px] text-slate-500 mt-1">Ejecuta las etapas del flujo operativo para construir tu calendario.</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Ejecuta las etapas del flujo operativo para construir tu calendario.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {recentContents.map((item) => (
-                    <div key={item.id} className="p-3 rounded-xl border border-slate-800 bg-[#132035]/60 flex items-center justify-between gap-3">
+                    <div key={item.id} className="p-3 rounded-xl border border-border dark:border-slate-800 bg-slate-50/80 dark:bg-[#132035]/60 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                        <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                           <FileText className="h-4 w-4" />
                         </div>
                         <div>
-                          <h5 className="font-bold text-xs text-slate-200">{item.title}</h5>
-                          <span className="text-[10px] text-slate-400 block mt-0.5">
+                          <h5 className="font-bold text-xs text-foreground dark:text-slate-200">{item.title}</h5>
+                          <span className="text-[10px] text-muted-foreground dark:text-slate-400 block mt-0.5">
                             Campaña: {item.campaign?.name || "General"} • Tipo: <span className="uppercase font-bold">{item.type}</span>
                           </span>
                         </div>
                       </div>
-                      <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-bold">
+                      <Badge className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-500/20 text-[10px] font-bold">
                         {item.status}
                       </Badge>
                     </div>
@@ -347,13 +347,13 @@ export default async function DashboardPage() {
         {/* Right Column: AI Agents Status & System Operations (1/3) */}
         <div className="space-y-6">
           {/* AI Agents Operational Status */}
-          <Card className="border border-slate-800 bg-[#0D1526] text-slate-100 shadow-xl rounded-2xl">
+          <Card className="border border-border dark:border-slate-800 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-md dark:shadow-xl rounded-2xl">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-extrabold text-white flex items-center gap-2">
-                <Cpu className="h-4.5 w-4.5 text-cyan-400 animate-pulse" />
+              <CardTitle className="text-base font-extrabold text-foreground dark:text-white flex items-center gap-2">
+                <Cpu className="h-4.5 w-4.5 text-cyan-600 dark:text-cyan-400 animate-pulse" />
                 Agentes IA Operativos
               </CardTitle>
-              <CardDescription className="text-xs text-slate-400">
+              <CardDescription className="text-xs text-muted-foreground dark:text-slate-400">
                 Estado de la fuerza laboral digital autónoma.
               </CardDescription>
             </CardHeader>
@@ -390,14 +390,14 @@ export default async function DashboardPage() {
           </Card>
 
           {/* Quick Access Card */}
-          <Card className="border border-cyan-500/20 bg-gradient-to-br from-[#0D1526] to-[#132035] text-slate-100 shadow-xl rounded-2xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-black text-cyan-400 uppercase tracking-wider">
+          <Card className="border border-cyan-300 dark:border-cyan-500/20 bg-gradient-to-br from-cyan-50/60 via-card to-indigo-50/60 dark:from-[#0D1526] dark:to-[#132035] text-card-foreground dark:text-slate-100 shadow-md dark:shadow-xl rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-black text-cyan-700 dark:text-cyan-400 uppercase tracking-wider">
               <Zap className="h-4 w-4" /> Acceso Rápido a Operaciones
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-muted-foreground dark:text-slate-300 leading-relaxed">
               Selecciona un negocio para abrir su perfil y ejecutar las 4 etapas del flujo operativo autónomo.
             </p>
-            <Button asChild className="w-full text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950">
+            <Button asChild className="w-full text-xs font-bold bg-cyan-600 hover:bg-cyan-700 text-white dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:text-slate-950">
               <Link href="/business">
                 Ir a Mis Negocios <ArrowRight className="h-3.5 w-3.5 ml-1" />
               </Link>

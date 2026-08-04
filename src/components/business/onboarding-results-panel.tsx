@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { 
   getOnboardingResults, 
   startScrapingStage, 
@@ -447,7 +447,16 @@ export function OnboardingResultsPanel({
   const competitorReports = data?.competitorReports || [];
   const activeStrategy = data?.activeStrategy;
   const campaigns = data?.campaigns || [];
-  const competitorsList = data?.competitorsList || [];
+  const competitorsList = useMemo(() => {
+    const raw = data?.competitorsList || [];
+    const seen = new Set<string>();
+    return raw.filter((c: any) => {
+      const nameKey = (c.name || '').trim().toLowerCase();
+      if (!nameKey || seen.has(nameKey)) return false;
+      seen.add(nameKey);
+      return true;
+    });
+  }, [data?.competitorsList]);
 
   const individualBusinessReports = businessReports.filter((r: any) => r.channel !== "CONSOLIDATED");
   const consolidatedReport = businessReports.find((r: any) => r.channel === "CONSOLIDATED");
@@ -1510,9 +1519,9 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
           <TabsTrigger value="calendario">Calendario</TabsTrigger>
         </TabsList>
 
-        <ScrollArea className="flex-1 w-full relative max-h-[calc(100vh-220px)] overflow-y-auto">
+        <div className="flex-1 w-full h-full min-h-0 overflow-y-auto pl-4 pr-4 pt-0 pb-4 space-y-6">
            {/* TAB 1: BANCO DE DATOS (UNIFICADO) */}
-          <TabsContent value="bancodedatos" className="space-y-12 mt-0">
+          <TabsContent value="bancodedatos" className="space-y-6 mt-0">
             {/* SECTION 1. INFORMACIÓN DEL NEGOCIO */}
             {data?.businessInfo && (
               <section className="space-y-4">
@@ -1584,6 +1593,30 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                           </a>
                         </div>
                       )}
+
+                      {/* Redes Sociales y Canales */}
+                      {(() => {
+                        const socialLinks = parseJson(data.businessInfo.socialLinks) || {};
+                        const activePlatforms = Object.entries(socialLinks).filter(([_, url]) => Boolean(url && typeof url === "string" && url.trim() !== ""));
+                        
+                        if (activePlatforms.length === 0) return null;
+                        
+                        return activePlatforms.map(([platform, url]) => {
+                          const platformLabel = 
+                            platform.toLowerCase() === 'tiktok' ? 'TikTok' : 
+                            platform.toLowerCase() === 'facebook' ? 'Facebook' : 
+                            platform.toLowerCase() === 'instagram' ? 'Instagram' : platform;
+                            
+                          return (
+                            <div key={platform}>
+                              <span className="font-bold text-muted-foreground block text-[9px] uppercase">{platformLabel}</span>
+                              <a href={String(url)} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline font-bold truncate block">
+                                {String(url)}
+                              </a>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
 
@@ -1652,31 +1685,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                   </div>
                 </div>
 
-                {/* Canales Vinculados */}
-                <div className="bg-muted/10 p-4 rounded-2xl border space-y-3">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
-                    🔗 Plataformas y Canales Activos
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {(() => {
-                      const socialLinks = parseJson(data.businessInfo.socialLinks);
-                      const links = socialLinks ? Object.entries(socialLinks).filter(([, v]) => v && String(v).trim()) : [];
-                      if (links.length === 0) return <span className="text-xs text-muted-foreground italic">Sin canales de redes sociales vinculados</span>;
-                      return links.map(([platform, url]) => (
-                        <a
-                          key={platform}
-                          href={String(url)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-background border rounded-xl text-[10px] font-bold text-orange-655 dark:text-orange-400 hover:bg-orange-500/5 transition-colors shadow-sm"
-                        >
-                          {getSocialIcon(platform)}
-                          <span className="capitalize">{platform}</span>
-                        </a>
-                      ));
-                    })()}
-                  </div>
-                </div>
+
               </section>
             )}
 
@@ -1924,19 +1933,24 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                     <span className="text-xs font-black uppercase tracking-wider text-foreground">Competidores</span>
                     <Badge variant="secondary" className="text-[8px] font-bold bg-purple-100 text-purple-700 border-none">MERCADO COMPARATIVO</Badge>
                   </div>
-                  <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                     {competitorsList.map((c: any) => (
-                      <div key={c.id} className="space-y-1.5 p-2.5 bg-background/30 rounded-xl border">
-                        <span className="font-extrabold text-slate-800 text-[10.5px] uppercase tracking-wide block">{c.name}</span>
-                        <div className="grid grid-cols-1 gap-1.5">
+                      <div key={c.id} className="space-y-2 p-3 bg-background/60 rounded-2xl border">
+                        <div className="flex items-center justify-between border-b pb-1.5">
+                          <span className="font-extrabold text-slate-800 dark:text-slate-100 text-xs tracking-tight truncate">{c.name}</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2">
                           {c.website && (() => {
                             const st = getChannelStatus(c.id, "WEBSITE", true);
                             const isBlurred = st === 'idle' || st === 'failed';
                             return (
-                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                              <div className={`flex items-center justify-between p-2 bg-background/80 rounded-xl border text-xs gap-3 transition-all duration-300 ${
                                 isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
                               }`}>
-                                <span className="truncate max-w-[120px]">{c.website}</span>
+                                <div className="flex items-center gap-2 truncate min-w-0">
+                                  {getSocialIcon("WEBSITE")}
+                                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{c.website}</span>
+                                </div>
                                 {renderStatusIcon(st)}
                               </div>
                             );
@@ -1945,10 +1959,13 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                             const st = getChannelStatus(c.id, "FACEBOOK", true);
                             const isBlurred = st === 'idle' || st === 'failed';
                             return (
-                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                              <div className={`flex items-center justify-between p-2 bg-background/80 rounded-xl border text-xs gap-3 transition-all duration-300 ${
                                 isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
                               }`}>
-                                <span className="truncate max-w-[120px]">Facebook</span>
+                                <div className="flex items-center gap-2 truncate min-w-0">
+                                  {getSocialIcon("FACEBOOK")}
+                                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{c.facebook}</span>
+                                </div>
                                 {renderStatusIcon(st)}
                               </div>
                             );
@@ -1957,10 +1974,13 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                             const st = getChannelStatus(c.id, "INSTAGRAM", true);
                             const isBlurred = st === 'idle' || st === 'failed';
                             return (
-                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                              <div className={`flex items-center justify-between p-2 bg-background/80 rounded-xl border text-xs gap-3 transition-all duration-300 ${
                                 isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
                               }`}>
-                                <span className="truncate max-w-[120px]">Instagram</span>
+                                <div className="flex items-center gap-2 truncate min-w-0">
+                                  {getSocialIcon("INSTAGRAM")}
+                                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{c.instagram}</span>
+                                </div>
                                 {renderStatusIcon(st)}
                               </div>
                             );
@@ -1969,10 +1989,13 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                             const st = getChannelStatus(c.id, "TIKTOK", true);
                             const isBlurred = st === 'idle' || st === 'failed';
                             return (
-                              <div className={`flex items-center justify-between p-1.5 bg-background/60 rounded-lg border text-[10.5px] transition-all duration-300 ${
+                              <div className={`flex items-center justify-between p-2 bg-background/80 rounded-xl border text-xs gap-3 transition-all duration-300 ${
                                 isBlurred ? 'backdrop-blur-sm opacity-60 grayscale blur-[1.2px] hover:blur-none border-amber-200/50' : ''
                               }`}>
-                                <span className="truncate max-w-[120px]">TikTok</span>
+                                <div className="flex items-center gap-2 truncate min-w-0">
+                                  {getSocialIcon("TIKTOK")}
+                                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">{c.tiktok}</span>
+                                </div>
                                 {renderStatusIcon(st)}
                               </div>
                             );
@@ -2435,7 +2458,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
             </section>
 
             {/* CEO Navigation Bar: Banco de Datos -> Generar Estrategia de Growth de Marketing */}
-            <div className="pt-6 border-t mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-purple-500/5 p-6 rounded-3xl border border-purple-500/20 shadow-sm">
+            <div className="pt-4 border-t mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-purple-500/5 p-5 rounded-2xl border border-purple-500/20 shadow-sm">
               <div className="space-y-1 text-center sm:text-left">
                 <span className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Paso 1 Completado · Auditoría & FODA</span>
                 <h4 className="text-sm font-black text-foreground">¿Listo para avanzar al Modelado Estratégico de Marketing?</h4>
@@ -2454,8 +2477,8 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </Button>
             </div>
 
-            {/* SENTINEL Y ESPACIO EXTRA AL BOTTOM */}
-            <div ref={bottomRef} className="h-10 w-full" />
+            {/* SENTINEL REF */}
+            <div ref={bottomRef} className="h-1 w-full shrink-0" />
           </TabsContent>
 
           {/* TAB 2: ACTIVOS VISUALES E INSPIRACIÓN (Etapa 2) */}
@@ -3495,53 +3518,10 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </div>
             )}
           </TabsContent>
-        </ScrollArea>
+        </div>
       </Tabs>
 
-      {/* Barra de Navegación Anclada */}
-      {(() => {
-        const tabOrder = ["bancodedatos", "estrategia", "campanas", "calendario"];
-        const currentIdx = tabOrder.indexOf(activeTab);
-        const prevTab = currentIdx > 0 ? tabOrder[currentIdx - 1] : null;
-        const nextTab = currentIdx < tabOrder.length - 1 ? tabOrder[currentIdx + 1] : null;
 
-        const nextLabels: Record<string, string> = {
-          estrategia: "Estrategias de Growth",
-          campanas: "Plan de Campañas",
-          calendario: "Calendario Editorial"
-        };
-
-        const isNextBlocked = nextTab ? isTabBlocked(nextTab) : false;
-
-        return (
-          <div className="px-5 py-4 border-t bg-muted/20 flex items-center justify-between shadow-inner shrink-0">
-            {prevTab ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveTab(prevTab)}
-                className="rounded-xl h-10 font-bold px-4 hover:bg-muted text-xs transition-all gap-1.5"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" /> Atrás
-              </Button>
-            ) : (
-              <div />
-            )}
-
-            {!nextTab && (
-              <Button
-                onClick={() => {
-                  toast.success("¡Configuración y calendario guardados correctamente!");
-                  router.push(`/business/${businessId}?skipOnboarding=true`);
-                }}
-                className="rounded-xl h-11 font-extrabold px-7 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:via-teal-700 hover:to-cyan-700 text-white shadow-md hover:shadow-xl transition-all scale-100 hover:scale-[1.03] active:scale-[0.98] text-xs flex items-center gap-2 action-btn-pulse-emerald"
-              >
-                Confirmar y Guardar Negocio <Check className="h-4 w-4 stroke-[3]" />
-              </Button>
-            )}
-          </div>
-        );
-      })()}
 
       {/* Dialog Modal interactivo exclusivo para el Agente de Estrategia (Estilo Banco de Datos Etapa 1) */}
       <Dialog open={showStrategyAgentWorkingDialog} onOpenChange={setShowStrategyAgentWorkingDialog}>

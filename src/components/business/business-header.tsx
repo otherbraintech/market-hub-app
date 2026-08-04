@@ -1,19 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
-import { Building2, Pencil } from "lucide-react";
+import { Building2, Pencil, ExternalLink, Globe } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { BusinessForm } from "./business-form";
 
 interface BusinessHeaderProps {
   business: any & {
@@ -26,50 +17,41 @@ interface BusinessHeaderProps {
 }
 
 export function BusinessHeader({ business }: BusinessHeaderProps) {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
   return (
-    <div className="border-b bg-card px-8 py-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="h-16 w-16 rounded-lg bg-primary/10 flex items-center justify-center border">
-             {business.logo ? (
-                 <img src={business.logo} alt={business.name} className="h-full w-full object-cover rounded-lg" />
-             ) : (
-                <Building2 className="h-8 w-8 text-primary" />
-             )}
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">{business.name}</h1>
-                {business.industry && <Badge variant="secondary">{business.industry}</Badge>}
-            </div>
-            
-            
-             {business.website && (
-                <a 
-                    href={business.website} 
-                    target="_blank" 
-                    rel="noreferrer" 
-                    className="text-xs text-blue-500 hover:underline mt-1 block"
-                >
-                    {business.website}
-                </a>
+    <div className="border-b border-border dark:border-slate-800/80 bg-background/80 backdrop-blur-md px-6 py-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-[1700px] mx-auto">
+        {/* Business identity */}
+        <div className="flex items-center gap-3.5">
+          <div className="h-10 w-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+            {business.logo ? (
+              <img src={business.logo} alt={business.name} className="h-full w-full object-cover rounded-xl" />
+            ) : (
+              <Building2 className="h-5 w-5 text-cyan-400" />
             )}
           </div>
+
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-black tracking-tight text-foreground dark:text-white">
+                {business.name}
+              </h1>
+              {business.industry && (
+                <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
+                  {business.industry}
+                </Badge>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href={`/business/create?businessId=${business.id}&edit=true`}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar Negocio
-              </Link>
-            </Button>
+
+        {/* Header Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" className="h-8 px-3 text-xs border-border dark:border-slate-800 hover:bg-muted font-bold gap-1.5" asChild>
+            <Link href={`/business/create?businessId=${business.id}&edit=true`}>
+              <Pencil className="h-3.5 w-3.5 text-cyan-400" />
+              <span>Editar Negocio</span>
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

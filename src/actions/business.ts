@@ -282,9 +282,14 @@ export async function getBusinesses() {
     return [];
   }
   return prisma.business.findMany({
-    where: { userId: session.user.id },
+    where: {
+      OR: [
+        { userId: session.user.id },
+        { userId: null }
+      ]
+    },
     include: { competitors: true },
-    orderBy: { name: "asc" },
+    orderBy: { updatedAt: "desc" },
   });
 }
 
@@ -306,24 +311,42 @@ export async function getSelectedBusinessId() {
   }
 
   const { cookies } = await import("next/headers");
-  const selectedId = (await cookies()).get("selectedBusinessId")?.value;
+  const cookieStore = await cookies();
+  const selectedId = cookieStore.get("selectedBusinessId")?.value;
 
   if (selectedId) {
     const business = await prisma.business.findFirst({
-      where: { id: selectedId, userId: session.user.id }
+      where: {
+        id: selectedId,
+        OR: [
+          { userId: session.user.id },
+          { userId: null }
+        ]
+      }
     });
     if (business) {
       return selectedId;
     }
   }
 
-  // Fallback to the first business if user has one
+  // Fallback to the most recently updated business for this user
   const firstBusiness = await prisma.business.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { name: "asc" }
+    where: {
+      OR: [
+        { userId: session.user.id },
+        { userId: null }
+      ]
+    },
+    orderBy: { updatedAt: "desc" }
   });
 
   if (firstBusiness) {
+    try {
+      cookieStore.set("selectedBusinessId", firstBusiness.id, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30
+      });
+    } catch (e) {}
     return firstBusiness.id;
   }
 

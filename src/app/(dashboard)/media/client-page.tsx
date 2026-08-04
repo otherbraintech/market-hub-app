@@ -197,11 +197,18 @@ export function MediaLibraryClient({
   const [logoUrl, setLogoUrl] = useState<string | null>(initialLogo);
   const [brandColors, setBrandColors] = useState<string[]>(initialBrandColors);
 
+  const [loadingInitialData, setLoadingInitialData] = useState(true);
+
   React.useEffect(() => {
+    setLoadingInitialData(true);
     if (initialLogo) setLogoUrl(initialLogo);
     if (initialBrandColors && initialBrandColors.length > 0) setBrandColors(initialBrandColors);
     if (initialAssets && initialAssets.length > 0) setAssets(initialAssets);
     if (initialCounts) setCounts(initialCounts);
+
+    fetchAssets().finally(() => {
+      setLoadingInitialData(false);
+    });
   }, [businessId]);
 
   const handleSelectBusiness = async (newId: string) => {

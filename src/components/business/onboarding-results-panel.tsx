@@ -9,6 +9,7 @@ import {
   startCampaignStage,
   startCalendarStage
 } from "@/actions/business";
+import { listMediaAssetsAction } from "@/actions/media";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -62,16 +63,27 @@ const formatSocialMetric = (val: any): string => {
 };
 
 const formatPersonaTitle = (rawName: string | undefined, index: number): string => {
-  if (!rawName) return `Segmento Objetivo ${index + 1}`;
-  let cleaned = rawName
-    .replace(/^María,?\s*(la\s*)?/i, "")
-    .replace(/^Carlos,?\s*(el\s*)?/i, "")
-    .replace(/^Juan,?\s*(el\s*)?/i, "")
-    .replace(/^Ana,?\s*(la\s*)?/i, "")
-    .replace(/^Pedro,?\s*(el\s*)?/i, "")
-    .trim();
-  if (!cleaned) return `Segmento Objetivo ${index + 1}`;
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  if (!rawName) return `Persona ${index + 1}`;
+  
+  // 1. Quitar prefijos tipo "P1", "P2", "P5", "P1: ", "P5 - ", "Persona 1", etc.
+  let text = rawName.replace(/^(P\d+|Persona\s*\d+)[\s:\-–—]*/i, "").trim();
+
+  // 2. Extraer solo el nombre de pila antes de comas, "el", "la", "los", "las" o guiones
+  let nameOnly = text.split(/[,:\-–—]/)[0].split(/\s+(el|la|los|las)\s+/i)[0].trim();
+
+  if (!nameOnly) return `Persona ${index + 1}`;
+  return nameOnly.charAt(0).toUpperCase() + nameOnly.slice(1);
+};
+
+const extractPersonaArchetype = (rawName: string | undefined): string | null => {
+  if (!rawName) return null;
+  let text = rawName.replace(/^(P\d+|Persona\s*\d+)[\s:\-–—]*/i, "").trim();
+  const match = text.match(/[,:\-–—]?\s*((el|la|los|las)\s+.*)$/i) || text.match(/,\s*(.*)$/);
+  if (match && match[1]) {
+    const archetype = match[1].trim();
+    return archetype.charAt(0).toUpperCase() + archetype.slice(1);
+  }
+  return null;
 };
 
 const normalizeReportData = (rawReportData: any) => {
@@ -179,15 +191,66 @@ export function OnboardingResultsPanel({
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTabState] = useState(externalActiveTab || "bancodedatos");
+  const [tabTransitionLoading, setTabTransitionLoading] = useState(false);
 
-  const setActiveTab = (tab: string) => {
+  const isStageDataReady = (tab: string, currentData: any): boolean => {
+    if (!currentData) return false;
+    switch (tab) {
+      case "bancodedatos":
+        return Boolean(currentData.businessInfo || currentData.consolidatedReport || currentData.business);
+      case "activosvisuales":
+        return Array.isArray(currentData.mediaAssets);
+      case "estrategia":
+        return Boolean(currentData.activeStrategy || currentData.consolidatedReport);
+      case "campanas":
+        return Array.isArray(currentData.campaigns);
+      case "calendario":
+        return Array.isArray(currentData.calendarContents) || Array.isArray(currentData.campaigns);
+      default:
+        return true;
+    }
+  };
+
+  const setActiveTab = async (tab: string) => {
+    if (tab === activeTab) return;
+    setTabTransitionLoading(true);
     setActiveTabState(tab);
     if (onTabChange) onTabChange(tab);
+    
+    const isMediaTab = tab === "activosvisuales";
+    const minDelay = new Promise((resolve) => setTimeout(resolve, 200));
+
+    try {
+      // 1. Cargar el paquete de datos del servidor en segundo plano
+      await Promise.all([
+        fetchResults(true, isMediaTab), 
+        fetchNotifications(true), 
+        minDelay
+      ]);
+    } catch (e) {
+      console.error("Error al actualizar paquete de datos de etapa:", e);
+    } finally {
+      // 2. Retirar la pantalla de carga únicamente cuando el paquete de datos de la etapa esté listo
+      setTabTransitionLoading(false);
+    }
   };
 
   useEffect(() => {
     if (externalActiveTab && externalActiveTab !== activeTab) {
+      let isMounted = true;
+      setTabTransitionLoading(true);
       setActiveTabState(externalActiveTab);
+      const isMediaTab = externalActiveTab === "activosvisuales";
+      const minDelay = new Promise((resolve) => setTimeout(resolve, 200));
+
+      Promise.all([
+        fetchResults(true, isMediaTab), 
+        fetchNotifications(true), 
+        minDelay
+      ]).finally(() => {
+        if (isMounted) setTabTransitionLoading(false);
+      });
+      return () => { isMounted = false; };
     }
   }, [externalActiveTab]);
 
@@ -362,12 +425,34 @@ export function OnboardingResultsPanel({
     }
   };
 
-  const fetchResults = async (silent = false) => {
+  const fetchResults = async (silent = false, includeMedia = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await getOnboardingResults(businessId);
+      const promises: [Promise<any>, Promise<any>?] = [getOnboardingResults(businessId)];
+      if (includeMedia) {
+        promises.push(listMediaAssetsAction(businessId).catch(() => null));
+      }
+
+      const [res, mediaRes] = await Promise.all(promises);
+
       if (res.success) {
-        setData(res);
+        setData((prevData: any) => {
+          return {
+            ...prevData,
+            ...res,
+            ...(includeMedia && mediaRes?.success ? {
+              mediaAssets: mediaRes.assets || [],
+              mediaLogo: mediaRes.logo || res?.business?.logo,
+              mediaColors: mediaRes.brandColors || res?.business?.brandColors,
+              mediaCounts: {
+                videoCount: mediaRes.videoCount ?? 0,
+                imageCount: mediaRes.imageCount ?? 0,
+                total: mediaRes.total ?? 0
+              }
+            } : {})
+          };
+        });
+
         if (res.competitorsList && res.competitorsList.length > 0 && !selectedCompetitorId) {
           setSelectedCompetitorId(res.competitorsList[0].id);
         }
@@ -688,14 +773,47 @@ export function OnboardingResultsPanel({
   const isCampaignProcessing = getStepStatus("CAMPAIGN") === "processing" || campaignLoading;
   const isCalendarProcessing = getStepStatus("CALENDAR") === "processing" || calendarLoading;
 
+  const parsedCons = consolidatedReport ? (parseJson(consolidatedReport.data) || {}) : {};
+  const consolidatedPersonas = parseJson(parsedCons.buyerPersonas) || parsedCons.buyerPersonas || [];
+  const rawStrategyPersonas = activeStrategy ? (parseJson(activeStrategy.personas) || []) : [];
+
+  const mergedStrategyPersonas = useMemo(() => {
+    const baseList = Array.isArray(rawStrategyPersonas) && rawStrategyPersonas.length > 0 
+      ? rawStrategyPersonas 
+      : (Array.isArray(consolidatedPersonas) ? consolidatedPersonas : []);
+    
+    return baseList.map((stratP: any, index: number) => {
+      const consP = Array.isArray(consolidatedPersonas) && consolidatedPersonas[index] ? consolidatedPersonas[index] : {};
+      const name = stratP.name || consP.name || `Persona ${index + 1}`;
+      return {
+        ...consP,
+        ...stratP,
+        name,
+        demographics: stratP.demographics || consP.demographics || "Audiencia Principal",
+        goals: stratP.goals || consP.goals || consP.objectives,
+        painPoints: stratP.painPoints || consP.painPoints || consP.pains,
+        objections: stratP.objections || consP.objectionHandling || consP.objections,
+        triggers: stratP.triggers || consP.buyingTriggers || consP.triggers,
+        communication: stratP.communication || (consP.communicationTone || consP.buyingTriggers ? {
+          tone: consP.communicationTone || consP.tone || "Empático y persuasivo",
+          triggers: consP.buyingTriggers || consP.triggers || "Calidad y recomendación de valor",
+          topics: consP.preferredTopics || consP.topics || "Beneficios clave y solución de dolor"
+        } : null)
+      };
+    });
+  }, [rawStrategyPersonas, consolidatedPersonas]);
+
   const parsedStrategyObj = activeStrategy ? {
     objectives: parseJson(activeStrategy.objectives) || [],
-    personas: parseJson(activeStrategy.personas) || [],
+    personas: mergedStrategyPersonas,
     funnelStages: parseJson(activeStrategy.funnelStages) || [],
     channels: parseJson(activeStrategy.channels) || []
-  } : null;
-
-  const parsedCons = consolidatedReport ? (parseJson(consolidatedReport.data) || {}) : {};
+  } : (mergedStrategyPersonas.length > 0 ? {
+    objectives: [],
+    personas: mergedStrategyPersonas,
+    funnelStages: [],
+    channels: []
+  } : null);
   const inferredValueProposition = parsedCons.marketPosition?.value_proposition || parsedCons.valueProposition || parsedCons.marketPosition?.competitiveAdvantage || null;
 
   const handleDownloadEstrategiaPDF = () => {
@@ -1520,10 +1638,17 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
         </TabsList>
 
         <div className="flex-1 w-full h-full min-h-0 overflow-y-auto pl-4 pr-4 pt-0 pb-4 space-y-6">
-           {/* TAB 1: BANCO DE DATOS (UNIFICADO) */}
-          <TabsContent value="bancodedatos" className="space-y-6 mt-0">
+          {tabTransitionLoading || loading || !data ? (
+            <StageLoadingOverlay activeTab={activeTab} />
+          ) : (
+            <>
+              {/* TAB 1: BANCO DE DATOS (UNIFICADO) */}
+              <TabsContent value="bancodedatos" className="space-y-6 mt-0">
             {/* SECTION 1. INFORMACIÓN DEL NEGOCIO */}
-            {data?.businessInfo && (
+            {(() => {
+              const bizInfo = data?.businessInfo || data?.business;
+              if (!bizInfo) return null;
+              return (
               <section className="space-y-4">
                 <div className="flex items-center justify-between border-b pb-2">
                   <div className="flex items-center gap-2">
@@ -1565,38 +1690,38 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                     <div className="space-y-3 text-xs">
                       <div>
                         <span className="font-bold text-muted-foreground block text-[9px] uppercase">Nombre</span>
-                        <span className="font-semibold text-foreground">{data.businessInfo.name}</span>
+                        <span className="font-semibold text-foreground">{bizInfo.name}</span>
                       </div>
-                      {data.businessInfo.location && (
+                      {bizInfo.location && (
                         <div>
                           <span className="font-bold text-muted-foreground block text-[9px] uppercase">Ubicación</span>
-                          <span className="font-semibold text-foreground">{data.businessInfo.location}</span>
+                          <span className="font-semibold text-foreground">{bizInfo.location}</span>
                         </div>
                       )}
-                      {data.businessInfo.industry && (
+                      {bizInfo.industry && (
                         <div>
                           <span className="font-bold text-muted-foreground block text-[9px] uppercase">Industria</span>
-                          <span className="font-semibold text-foreground">{data.businessInfo.industry}</span>
+                          <span className="font-semibold text-foreground">{bizInfo.industry}</span>
                         </div>
                       )}
-                      {data.businessInfo.phoneNumbers && (
+                      {bizInfo.phoneNumbers && (
                         <div>
                           <span className="font-bold text-muted-foreground block text-[9px] uppercase">Contacto</span>
-                          <span className="font-semibold text-foreground">{data.businessInfo.phoneNumbers}</span>
+                          <span className="font-semibold text-foreground">{bizInfo.phoneNumbers}</span>
                         </div>
                       )}
-                      {data.businessInfo.website && (
+                      {bizInfo.website && (
                         <div>
                           <span className="font-bold text-muted-foreground block text-[9px] uppercase">Sitio Web Principal</span>
-                          <a href={data.businessInfo.website} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline font-bold truncate block">
-                            {data.businessInfo.website}
+                          <a href={bizInfo.website} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline font-bold truncate block">
+                            {bizInfo.website}
                           </a>
                         </div>
                       )}
 
                       {/* Redes Sociales y Canales */}
                       {(() => {
-                        const socialLinks = parseJson(data.businessInfo.socialLinks) || {};
+                        const socialLinks = parseJson(bizInfo.socialLinks) || {};
                         const activePlatforms = Object.entries(socialLinks).filter(([_, url]) => Boolean(url && typeof url === "string" && url.trim() !== ""));
                         
                         if (activePlatforms.length === 0) return null;
@@ -1685,9 +1810,9 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                   </div>
                 </div>
 
-
               </section>
-            )}
+            );
+          })()}
 
             {/* SECTION 2. MAPEO DE COMPETENCIA Y ESTADO DIGITAL */}
             <section className="space-y-4">
@@ -2155,9 +2280,16 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                               <div className="h-7 w-7 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20 text-orange-600 text-[10px] font-black shrink-0">
                                 P{index + 1}
                               </div>
-                              <span className="font-bold text-[11.5px] text-foreground">
-                                {persona.name ? persona.name.split(',')[0].split(/ el /i)[0].split(/ la /i)[0].trim() : `Audiencia ${index + 1}`}
-                              </span>
+                              <div className="flex flex-col">
+                                <span className="font-bold text-[12px] text-foreground leading-tight">
+                                  {formatPersonaTitle(persona.name, index)}
+                                </span>
+                                {extractPersonaArchetype(persona.name) && (
+                                  <span className="text-[9.5px] font-semibold text-orange-600 dark:text-orange-400">
+                                    {extractPersonaArchetype(persona.name)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             {persona.demographics && (
                               <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-orange-500/5 text-orange-700">
@@ -2496,8 +2628,11 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
             <MediaLibraryClient
               businessId={businessId}
-              initialAssets={[]}
-              initialCounts={{ videoCount: 0, imageCount: 0, total: 0 }}
+              activeBusiness={data?.business ? { id: data.business.id, name: data.business.name, logo: data?.mediaLogo || data?.business?.logo } : undefined}
+              initialLogo={data?.mediaLogo || data?.business?.logo}
+              initialBrandColors={data?.mediaColors?.length ? data.mediaColors : (Array.isArray(data?.business?.brandColors) ? (data.business.brandColors as string[]) : [])}
+              initialAssets={data?.mediaAssets || []}
+              initialCounts={data?.mediaCounts || { videoCount: 0, imageCount: 0, total: 0 }}
             />
 
             {/* CEO Navigation Bar: Activos Visuales -> Estrategia Growth de Marketing */}
@@ -2576,6 +2711,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
             ) : (
               <div className="space-y-6 animate-in fade-in duration-300">
                 {/* Concepto de la Estrategia */}
+                {activeStrategy && (
                 <div className="p-5 bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-indigo-500/10 rounded-2xl border border-purple-200/50 space-y-2">
                   <span className="text-[9px] font-black uppercase tracking-widest text-purple-750 dark:text-purple-400">Concepto de la Estrategia</span>
                   <h4 className="text-base font-bold text-foreground capitalize">{activeStrategy.name}</h4>
@@ -2585,6 +2721,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                     </p>
                   )}
                 </div>
+                )}
                 {parsedStrategyObj.funnelStages.length > 0 && (
                   <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
                     <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
@@ -2790,7 +2927,16 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                 <div className="h-7 w-7 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[10px] font-black shrink-0">
                                   P{index + 1}
                                 </div>
-                                <span className="font-bold text-[11.5px] text-foreground">{formatPersonaTitle(persona.name, index)}</span>
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-[12px] text-foreground leading-tight">
+                                    {formatPersonaTitle(persona.name, index)}
+                                  </span>
+                                  {extractPersonaArchetype(persona.name) && (
+                                    <span className="text-[9.5px] font-semibold text-purple-600 dark:text-purple-400">
+                                      {extractPersonaArchetype(persona.name)}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               {persona.demographics && (
                                 <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-purple-500/5 text-purple-650">
@@ -3518,6 +3664,8 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </div>
             )}
           </TabsContent>
+            </>
+          )}
         </div>
       </Tabs>
 
@@ -3619,5 +3767,247 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+function StageLoadingOverlay({ activeTab }: { activeTab: string }) {
+  if (activeTab === "bancodedatos") {
+    return (
+      <div className="space-y-6 animate-pulse p-2">
+        {/* Header Indicator Skeleton */}
+        <div className="h-12 w-full rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded bg-orange-500/30" />
+            <div className="h-4 w-48 bg-orange-500/30 rounded-md" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-8 w-28 bg-orange-500/20 rounded-xl" />
+            <div className="h-8 w-36 bg-orange-600/30 rounded-xl" />
+          </div>
+        </div>
+
+        {/* Section 1: Business Info Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-5 rounded-2xl border bg-card/40 space-y-4">
+            <div className="h-4 w-32 bg-orange-500/20 rounded-full" />
+            <div className="space-y-3">
+              <div className="h-3 w-full bg-muted/50 rounded-full" />
+              <div className="h-3 w-4/5 bg-muted/40 rounded-full" />
+              <div className="h-3 w-3/4 bg-muted/40 rounded-full" />
+            </div>
+          </div>
+          <div className="p-5 rounded-2xl border bg-card/40 space-y-4 md:col-span-2">
+            <div className="h-4 w-44 bg-orange-500/20 rounded-full" />
+            <div className="space-y-3">
+              <div className="h-3 w-full bg-muted/50 rounded-full" />
+              <div className="h-3 w-5/6 bg-muted/40 rounded-full" />
+              <div className="h-3 w-2/3 bg-muted/40 rounded-full" />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Competitors Grid */}
+        <div className="space-y-4">
+          <div className="h-4 w-48 bg-orange-500/20 rounded-full" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="p-4 rounded-2xl border bg-card/40 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-muted/60" />
+                  <div className="h-4 w-28 bg-muted/50 rounded-md" />
+                </div>
+                <div className="h-3 w-3/4 bg-muted/40 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: Diagnostic FODA Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="p-4 rounded-2xl border bg-card/40 space-y-3">
+              <div className="h-4 w-24 bg-muted/60 rounded-md" />
+              <div className="h-3 w-full bg-muted/40 rounded-full" />
+              <div className="h-3 w-4/5 bg-muted/40 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (activeTab === "activosvisuales") {
+    return (
+      <div className="space-y-6 animate-pulse p-2">
+        {/* Header Indicator Skeleton */}
+        <div className="h-12 w-full rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded bg-cyan-500/30" />
+            <div className="h-4 w-48 bg-cyan-500/30 rounded-md" />
+          </div>
+        </div>
+
+        {/* Opción 1: Logotipo & Paleta Skeleton */}
+        <div className="p-6 rounded-2xl border border-indigo-200 dark:border-indigo-500/20 bg-indigo-50/20 dark:bg-indigo-950/10 space-y-4">
+          <div className="flex justify-between items-center border-b pb-3">
+            <div className="space-y-2">
+              <div className="h-4 w-36 bg-indigo-500/20 rounded-full" />
+              <div className="h-5 w-64 bg-indigo-500/30 rounded-md" />
+            </div>
+            <div className="h-9 w-32 bg-indigo-600/30 rounded-xl" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center pt-2">
+            <div className="h-36 rounded-xl bg-muted/40 border flex flex-col items-center justify-center p-4 space-y-2">
+              <div className="h-12 w-12 rounded-2xl bg-muted/60" />
+              <div className="h-3 w-28 bg-muted/60 rounded-full" />
+            </div>
+            <div className="md:col-span-2 space-y-3 p-4 rounded-xl border bg-card/40">
+              <div className="h-4 w-40 bg-muted/50 rounded-full" />
+              <div className="flex gap-2">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-10 w-10 rounded-full bg-muted/50" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Opción 2: Galería de Artes Skeleton */}
+        <div className="p-6 rounded-2xl border bg-card/40 space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="h-5 w-48 bg-muted/60 rounded-md" />
+            <div className="h-8 w-28 bg-muted/50 rounded-xl" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-40 rounded-xl bg-muted/30 border border-muted/40 flex flex-col justify-end p-3 space-y-2">
+                <div className="h-3 w-3/4 bg-muted/60 rounded-full" />
+                <div className="h-2.5 w-1/2 bg-muted/40 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeTab === "estrategia") {
+    return (
+      <div className="space-y-6 animate-pulse p-2">
+        {/* Header Indicator Skeleton */}
+        <div className="h-12 w-full rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded bg-purple-500/30" />
+            <div className="h-4 w-52 bg-purple-500/30 rounded-md" />
+          </div>
+          <div className="flex gap-2">
+            <div className="h-8 w-28 bg-purple-500/20 rounded-xl" />
+            <div className="h-8 w-32 bg-purple-600/30 rounded-xl" />
+          </div>
+        </div>
+
+        {/* Hero Card Skeleton */}
+        <div className="p-6 rounded-2xl border bg-purple-500/5 space-y-3">
+          <div className="h-4 w-36 bg-purple-500/20 rounded-full" />
+          <div className="h-5 w-full bg-purple-500/30 rounded-md" />
+          <div className="h-4 w-4/5 bg-purple-500/20 rounded-md" />
+        </div>
+
+        {/* Objectives Skeleton */}
+        <div className="p-5 rounded-2xl border bg-card/40 space-y-4">
+          <div className="h-4 w-40 bg-purple-500/20 rounded-full" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="p-4 rounded-2xl border bg-muted/20 space-y-3">
+                <div className="h-4 w-28 bg-muted/50 rounded-full" />
+                <div className="h-3 w-full bg-muted/40 rounded-full" />
+                <div className="h-3 w-3/4 bg-muted/40 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Buyer Personas Skeleton */}
+        <div className="p-5 rounded-2xl border bg-card/40 space-y-4">
+          <div className="h-4 w-44 bg-purple-500/20 rounded-full" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="p-5 rounded-2xl border bg-muted/20 space-y-4">
+                <div className="flex justify-between items-center border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-xl bg-purple-500/20" />
+                    <div className="h-4 w-24 bg-muted/60 rounded-md" />
+                  </div>
+                  <div className="h-4 w-20 bg-purple-500/10 rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 w-full bg-muted/40 rounded-full" />
+                  <div className="h-3 w-5/6 bg-muted/40 rounded-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeTab === "campanas") {
+    return (
+      <div className="space-y-6 animate-pulse p-2">
+        {/* Header Indicator Skeleton */}
+        <div className="h-12 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <div className="h-5 w-5 rounded bg-emerald-500/30" />
+            <div className="h-4 w-52 bg-emerald-500/30 rounded-md" />
+          </div>
+          <div className="h-8 w-32 bg-emerald-600/30 rounded-xl" />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="p-5 rounded-2xl border bg-card/40 space-y-4">
+              <div className="flex justify-between items-center border-b pb-2">
+                <div className="h-5 w-36 bg-emerald-500/30 rounded-md" />
+                <div className="h-5 w-20 bg-emerald-500/20 rounded-full" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-3 w-full bg-muted/40 rounded-full" />
+                <div className="h-3 w-4/5 bg-muted/40 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Stage 5: Calendario Skeleton
+  return (
+    <div className="space-y-6 animate-pulse p-2">
+      <div className="h-12 w-full rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between px-4">
+        <div className="flex items-center gap-2">
+          <div className="h-5 w-5 rounded bg-amber-500/30" />
+          <div className="h-4 w-48 bg-amber-500/30 rounded-md" />
+        </div>
+        <div className="h-8 w-28 bg-amber-600/30 rounded-xl" />
+      </div>
+
+      <div className="grid grid-cols-7 gap-2 pt-2">
+        {[...Array(7)].map((_, i) => (
+          <div key={i} className="h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+            <div className="h-3 w-10 bg-amber-500/30 rounded-full" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-2">
+        {[...Array(14)].map((_, i) => (
+          <div key={i} className="h-24 rounded-xl border bg-card/40 p-2 space-y-2">
+            <div className="h-3 w-6 bg-muted/60 rounded-full" />
+            <div className="h-2.5 w-full bg-muted/40 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

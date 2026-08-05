@@ -7,8 +7,10 @@ import {
   Eye,
   Bot,
   Moon,
-  Sun
+  Sun,
+  Flag
 } from "lucide-react"
+
 import { useTheme } from "next-themes"
 
 import { NavMain } from "@/components/nav-main"
@@ -62,6 +64,11 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         title: "Equipo de Agentes IA",
         url: "/agentes",
         icon: Bot,
+      },
+      {
+        title: "Fechas Cívicas & Festividades",
+        url: "/civic-dates",
+        icon: Flag,
       },
     ]
   }, [selectedId]);

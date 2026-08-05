@@ -470,3 +470,32 @@ enum MediaType {
   DOCUMENT
   GIF
 }
+
+enum CivicDateCategory {
+  CIVICA
+  COMERCIAL
+  RELIGIOSA
+  CULTURAL
+  REGIONAL
+  INTERNACIONAL
+}
+
+model CivicDate {
+  id          String            @id @default(cuid())
+  name        String
+  date        String            // "MM-DD" for recurring, or "YYYY-MM-DD" for fixed
+  fixedYear   Int?              // null = recurring annual, 2026 = only that year
+  category    CivicDateCategory
+  region      String            @default("BOLIVIA")
+  description String?
+  importance  Int               @default(5) // 1-10
+  hashtags    Json?
+  industries  Json?             // null = all industries
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([date])
+  @@index([category])
+  @@index([region])
+}

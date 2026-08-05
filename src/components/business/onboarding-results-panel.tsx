@@ -1742,6 +1742,33 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                           );
                         });
                       })()}
+
+                      {/* Sucursales / Ubicaciones */}
+                      {(() => {
+                        const parsedBranches = parseJson(bizInfo.branches) || bizInfo.branches || [];
+                        if (!Array.isArray(parsedBranches) || parsedBranches.length === 0) return null;
+
+                        return (
+                          <div className="pt-2 border-t space-y-2">
+                            <span className="font-bold text-orange-600 dark:text-orange-400 block text-[9px] uppercase tracking-wider">
+                              📍 Sucursales ({parsedBranches.length})
+                            </span>
+                            <div className="space-y-1.5">
+                              {parsedBranches.map((b: any, idx: number) => (
+                                <div key={idx} className="p-2 bg-muted/40 rounded-xl border text-[11px] space-y-0.5">
+                                  <span className="font-bold text-foreground block">{b.name || `Sucursal ${idx + 1}`}</span>
+                                  {b.address && <span className="text-muted-foreground block text-[10px]">{b.address}</span>}
+                                  {b.googleMapsUrl && (
+                                    <a href={b.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-orange-600 hover:underline font-semibold block">
+                                      Ver en Google Maps ↗
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

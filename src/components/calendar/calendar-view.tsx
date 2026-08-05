@@ -178,28 +178,22 @@ export function CalendarView({
   
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
   const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const now = new Date();
     if (queryCampaignId && initialContents.length > 0) {
       const campContents = initialContents.filter(c => c.campaignId === queryCampaignId);
-      if (campContents.length > 0 && campContents[0].scheduledAt) {
-        return new Date(campContents[0].scheduledAt);
+      const futureCampContent = campContents.find(c => c.scheduledAt && new Date(c.scheduledAt) >= now);
+      if (futureCampContent && futureCampContent.scheduledAt) {
+        return new Date(futureCampContent.scheduledAt);
       }
     }
     
-    // Si no hay campaignId pero hay contenidos generales, ir al mes del contenido más relevante
     if (initialContents.length > 0) {
-      const now = new Date();
-      // Encontrar el primer contenido futuro o presente
       const futureContent = initialContents.find(c => c.scheduledAt && new Date(c.scheduledAt) >= now);
       if (futureContent && futureContent.scheduledAt) {
         return new Date(futureContent.scheduledAt);
       }
-      // Si todo es del pasado, ir al último contenido planificado (el más cercano al presente)
-      const lastContent = initialContents[initialContents.length - 1];
-      if (lastContent && lastContent.scheduledAt) {
-        return new Date(lastContent.scheduledAt);
-      }
     }
-    return new Date();
+    return now;
   });
   
   // Estados para ver y editar contenido
@@ -338,18 +332,16 @@ export function CalendarView({
   const [draggedContent, setDraggedContent] = useState<ContentItem | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // Sincronizar contenidos del prop cuando cambian en el servidor y saltar al mes correspondiente
+  // Auto-abrir modal de planificar con IA si viene desde la navegación (ej. Flujo Operativo)
+  useEffect(() => {
+    if (searchParams.get("openPlanModal") === "true") {
+      setIsPlanModalOpen(true);
+    }
+  }, [searchParams]);
+
+  // Sincronizar contenidos del prop cuando cambian en el servidor
   useEffect(() => {
     setContents(initialContents);
-    if (initialContents.length > 0) {
-      const firstWithDate = initialContents.find(c => c.scheduledAt);
-      if (firstWithDate && firstWithDate.scheduledAt) {
-        const d = new Date(firstWithDate.scheduledAt);
-        if (!isNaN(d.getTime())) {
-          setCurrentDate(d);
-        }
-      }
-    }
   }, [initialContents]);
 
   // Rotador de frases para el planificador IA
@@ -373,16 +365,15 @@ export function CalendarView({
         setPlanningCampaignId(targetCampId);
         const camp = campaigns.find(c => c.id === targetCampId);
         if (camp) {
-          let finalStartDate = new Date();
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          let finalStartDate = tomorrow;
           if (camp.startDate) {
             const startDateObj = new Date(camp.startDate);
-            const today = new Date();
-            // Si la fecha de inicio es anterior a hoy, sugerimos iniciar hoy para evitar publicar en el pasado
-            finalStartDate = startDateObj < today ? today : startDateObj;
-            setPlanningStartDate(format(finalStartDate, "yyyy-MM-dd"));
-          } else {
-            setPlanningStartDate(format(finalStartDate, "yyyy-MM-dd"));
+            // Si la fecha de inicio es anterior a mañana, sugerimos iniciar mañana
+            finalStartDate = startDateObj < tomorrow ? tomorrow : startDateObj;
           }
+          setPlanningStartDate(format(finalStartDate, "yyyy-MM-dd"));
           
           if (camp.endDate) {
             const endDateObj = new Date(camp.endDate);
@@ -668,6 +659,11 @@ export function CalendarView({
       if (res.success) {
         toast.success(res.message);
         setIsPlanModalOpen(false);
+        if ((res as any).firstScheduledAt) {
+          setCurrentDate(new Date((res as any).firstScheduledAt));
+        } else if (planningStartDate) {
+          setCurrentDate(new Date(planningStartDate));
+        }
         router.refresh();
       } else {
         toast.error(res.error || "No se pudo planificar el calendario.");
@@ -1327,13 +1323,7 @@ export function CalendarView({
             yesterday.setDate(yesterday.getDate() - 1);
             yesterday.setHours(0, 0, 0, 0);
 
-            const filteredCells = gridCells.filter(cell => {
-              // Si estamos previsualizando posts simulados de una campaña, mostramos todas las celdas del mes
-              if (previewPosts && previewPosts.length > 0) return cell.isCurrentMonth;
-              
-              // Si no, mostramos desde el día de ayer en adelante
-              return cell.date >= yesterday;
-            });
+            const filteredCells = gridCells.filter(cell => cell.isCurrentMonth);
 
             return filteredCells.map((cell, idx) => {
               const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");

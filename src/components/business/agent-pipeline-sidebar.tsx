@@ -166,23 +166,7 @@ export function AgentPipelineSidebar({
   };
 
   const handleRunCalendar = async () => {
-    onSelectTab?.("calendario");
-    if (onRunStage) return onRunStage("calendar");
-    setRunningStep("calendar");
-    toast.info("Agente Editorial construyendo el calendario de 30 días...");
-    try {
-      const res = await startCalendarStage(businessId);
-      if (res.success) {
-        toast.success("Calendario de contenido publicado y programado.");
-        router.refresh();
-      } else {
-        toast.error(res.error || "No se pudo generar el calendario.");
-      }
-    } catch (err) {
-      toast.error("Error al procesar el calendario.");
-    } finally {
-      setRunningStep(null);
-    }
+    router.push("/calendar?openPlanModal=true");
   };
 
   const auditProcessingMsg = getStepProcessingStatus(["SCRAPING", "DIAGNOSTIC"]);

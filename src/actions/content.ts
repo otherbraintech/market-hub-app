@@ -435,10 +435,15 @@ export async function generateCampaignCalendarAction(
     }
 
     // 3. Llamar a Gemini para planificar las publicaciones
-    const startDateStr = format(new Date(campaign.startDate), "yyyy-MM-dd");
-    const durationDays = campaign.endDate 
-      ? Math.max(1, Math.round((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / (1000 * 60 * 60 * 24)))
-      : 30;
+    // Usar las fechas del formulario del usuario si están disponibles; si no, usar las de la campaña
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let effectiveStartDate = options.startDate ? new Date(options.startDate) : new Date(campaign.startDate);
+    // Nunca planificar en el pasado
+    if (effectiveStartDate < today) effectiveStartDate = today;
+    const effectiveEndDate = options.endDate ? new Date(options.endDate) : (campaign.endDate ? new Date(campaign.endDate) : addDays(effectiveStartDate, 30));
+    const startDateStr = format(effectiveStartDate, "yyyy-MM-dd");
+    const durationDays = Math.max(1, Math.round((effectiveEndDate.getTime() - effectiveStartDate.getTime()) / (1000 * 60 * 60 * 24)));
 
     const systemPrompt = `Eres un estratega de marketing y creador de contenidos experto.
 Tu tarea es generar un calendario editorial estructurado de exactamente ${options.quantity} publicaciones en formato JSON para una campaña de marketing específica.
@@ -505,7 +510,7 @@ Por favor, genera la lista de publicaciones de forma creativa e inteligente.`;
     // 4. Crear las publicaciones en la base de datos de Prisma
     const createdContents = await prisma.$transaction(
       posts.map((post: any) => {
-        const scheduledDate = addDays(new Date(campaign.startDate), post.suggestedOffsetDays);
+        const scheduledDate = addDays(effectiveStartDate, post.suggestedOffsetDays);
         // Ajustar la hora a las 10:00 AM para que sea una hora de publicación por defecto coherente
         scheduledDate.setHours(10, 0, 0, 0);
 
@@ -533,7 +538,8 @@ Por favor, genera la lista de publicaciones de forma creativa e inteligente.`;
     return {
       success: true,
       message: `¡Se han generado y planificado ${createdContents.length} publicaciones con éxito!`,
-      contentsCount: createdContents.length
+      contentsCount: createdContents.length,
+      firstScheduledAt: effectiveStartDate.toISOString(),
     };
 
   } catch (error: any) {

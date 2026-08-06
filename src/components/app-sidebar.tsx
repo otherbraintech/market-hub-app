@@ -8,7 +8,10 @@ import {
   Bot,
   Moon,
   Sun,
-  Flag
+  Flag,
+  TrendingUp,
+  ShieldCheck,
+  CreditCard
 } from "lucide-react"
 
 import { useTheme } from "next-themes"
@@ -69,6 +72,21 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         title: "Fechas Cívicas & Festividades",
         url: "/civic-dates",
         icon: Flag,
+      },
+      {
+        title: "Motor de Tendencias IA",
+        url: "/trends",
+        icon: TrendingUp,
+      },
+      {
+        title: "Gestión de Usuarios",
+        url: "/settings/users",
+        icon: ShieldCheck,
+      },
+      {
+        title: "Planes de Suscripción",
+        url: "/plans",
+        icon: CreditCard,
       },
     ]
   }, [selectedId]);

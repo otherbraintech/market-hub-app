@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import Link from "next/link";
 import { 
   Check, Users, ArrowRight, ArrowLeft, Globe, 
-  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info, Phone, Store, CheckCircle2, Plus
+  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info, Phone, Store, CheckCircle2, Plus, TrendingUp, Building2
 } from "lucide-react";
 import { BusinessForm } from "@/components/business/business-form";
 import { saveMultipleCompetitorsAction } from "@/app/(dashboard)/business/[id]/competitor-actions";
@@ -1366,7 +1367,19 @@ export function OnboardingContent() {
                 </h3>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/trends"
+                  className="inline-flex items-center gap-1.5 text-xs font-extrabold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 px-3 py-1.5 rounded-xl border border-cyan-500/30 transition-all shadow-sm hover:scale-105"
+                >
+                  <TrendingUp className="h-3.5 w-3.5" /> Motor de Tendencias IA
+                </Link>
+                <Link
+                  href="/business"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 transition-all shadow-sm"
+                >
+                  <Building2 className="h-3.5 w-3.5" /> Ir al Panel
+                </Link>
                 <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-3 py-1.5 rounded-xl border border-indigo-200/60">
                   {Math.round((currentStep / 10) * 100)}% Completado
                 </span>

@@ -499,3 +499,43 @@ model CivicDate {
   @@index([category])
   @@index([region])
 }
+
+model NicheTrend {
+  id           String   @id @default(cuid())
+  niche        String
+  platform     String   @default("tiktok")
+  region       String   @default("BO")
+  data         Json
+  sourcesUsed  String?
+  systemPrompt String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([niche, platform, region])
+  @@index([niche, platform, region])
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  tagline       String?
+  price         Float    @default(0)
+  currency      String   @default("USD")
+  billingPeriod String   @default("mes")
+  postsPerMonth Int      @default(16)
+  postsPerWeek  String?
+  maxBusinesses Int      @default(1)
+  maxCompetitors Int     @default(3)
+  badge         String?
+  isPopular     Boolean  @default(false)
+  color         String   @default("purple")
+  features      Json
+  order         Int      @default(1)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([slug])
+  @@index([order])
+}

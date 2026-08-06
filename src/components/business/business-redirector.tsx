@@ -8,8 +8,17 @@ export function BusinessRedirector({ hasBusinesses }: { hasBusinesses: boolean }
   const router = useRouter();
 
   useEffect(() => {
-    // Si no tiene negocios y no está en la página de onboarding o de administración de usuarios, redirigir
-    if (!hasBusinesses && pathname !== "/onboarding" && pathname !== "/settings/users" && pathname !== "/settings") {
+    // Rutas permitidas incluso si el usuario o admin aún no ha creado un negocio
+    const isAllowedRoute = 
+      pathname === "/onboarding" ||
+      pathname.startsWith("/trends") ||
+      pathname.startsWith("/civic-dates") ||
+      pathname.startsWith("/agentes") ||
+      pathname.startsWith("/plans") ||
+      pathname.startsWith("/settings") ||
+      pathname.startsWith("/business");
+
+    if (!hasBusinesses && !isAllowedRoute) {
       router.push("/onboarding");
     }
   }, [hasBusinesses, pathname, router]);

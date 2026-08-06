@@ -230,7 +230,15 @@ export async function POST(
       selectedTone: selectedTone || '',
     };
 
-    // 4. Generar estrategia con IA usando el Banco de Datos completo
+    // 4. Obtener tendencias del sector desde OB-Tendencias API Engine (con fallback seguro)
+    try {
+      const { getUnifiedTrendsContext } = await import("@/lib/services/ob-tendencias");
+      (context as any).trendsContext = await getUnifiedTrendsContext(business.industry || "general", "tiktok", "BO");
+    } catch (e) {
+      console.error("Error fetching OB-Tendencias for strategy:", e);
+    }
+
+    // 5. Generar estrategia con IA usando el Banco de Datos completo y tendencias
     const strategy = await generateMarketingStrategyWithAI(context);
 
     return NextResponse.json(strategy);
@@ -265,9 +273,12 @@ async function generateMarketingStrategyWithAI(context: any) {
 }
 
 function buildStrategyPrompt(context: any) {
-  const { business, consolidatedAudit, myScrapedChannels, competitorAnalysis } = context;
+  const { business, consolidatedAudit, myScrapedChannels, competitorAnalysis, trendsContext } = context;
   
   let prompt = `Genera un Plan Estratégico de Crecimiento integral estructurado formalmente en los 8 PILARES EJECUTIVOS DE MARKETING Y GROWTH 2026 para el negocio "${business.name}" usando su BANCO DE DATOS COMPLETO.\n\n`;
+  if (trendsContext) {
+    prompt += `${trendsContext}\n\n`;
+  }
   prompt += `=========================================\n`;
   prompt += `1. BANCO DE DATOS COMPLETO DEL NEGOCIO:\n`;
   prompt += `=========================================\n`;

@@ -385,25 +385,13 @@ export async function generateCampaignCalendarAction(
     const objective = campaign.objective;
     const hasWebsite = !!campaign.business.website && campaign.business.website.trim() !== "";
 
-    // Fetch niche trends dynamically
+    // Fetch niche trends dynamically from OB-Tendencias API Engine (with fallback)
     let nicheTrends = "";
     try {
-      const { object: trendsObj } = await generateObject({
-        model: openrouter("google/gemini-2.5-flash"),
-        schema: z.object({
-          trends: z.array(z.string()),
-          hashtags: z.array(z.string())
-        }),
-        system: "Eres un analista de tendencias digitales y de marketing digital. Proporciona 3 tendencias clave del nicho y 3 hashtags populares en auge.",
-        prompt: `Genera tendencias clave de marketing digital y hashtags para el rubro/nicho: "${industry}"`,
-        temperature: 0.7
-      });
-      
-      nicheTrends = `TENDENCIAS DE MERCADO ACTUALES PARA ${industry.toUpperCase()}:\n` + 
-        trendsObj.trends.map(t => `- ${t}`).join("\n") + 
-        `\n\nHASHTAGS POPULARES DEL NICHO:\n` + trendsObj.hashtags.join(", ") + "\n\n";
+      const { getUnifiedTrendsContext } = await import("@/lib/services/ob-tendencias");
+      nicheTrends = await getUnifiedTrendsContext(industry, "tiktok", "BO");
     } catch (err) {
-      console.error("Error fetching dynamic trends:", err);
+      console.error("Error fetching dynamic trends from OB-Tendencias:", err);
     }
 
     let customizationGuidelines = nicheTrends;
@@ -612,8 +600,19 @@ Slide 1: [Prompt en inglés para el primer slide]
 Slide 2: [Prompt en inglés para el segundo slide]
 ...`;
 
+    let nicheTrends = "";
+    try {
+      const { getUnifiedTrendsContext } = await import("@/lib/services/ob-tendencias");
+      nicheTrends = await getUnifiedTrendsContext(campaign.business.industry || "general", targetChannel ? (targetChannel.toLowerCase() as any) : "tiktok", "BO");
+    } catch (e) {
+      console.error("Error fetching single idea trends:", e);
+    }
+
     const userPrompt = `
 Genera una idea de publicación innovadora para la siguiente campaña de marketing:
+
+INFORMACIÓN DE TENDENCIAS RECIENTES:
+${nicheTrends}
 
 DATOS DEL NEGOCIO:
 - Nombre: ${campaign.business.name}

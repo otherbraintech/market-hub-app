@@ -238,9 +238,14 @@ export async function saveOnboardingStrategyAction(businessId: string, onboardin
       return { success: false, error: "No autorizado" };
     }
 
+    const updateData: any = { onboardingStrategy };
+    if (onboardingStrategy.branches || onboardingStrategy.sucursales) {
+      updateData.branches = onboardingStrategy.branches || onboardingStrategy.sucursales;
+    }
+
     await prisma.business.update({
       where: { id: businessId },
-      data: { onboardingStrategy }
+      data: updateData
     });
 
     revalidatePath(`/business/${businessId}`);

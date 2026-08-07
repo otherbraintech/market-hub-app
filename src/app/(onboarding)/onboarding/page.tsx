@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { 
   Check, Users, ArrowRight, ArrowLeft, Globe, 
-  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info, Phone, Store, CheckCircle2, Plus, TrendingUp, Building2
+  Facebook, Instagram, Loader2, Target, Bot, Sparkles, Info, Phone, Store, CheckCircle2, Plus, TrendingUp, Building2, Trash2
 } from "lucide-react";
 import { BusinessForm } from "@/components/business/business-form";
 import { saveMultipleCompetitorsAction } from "@/app/(dashboard)/business/[id]/competitor-actions";
@@ -725,6 +725,314 @@ function BusinessHoursPicker({ value, onChange }: { value: string; onChange: (va
   );
 }
 
+interface SucursalItem {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  phone: string;
+  googleMapsUrl: string;
+  isMain: boolean;
+}
+
+function SucursalesGoogleMapsPicker({
+  value,
+  onChange,
+  defaultLocation,
+  defaultPhone,
+}: {
+  value: any;
+  onChange: (val: any) => void;
+  defaultLocation?: string;
+  defaultPhone?: string;
+}) {
+  const [sucursales, setSucursales] = useState<SucursalItem[]>(() => {
+    if (value) {
+      if (Array.isArray(value) && value.length > 0) return value;
+      if (typeof value === "string") {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {}
+      }
+    }
+    return [
+      {
+        id: "suc-1",
+        name: "Casa Matriz / Sucursal Central",
+        address: defaultLocation || "Av. Principal #100",
+        city: "Santa Cruz de la Sierra",
+        phone: defaultPhone || "",
+        googleMapsUrl: defaultLocation ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(defaultLocation)}` : "",
+        isMain: true,
+      },
+    ];
+  });
+
+  const [activeIdx, setActiveIdx] = useState<number>(0);
+
+  useEffect(() => {
+    onChange(sucursales);
+  }, [sucursales]);
+
+  const activeSucursal = sucursales[activeIdx] || sucursales[0] || {
+    id: "suc-1",
+    name: "Sucursal Principal",
+    address: "",
+    city: "Santa Cruz de la Sierra",
+    phone: "",
+    googleMapsUrl: "",
+    isMain: true,
+  };
+
+  const updateSucursal = (field: keyof SucursalItem, val: any) => {
+    setSucursales((prev) => {
+      const next = [...prev];
+      if (!next[activeIdx]) return prev;
+      next[activeIdx] = { ...next[activeIdx], [field]: val };
+
+      if (field === "isMain" && val === true) {
+        next.forEach((item, idx) => {
+          if (idx !== activeIdx) item.isMain = false;
+        });
+      }
+      return next;
+    });
+  };
+
+  const addSucursal = () => {
+    const newIdx = sucursales.length;
+    const newSuc: SucursalItem = {
+      id: `suc-${Date.now()}`,
+      name: `Sucursal #${newIdx + 1}`,
+      address: "",
+      city: "Santa Cruz de la Sierra",
+      phone: defaultPhone || "",
+      googleMapsUrl: "",
+      isMain: sucursales.length === 0,
+    };
+    setSucursales((prev) => [...prev, newSuc]);
+    setActiveIdx(newIdx);
+    toast.success(`¡Sucursal #${newIdx + 1} añadida! Configura su ubicación y datos.`);
+  };
+
+  const removeSucursal = (idx: number) => {
+    if (sucursales.length <= 1) {
+      toast.info("Debes mantener al menos 1 sucursal o ubicación de atención.");
+      return;
+    }
+    const next = sucursales.filter((_, i) => i !== idx);
+    setSucursales(next);
+    setActiveIdx(Math.max(0, idx - 1));
+    toast.success("Sucursal eliminada.");
+  };
+
+  const BOLIVIA_CITIES = [
+    "Santa Cruz de la Sierra",
+    "La Paz",
+    "El Alto",
+    "Cochabamba",
+    "Sucre",
+    "Tarija",
+    "Oruro",
+    "Potosí",
+    "Trinidad (Beni)",
+    "Cobija (Pando)",
+    "Internacional / Otra"
+  ];
+
+  const mapQuery = `${activeSucursal.address || ''} ${activeSucursal.city || 'Bolivia'}`.trim();
+  const embedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  const directMapsUrl = activeSucursal.googleMapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+
+  return (
+    <div className="space-y-5 p-5 bg-indigo-50/40 dark:bg-indigo-950/20 rounded-2xl border border-indigo-100 dark:border-indigo-900/40">
+      {/* Pestañas de Sucursales (Multisucursal) */}
+      <div className="flex items-center justify-between gap-2 border-b border-indigo-200/50 pb-3 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {sucursales.map((suc, idx) => (
+            <button
+              key={suc.id}
+              type="button"
+              onClick={() => setActiveIdx(idx)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 ${
+                activeIdx === idx
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-background/80 hover:bg-indigo-100/60 dark:hover:bg-indigo-950/60 text-foreground border border-slate-200 dark:border-slate-800"
+              }`}
+            >
+              <span>{suc.isMain ? "⭐" : "📍"}</span>
+              <span className="truncate max-w-[130px]">{suc.name || `Sucursal #${idx + 1}`}</span>
+            </button>
+          ))}
+        </div>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addSucursal}
+          className="h-8 text-xs font-bold gap-1 border-indigo-300 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 shrink-0"
+        >
+          <Plus className="h-3.5 w-3.5" /> Añadir Sucursal
+        </Button>
+      </div>
+
+      {/* Formulario de la Sucursal Seleccionada + Vista Previa Google Maps */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+        {/* Formulario (Campos) */}
+        <div className="md:col-span-7 space-y-4">
+          <div className="flex items-center justify-between">
+            <h6 className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+              <span>🗺️ Configuración de Ubicación ({activeIdx + 1} de {sucursales.length})</span>
+            </h6>
+            {sucursales.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => removeSucursal(activeIdx)}
+                className="h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 px-2 font-bold"
+              >
+                <Trash2 className="h-3 w-3 mr-1" /> Eliminar Sucursal
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
+                Nombre de la Sucursal / Punto de Venta
+              </label>
+              <Input
+                placeholder="Ej. Casa Matriz - Equipetrol / Sucursal Calacoto"
+                value={activeSucursal.name}
+                onChange={(e) => updateSucursal("name", e.target.value)}
+                className="h-9 text-xs rounded-xl bg-background font-bold border-slate-200 focus-visible:ring-indigo-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
+                  Ciudad / Municipio
+                </label>
+                <select
+                  value={activeSucursal.city}
+                  onChange={(e) => updateSucursal("city", e.target.value)}
+                  className="w-full h-9 rounded-xl bg-background border border-slate-200 px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  {BOLIVIA_CITIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
+                  Teléfono / WhatsApp Directo
+                </label>
+                <Input
+                  placeholder="Ej. +591 76543210"
+                  value={activeSucursal.phone}
+                  onChange={(e) => updateSucursal("phone", e.target.value)}
+                  className="h-9 text-xs rounded-xl bg-background border-slate-200 focus-visible:ring-indigo-500 font-medium"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
+                Dirección Exacta o Referencia de Ubicación
+              </label>
+              <Input
+                placeholder="Ej. Av. San Martín #450, entre 3er y 4to Anillo (frente a Banco Bisa)"
+                value={activeSucursal.address}
+                onChange={(e) => updateSucursal("address", e.target.value)}
+                className="h-9 text-xs rounded-xl bg-background border-slate-200 focus-visible:ring-indigo-500 font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
+                Enlace de Google Maps (URL Directa o Pin de Ubicación)
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Ej. https://maps.google.com/?q=..."
+                  value={activeSucursal.googleMapsUrl}
+                  onChange={(e) => updateSucursal("googleMapsUrl", e.target.value)}
+                  className="h-9 text-xs rounded-xl bg-background border-slate-200 focus-visible:ring-indigo-500 font-mono text-[11px]"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const generated = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+                    updateSucursal("googleMapsUrl", generated);
+                    toast.success("Enlace de Google Maps generado dinámicamente.");
+                  }}
+                  className="h-9 text-[10px] font-bold shrink-0 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                >
+                  📍 Generar Enlace
+                </Button>
+              </div>
+            </div>
+
+            <div className="pt-1 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id={`main-suc-${activeIdx}`}
+                checked={activeSucursal.isMain}
+                onChange={(e) => updateSucursal("isMain", e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <label htmlFor={`main-suc-${activeIdx}`} className="text-xs font-bold text-foreground cursor-pointer select-none">
+                ⭐ Establecer como Casa Matriz / Sucursal Principal del Negocio
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Mapa Interactivo Google Maps Embed (Lado derecho) */}
+        <div className="md:col-span-5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Globe className="h-3 w-3 text-indigo-600" /> Vista Previa Google Maps API
+            </span>
+            {activeSucursal.address && (
+              <a
+                href={directMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-0.5"
+              >
+                Abrir Mapa Completo ↗
+              </a>
+            )}
+          </div>
+
+          <div className="h-[230px] w-full rounded-2xl overflow-hidden border border-indigo-200/80 dark:border-indigo-900/60 shadow-inner bg-slate-900 relative">
+            <iframe
+              title="Google Maps Location Preview"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              src={embedUrl}
+            />
+          </div>
+          <p className="text-[9.5px] text-muted-foreground italic text-center">
+            📍 Mapa interactivo centrado en: <strong>{mapQuery || "Bolivia"}</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1337,19 +1645,20 @@ export function OnboardingContent() {
 
   return (
     <div className={`${currentStep >= 3 ? 'max-w-7xl' : 'max-w-4xl'} mx-auto py-10 px-4 space-y-8`}>
-      {/* Indicador Progresivo Elegante para las 10 Etapas */}
+      {/* Indicador Progresivo Elegante para las 11 Etapas */}
       {(() => {
         const stepMeta: Record<number, { subtitle: string; emoji: string; phase: string }> = {
-          1: { subtitle: "Perfil del Negocio", emoji: "🏢", phase: "Paso 1 de 10 · Configuración Inicial" },
-          2: { subtitle: "Competidores Directos", emoji: "🔍", phase: "Paso 2 de 10 · Análisis de Mercado" },
-          3: { subtitle: "Ubicación y Audiencia Objetivo", emoji: "📍", phase: "Paso 3 de 10 · Estrategia Base" },
-          4: { subtitle: "Gatillo de Compra y Necesidad Clave", emoji: "⚡", phase: "Paso 4 de 10 · Estrategia Base" },
-          5: { subtitle: "Canal Preferido de Conversión", emoji: "💬", phase: "Paso 5 de 10 · Estrategia Base" },
-          6: { subtitle: "Personalidad y Tono de Marca", emoji: "🎭", phase: "Paso 6 de 10 · Estrategia Base" },
-          7: { subtitle: "Ventaja Competitiva Diferencial", emoji: "🏆", phase: "Paso 7 de 10 · Estrategia Base" },
-          8: { subtitle: "Preguntas Frecuentes y Objeciones", emoji: "❓", phase: "Paso 8 de 10 · Estrategia Base" },
-          9: { subtitle: "Prueba Social y Testimonios", emoji: "⭐", phase: "Paso 9 de 10 · Estrategia Base" },
-          10: { subtitle: "Horarios y Días de Atención", emoji: "🕒", phase: "Paso 10 de 10 · Estrategia Base" },
+          1: { subtitle: "Perfil del Negocio", emoji: "🏢", phase: "Paso 1 de 11 · Configuración Inicial" },
+          2: { subtitle: "Competidores Directos", emoji: "🔍", phase: "Paso 2 de 11 · Análisis de Mercado" },
+          3: { subtitle: "Ubicación y Audiencia Objetivo", emoji: "📍", phase: "Paso 3 de 11 · Estrategia Base" },
+          4: { subtitle: "Gatillo de Compra y Necesidad Clave", emoji: "⚡", phase: "Paso 4 de 11 · Estrategia Base" },
+          5: { subtitle: "Canal Preferido de Conversión", emoji: "💬", phase: "Paso 5 de 11 · Estrategia Base" },
+          6: { subtitle: "Personalidad y Tono de Marca", emoji: "🎭", phase: "Paso 6 de 11 · Estrategia Base" },
+          7: { subtitle: "Ventaja Competitiva Diferencial", emoji: "🏆", phase: "Paso 7 de 11 · Estrategia Base" },
+          8: { subtitle: "Preguntas Frecuentes y Objeciones", emoji: "❓", phase: "Paso 8 de 11 · Estrategia Base" },
+          9: { subtitle: "Prueba Social y Testimonios", emoji: "⭐", phase: "Paso 9 de 11 · Estrategia Base" },
+          10: { subtitle: "Horarios y Días de Atención", emoji: "🕒", phase: "Paso 10 de 11 · Estrategia Base" },
+          11: { subtitle: "Sucursales y Ubicaciones (Google Maps API)", emoji: "🗺️", phase: "Paso 11 de 11 · Puntos de Venta" },
         };
         const meta = stepMeta[currentStep] || stepMeta[1];
 
@@ -1381,7 +1690,7 @@ export function OnboardingContent() {
                   <Building2 className="h-3.5 w-3.5" /> Ir al Panel
                 </Link>
                 <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-3 py-1.5 rounded-xl border border-indigo-200/60">
-                  {Math.round((currentStep / 10) * 100)}% Completado
+                  {Math.round((currentStep / 11) * 100)}% Completado
                 </span>
               </div>
             </div>
@@ -1390,7 +1699,7 @@ export function OnboardingContent() {
             <div className="h-3 w-full bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-slate-200/50 dark:border-slate-800">
               <div
                 className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 shadow-md"
-                style={{ width: `${(currentStep / 10) * 100}%` }}
+                style={{ width: `${(currentStep / 11) * 100}%` }}
               />
             </div>
 
@@ -1406,7 +1715,7 @@ export function OnboardingContent() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((stepNum) => {
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((stepNum) => {
                     const isActive = currentStep === stepNum;
                     const labels: Record<number, string> = {
                       1: "1. Perfil",
@@ -1418,7 +1727,8 @@ export function OnboardingContent() {
                       7: "7. Diferencial",
                       8: "8. Objeciones",
                       9: "9. Testimonios",
-                      10: "10. Horarios"
+                      10: "10. Horarios",
+                      11: "11. Sucursales"
                     };
                     return (
                       <button
@@ -2234,7 +2544,7 @@ export function OnboardingContent() {
                   </div>
                   <div className="space-y-1">
                     <h5 className="text-base font-bold text-foreground">
-                      Paso 10 de 10 · Horarios y Días de Atención
+                      Paso 10 de 11 · Horarios y Días de Atención
                     </h5>
                     <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
                       Especifica los días y horas de atención al cliente para sincronizar las publicaciones y llamadas a la acción.
@@ -2253,7 +2563,7 @@ export function OnboardingContent() {
               <CardContent className="pt-6 space-y-6">
                 <TooltipProvider delayDuration={150}>
                   <div className="space-y-3">
-                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">8. Horarios y Días de Atención</Label>
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">10. Horarios y Días de Atención</Label>
                     <div className="flex items-center gap-1.5">
                       <p className="text-[13px] font-bold text-foreground leading-snug">¿En qué días y horarios atiende tu negocio?</p>
                       <Tooltip>
@@ -2281,6 +2591,89 @@ export function OnboardingContent() {
                     type="button" 
                     variant="outline" 
                     onClick={() => goToStep(9)} 
+                    className="rounded-xl h-11 px-6 font-bold"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
+                  </Button>
+
+                  <Button 
+                    type="button" 
+                    onClick={async () => {
+                      if (businessId) {
+                        await saveOnboardingStrategyAction(businessId, strategyValues);
+                      }
+                      goToStep(11);
+                    }}
+                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
+                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* PREGUNTA 11 DE 11: Sucursales y Ubicaciones (Google Maps API) (Step 11) */}
+        {currentStep === 11 && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-200/50 p-6 shadow-sm">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-10 w-10 bg-indigo-100 dark:bg-indigo-950 rounded-xl flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-200">
+                    <Globe className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="text-base font-bold text-foreground">
+                      Paso 11 de 11 · Sucursales y Ubicaciones del Negocio
+                    </h5>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl font-medium">
+                      Añade tus sucursales y puntos de venta. La IA integrará las ubicaciones y enlaces de Google Maps en los copies y llamados a la acción.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 text-xs font-semibold text-indigo-700 dark:text-indigo-300 shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500 animate-pulse shrink-0" />
+                  <span>Google Maps API Activo</span>
+                </div>
+              </div>
+            </div>
+
+            <Card className="border-none shadow-md card-shadow bg-card/60 backdrop-blur-md">
+              <CardContent className="pt-6 space-y-6">
+                <TooltipProvider delayDuration={150}>
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">11. Sucursales y Ubicaciones del Negocio</Label>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-bold text-foreground leading-snug">¿Dónde están ubicadas tus sucursales y puntos de atención?</p>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" tabIndex={-1} className="text-muted-foreground/60 hover:text-indigo-600 transition-colors p-0.5 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0">
+                            <Info className="h-4 w-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs font-medium leading-relaxed bg-slate-900 text-slate-100 p-2.5 rounded-xl shadow-xl border border-slate-800">
+                          Integra múltiples sucursales con mapas en vivo para direccionar el tráfico local de campañas hacia cada tienda o punto de venta.
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+
+                    {/* Componente Dinámico de Sucursales con Google Maps */}
+                    <SucursalesGoogleMapsPicker
+                      value={(strategyValues as any).sucursales}
+                      onChange={(val) => setStrategyValues({...strategyValues, sucursales: val} as any)}
+                      defaultLocation={businessFormValues?.location || ""}
+                      defaultPhone={businessFormValues?.phoneNumbers || ""}
+                    />
+                  </div>
+                </TooltipProvider>
+
+                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => goToStep(10)} 
                     className="rounded-xl h-11 px-6 font-bold"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás

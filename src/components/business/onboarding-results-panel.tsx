@@ -1305,7 +1305,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
 
   return (
-    <Card className="border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-xl flex flex-col min-h-[500px] rounded-3xl overflow-hidden">
+    <Card className="border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-xl flex flex-col h-full min-h-0 rounded-3xl overflow-hidden">
       {/* Estilos e Inyecciones CSS */}
       <style>{`
         @keyframes guided-pulse-violet {
@@ -1493,7 +1493,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col overflow-hidden">
         {/* Etapas de agentes responsivas */}
         {!hideTopTabBar && (
           <div className="px-6 py-5 border-b bg-muted/10">

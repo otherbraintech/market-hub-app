@@ -32,7 +32,7 @@ export function BusinessDetailClient({
   const [activeTab, setActiveTab] = useState<string>("bancodedatos");
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-background">
+    <div className="flex flex-col h-[calc(100vh-4.25rem)] min-h-0 overflow-hidden bg-background">
       {/* Header fixed at top */}
       <div className="shrink-0">
         <BusinessHeader business={business} />

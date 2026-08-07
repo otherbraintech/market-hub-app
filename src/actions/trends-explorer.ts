@@ -117,8 +117,14 @@ export async function exploreTrendsAction(params: {
           }
         });
 
+        const now = new Date();
+        const lastScrapedAt = cachedDbRecord?.updatedAt ? new Date(cachedDbRecord.updatedAt) : null;
+        // Estrategia Mensual: Si la data en BDD tiene más de 30 días, se autodispara la extracción fresca
+        const isStaleMonthly = lastScrapedAt ? (now.getTime() - lastScrapedAt.getTime()) > (30 * 24 * 60 * 60 * 1000) : true;
+
         if (
           cachedDbRecord && 
+          !isStaleMonthly &&
           cachedDbRecord.data && 
           Array.isArray((cachedDbRecord.data as any).hooks) && 
           (cachedDbRecord.data as any).hooks.length > 0
@@ -129,6 +135,11 @@ export async function exploreTrendsAction(params: {
             tag: cleanHashtagTag(h.tag || "")
           }));
 
+          // Calcular fecha de la próxima extracción automática mensual (1ro de cada mes)
+          const nextAutoDate = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
+          const diffMs = nextAutoDate.getTime() - now.getTime();
+          const daysRemaining = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
           return {
             success: true,
             data: {
@@ -136,6 +147,9 @@ export async function exploreTrendsAction(params: {
               niche,
               region,
               isCached: true,
+              lastScrapedAt: lastScrapedAt ? lastScrapedAt.toISOString() : now.toISOString(),
+              nextAutoExtractionAt: nextAutoDate.toISOString(),
+              daysRemaining,
               sourcesUsed: cachedDbRecord.sourcesUsed || "Base de Datos PostgreSQL (MarketHub)",
               hooks: cachedData.hooks || [],
               music: cachedData.music || [],
@@ -232,6 +246,11 @@ Escribe 3 guiones de video cortos (15-30s) que enganchen en los primeros 1.7 seg
       console.error("Error guardando consulta de NicheTrend en BDD:", dbSaveErr);
     }
 
+    const now = new Date();
+    const nextAutoDate = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
+    const diffMs = nextAutoDate.getTime() - now.getTime();
+    const daysRemaining = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
     return {
       success: true,
       data: {
@@ -239,6 +258,9 @@ Escribe 3 guiones de video cortos (15-30s) que enganchen en los primeros 1.7 seg
         niche,
         region,
         isCached: trendsPayload?.is_cached ?? false,
+        lastScrapedAt: now.toISOString(),
+        nextAutoExtractionAt: nextAutoDate.toISOString(),
+        daysRemaining,
         sourcesUsed: trendsPayload?.data ? sanitizeCountryNames("Bolivia, Argentina, Chile, Colombia") : "Sintetizado en vivo por IA",
         hooks: sanitizedData.hooks || [],
         music: sanitizedData.music || [],

@@ -229,8 +229,8 @@ export async function updateCalendarContentAction(
       }
     });
 
-    // 2. Si tiene campaña y fecha, sincronizar los cambios con los posts hermanos del mismo día y campaña
-    if (original && original.campaignId && original.scheduledAt && data.scheduledAt !== null) {
+    // 2. Si tiene campaña y fecha, sincronizar los cambios de texto/guion pero MANTENER las fechas (scheduledAt) independientes por canal
+    if (original && original.campaignId && original.scheduledAt) {
       const origDate = new Date(original.scheduledAt);
       const startOfDay = new Date(origDate.getFullYear(), origDate.getMonth(), origDate.getDate(), 0, 0, 0);
       const endOfDay = new Date(origDate.getFullYear(), origDate.getMonth(), origDate.getDate(), 23, 59, 59);
@@ -247,7 +247,7 @@ export async function updateCalendarContentAction(
         }
       });
 
-      // Actualizar los posts hermanos en lote
+      // Actualizar texto/concepto en los posts hermanos pero SIN mover sus fechas de forma automática
       if (siblingPosts.length > 0) {
         await prisma.content.updateMany({
           where: {
@@ -260,7 +260,6 @@ export async function updateCalendarContentAction(
             body: data.body !== undefined ? data.body : undefined,
             caption: data.caption !== undefined ? data.caption : undefined,
             promptUsed: data.promptUsed !== undefined ? data.promptUsed : undefined,
-            scheduledAt: data.scheduledAt !== undefined ? (data.scheduledAt === null ? null : data.scheduledAt) : undefined,
           }
         });
       }

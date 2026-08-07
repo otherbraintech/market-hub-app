@@ -505,7 +505,29 @@ async function generateStrategiesCascade(context: CascadeContext, count: number)
 
   const hasWebsite = context.business.website && context.business.website.trim() !== "";
 
+  let trendsContext = "";
   try {
+    const { getUnifiedTrendsContext } = await import("@/lib/services/ob-tendencias");
+    trendsContext = await getUnifiedTrendsContext(context.business.industry || "general", "tiktok", "BO");
+  } catch (e) {
+    console.warn("[CASCADE] No se pudo obtener tendencias dinámicas para la estrategia:", e);
+  }
+
+  try {
+    const prompt = `Genera ${count} estrategias para el negocio: ${context.business.name}.
+${trendsContext ? `${trendsContext}\n` : ""}
+Detalles del Negocio:
+- Descripción: ${context.business.description || "No detallada"}.
+- Industria: ${context.business.industry || "No especificada"}.
+- Propuesta de Valor Real: ${context.business.valueProposition || "No definida"}.
+- Público Objetivo Configurado (Demografía y Psicografía a usar obligatoriamente): ${JSON.stringify(context.business.targetAudience || "No definido")}.
+${(context.business as any).onboardingStrategy ? `- ESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA): Utiliza estos datos como los pilares base para los objetivos y personas generadas: ${JSON.stringify((context.business as any).onboardingStrategy)}.` : ""}
+- Buyer Personas Pre-generados en Banco de Datos (Reutilizar OBLIGATORIAMENTE si existen): ${JSON.stringify((context as any).buyerPersonas || [])}.
+- Catálogo de Productos Reales: ${JSON.stringify(context.products)}.
+- Datos e informes de competidores (Scraping): ${JSON.stringify(context.competitorScrapedDetails)}.
+
+Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer personas basándote fielmente en la ESTRATEGIA DIRECTA DEL CLIENTE si existe. Si hay 'Buyer Personas Pre-generados', copia sus campos al pie de la letra para mantener consistencia absoluta entre la etapa de base de datos y la estrategia. Responde estrictamente con JSON en el formato especificado.`;
+
     const { object } = await generateObject({
       model: openrouter('google/gemini-2.5-flash'),
       schema: z.object({
@@ -567,20 +589,9 @@ Reglas clave:
    - En funnelStages, crea etapas de embudo estándar (ej. awareness, consideration, decision, retention).
 6. REGLA ESTRICTA DE NO INVENTAR/ALUCINAR PRODUCTOS: Bajo ninguna circunstancia inventes, agregues, combines, asumas o sugieras productos, servicios o variaciones de los mismos que no estén expresamente mencionados en la descripción del negocio o en su lista de productos. Limítate única y exclusivamente a los productos reales proporcionados.
 7. REQUISITO OBLIGATORIO DE 6 BUYER PERSONAS: Cada estrategia generada DEBE contener exactamente 6 perfiles de Buyer Personas detallados en el array 'personas' (ampliando o desglosando el público objetivo en 6 arquetipos locales hiper-específicos). Reutiliza y expande los buyer personas pre-generados del Banco de Datos si existen hasta completar exactamente 6 perfiles únicos (manteniendo su nombre, demographics, goals, painPoints y communication tone/topics/triggers).
-   - Los dolores ('painPoints') y metas ('goals') del buyer persona deben estar estrechamente conectados con los productos reales del negocio y su propuesta de valor.
+   - Los dolores ('painPoints') y metas ('goals') del buyer persona me deben estar estrechamente conectados con los productos reales del negocio y su propuesta de valor.
    - No generes nombres de fantasía absurdos o no profesionales. Crea arquetipos creíbles e hiper-alineados con la geografía e industria del negocio.`,
-      prompt: `Genera ${count} estrategias para el negocio: ${context.business.name}.
-Detalles del Negocio:
-- Descripción: ${context.business.description || "No detallada"}.
-- Industria: ${context.business.industry || "No especificada"}.
-- Propuesta de Valor Real: ${context.business.valueProposition || "No definida"}.
-- Público Objetivo Configurado (Demografía y Psicografía a usar obligatoriamente): ${JSON.stringify(context.business.targetAudience || "No definido")}.
-${(context.business as any).onboardingStrategy ? `- ESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA): Utiliza estos datos como los pilares base para los objetivos y personas generadas: ${JSON.stringify((context.business as any).onboardingStrategy)}.` : ""}
-- Buyer Personas Pre-generados en Banco de Datos (Reutilizar OBLIGATORIAMENTE si existen): ${JSON.stringify((context as any).buyerPersonas || [])}.
-- Catálogo de Productos Reales: ${JSON.stringify(context.products)}.
-- Datos e informes de competidores: ${JSON.stringify(context.competitorScrapedDetails)}.
-
-Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer personas basándote fielmente en la ESTRATEGIA DIRECTA DEL CLIENTE si existe. Si hay 'Buyer Personas Pre-generados', copia sus campos al pie de la letra para mantener consistencia absoluta entre la etapa de base de datos y la estrategia. Responde estrictamente con JSON en el formato especificado.`,
+      prompt: prompt,
     });
     return object.strategies.slice(0, count);
   } catch (e) {

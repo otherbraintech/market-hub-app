@@ -65,36 +65,64 @@ export async function POST(
       }
     }).catch((err: unknown) => console.error("Error al crear notificación de extracción manual de negocio:", err));
 
-    // Trigger external webhook (n8n) for business scraping
-    const n8nWebhookUrl = "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
-    
-    try {
-      await fetch(n8nWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportId: report.id,
-          type: "MY_BUSINESS",
-          channel: reportChannel,
+    // Disparar la extracción unificada (OB-Scrap con fallback automático a Apify y n8n)
+    (async () => {
+      try {
+        const { unifiedScrapeChannel } = await import("@/services/scraper-service");
+        const scrapeResult = await unifiedScrapeChannel({
           url: sanitizedUrl,
-          businessId,
-          businessName: business.name,
-          callbackUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhook/callback`,
-        }),
-      });
-    } catch (error: unknown) {
-      console.error("Error triggering external webhook:", error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      // We'll update to ERROR if it completely fails to send
-      await prisma.analysisReport.update({
-        where: { id: report.id },
-        data: { status: "ERROR", error: `Error al conectar con n8n: ${errorMessage}` },
-      });
-      return NextResponse.json(
-        { error: "Error al iniciar el análisis", details: errorMessage }, 
-        { status: 500 }
-      );
-    }
+          channel: reportChannel,
+          maxPosts: 5,
+        });
+
+        await prisma.analysisReport.update({
+          where: { id: report.id },
+          data: {
+            status: "COMPLETED",
+            data: scrapeResult as any,
+            completedAt: new Date(),
+          },
+        });
+
+        const sourceLabel = scrapeResult.source === "OB_SCRAP" ? "OB-Scrap (Teléfonos ADB)" : scrapeResult.source === "APIFY" ? "Apify" : "Sistema de Respaldo";
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Extracción",
+            message: `Extracción del canal ${reportChannel} completada para el propio negocio (Vía ${sourceLabel}).`,
+            step: "SCRAPING",
+            status: "COMPLETED"
+          }
+        }).catch((err) => console.error(err));
+
+        // Trigger consolidado propio
+        const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
+        runBusinessConsolidatedAnalysis(businessId).catch((err) => console.error(err));
+      } catch (error: any) {
+        console.warn(`[BUSINESS-SCRAP-ROUTE] Fallback a n8n para ${reportChannel}:`, error.message);
+        const n8nWebhookUrl = "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
+        try {
+          await fetch(n8nWebhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reportId: report.id,
+              type: "MY_BUSINESS",
+              channel: reportChannel,
+              url: sanitizedUrl,
+              businessId,
+              businessName: business.name,
+              callbackUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhook/callback`,
+            }),
+          });
+        } catch (n8nErr: any) {
+          await prisma.analysisReport.update({
+            where: { id: report.id },
+            data: { status: "ERROR", error: `Error en extracción: ${error.message}` },
+          });
+        }
+      }
+    })();
 
     return NextResponse.json({ reportId: report.id, status: report.status });
   } catch (error: unknown) {

@@ -239,51 +239,47 @@ export function AgentPipelineSidebar({
           actionText="Auditar Canales"
           isActive={activeTab === "bancodedatos"}
           subAgents={(() => {
-            if (hasAudit) {
+            if (auditStatus === "processing") {
+              const latestAuditNotif = notifications.find(n => n.step === "SCRAPING" || n.step === "DIAGNOSTIC");
+              const isDiagnostic = latestAuditNotif?.step === "DIAGNOSTIC";
+              const scrapingDone = isDiagnostic || notifications.some(n => n.step === "SCRAPING" && n.status === "COMPLETED");
+
+              if (isDiagnostic) {
+                return [
+                  { name: "Agente Extractor Web", icon: "🕸️", status: "completed" as const },
+                  { name: "Agente Analista FODA", icon: "📊", status: "processing" as const },
+                  { name: "Agente Radar de Tendencias", icon: "🔥", status: "processing" as const },
+                  { name: "Agente Redactor Resumen", icon: "📝", status: "processing" as const },
+                ];
+              }
+              if (scrapingDone) {
+                return [
+                  { name: "Agente Extractor Web", icon: "🕸️", status: "completed" as const },
+                  { name: "Agente Analista FODA", icon: "📊", status: "processing" as const },
+                  { name: "Agente Radar de Tendencias", icon: "🔥", status: "idle" as const },
+                  { name: "Agente Redactor Resumen", icon: "📝", status: "idle" as const },
+                ];
+              }
               return [
-                { name: "Agente Extractor", icon: "🕸️", status: "completed" as const },
-                { name: "Agente Analista FODA", icon: "📊", status: "completed" as const },
-                { name: "Agente Radar de Tendencias", icon: "🔥", status: "completed" as const },
-                { name: "Agente Redactor", icon: "📝", status: "completed" as const },
-              ];
-            }
-            if (auditStatus !== "processing") {
-              return [
-                { name: "Agente Extractor", icon: "🕸️", status: "idle" as const },
+                { name: "Agente Extractor Web", icon: "🕸️", status: "processing" as const },
                 { name: "Agente Analista FODA", icon: "📊", status: "idle" as const },
                 { name: "Agente Radar de Tendencias", icon: "🔥", status: "idle" as const },
-                { name: "Agente Redactor", icon: "📝", status: "idle" as const },
+                { name: "Agente Redactor Resumen", icon: "📝", status: "idle" as const },
               ];
             }
-            // Sequential cascade: determine phase from notification step
-            const latestAuditNotif = notifications.find(n => n.step === "SCRAPING" || n.step === "DIAGNOSTIC");
-            const isDiagnostic = latestAuditNotif?.step === "DIAGNOSTIC";
-            const scrapingDone = isDiagnostic || notifications.some(n => n.step === "SCRAPING" && n.status === "COMPLETED");
-
-            if (isDiagnostic) {
-              // Scraping done → Analista/Radar/Redactor in progress
+            if (hasAudit) {
               return [
-                { name: "Agente Extractor", icon: "🕸️", status: "completed" as const },
-                { name: "Agente Analista FODA", icon: "📊", status: "processing" as const },
-                { name: "Agente Radar de Tendencias", icon: "🔥", status: "processing" as const },
-                { name: "Agente Redactor", icon: "📝", status: "idle" as const },
+                { name: "Agente Extractor Web", icon: "🕸️", status: "completed" as const },
+                { name: "Agente Analista FODA", icon: "📊", status: "completed" as const },
+                { name: "Agente Radar de Tendencias", icon: "🔥", status: "completed" as const },
+                { name: "Agente Redactor Resumen", icon: "📝", status: "completed" as const },
               ];
             }
-            if (scrapingDone) {
-              // Scraping completed but diagnostic not yet started
-              return [
-                { name: "Agente Extractor", icon: "🕸️", status: "completed" as const },
-                { name: "Agente Analista FODA", icon: "📊", status: "processing" as const },
-                { name: "Agente Radar de Tendencias", icon: "🔥", status: "idle" as const },
-                { name: "Agente Redactor", icon: "📝", status: "idle" as const },
-              ];
-            }
-            // Still in scraping phase → only Extractor active
             return [
-              { name: "Agente Extractor", icon: "🕸️", status: "processing" as const },
+              { name: "Agente Extractor Web", icon: "🕸️", status: "idle" as const },
               { name: "Agente Analista FODA", icon: "📊", status: "idle" as const },
               { name: "Agente Radar de Tendencias", icon: "🔥", status: "idle" as const },
-              { name: "Agente Redactor", icon: "📝", status: "idle" as const },
+              { name: "Agente Redactor Resumen", icon: "📝", status: "idle" as const },
             ];
           })()}
         />

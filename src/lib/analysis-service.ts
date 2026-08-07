@@ -60,64 +60,95 @@ export async function triggerAnalysis({
       data: {
         businessId,
         title: "Agente de Extracción",
-        message: `Iniciando reanálisis y extracción del canal ${reportChannel} para el ${targetName}.`,
+        message: `Iniciando extracción del canal ${reportChannel} para el ${targetName}.`,
         step: "SCRAPING",
         status: "PROCESSING"
       }
-    }).catch((err: unknown) => console.error("Error al crear la notificación del agente de análisis:", err));
+    }).catch((err: unknown) => console.error("Error al crear notificación de agente de análisis:", err));
   }
 
-  // Disparar el webhook externo (n8n)
-  const n8nWebhookUrl = type === "COMPETITOR" 
-    ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap"
-    : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
-  const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  // Ejecutar scraping unificado (OB-Scrap con fallback automático a Apify y n8n)
+  (async () => {
+    try {
+      const { unifiedScrapeChannel } = await import("@/services/scraper-service");
+      console.log(`📡 [ANALYSIS-SERVICE] Ejecutando extracción unificada para ${reportChannel} (${sanitizedUrl})...`);
 
-  try {
-    const response = await fetch(n8nWebhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reportId: report.id,
-        type,
-        channel: reportChannel,
+      const scrapeResult = await unifiedScrapeChannel({
         url: sanitizedUrl,
-        businessId,
-        competitorName,
-        businessName, // Para MY_BUSINESS
-        callbackUrl: `${appUrl}/api/webhook/callback`,
-      }),
-    });
+        channel: reportChannel,
+        maxPosts: 5,
+      });
 
-    if (!response.ok) {
-      throw new Error(`n8n webhook returned status: ${response.status}`);
-    }
-  } catch (error) {
-    console.error(`Error al enviar el webhook a n8n para el canal ${reportChannel}:`, error);
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    // Actualizar el reporte a ERROR
-    await prisma.analysisReport.update({
-      where: { id: report.id },
-      data: { status: "ERROR", error: `Error al conectar con n8n: ${errorMessage}` },
-    });
-
-    // Registrar evento de canal omitido en las notificaciones sin bloquear la canalización
-    if (businessId) {
-      await prisma.agentNotification.create({
+      // Actualizar el reporte a COMPLETED en PostgreSQL
+      await prisma.analysisReport.update({
+        where: { id: report.id },
         data: {
-          businessId,
-          title: "Agente de Extracción",
-          message: `Canal ${reportChannel} de ${targetName} omitido (continuando diagnóstico con datos disponibles).`,
-          step: "SCRAPING",
-          status: "COMPLETED"
-        }
-      }).catch((err) => console.error(err));
-    }
+          status: "COMPLETED",
+          data: scrapeResult as any,
+          completedAt: new Date(),
+        },
+      });
 
-    throw error;
-  }
+      if (businessId) {
+        const sourceLabel = scrapeResult.source === "OB_SCRAP" ? "OB-Scrap (Teléfonos ADB)" : scrapeResult.source === "APIFY" ? "Apify" : "Sistema de Respaldo";
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Extracción",
+            message: `Extracción del canal ${reportChannel} completada para el ${targetName} (Vía ${sourceLabel}).`,
+            step: "SCRAPING",
+            status: "COMPLETED"
+          }
+        }).catch((err) => console.error(err));
+
+        // Trigger automático de análisis consolidado
+        try {
+          if (type === "COMPETITOR") {
+            const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
+            const { runCompetitorConsolidatedAnalysis } = await import("@/app/api/competitors/[businessId]/consolidated-analysis/route");
+            runGenerateGeneralReport(businessId).catch(e => console.error(e));
+            runCompetitorConsolidatedAnalysis(businessId).catch(e => console.error(e));
+          } else if (type === "MY_BUSINESS") {
+            const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
+            runBusinessConsolidatedAnalysis(businessId).catch(e => console.error(e));
+          }
+        } catch (e) {
+          console.error("Error al gatillar análisis consolidado post-scraping:", e);
+        }
+      }
+    } catch (error: any) {
+      console.warn(`[ANALYSIS-SERVICE] Fallback secundario a n8n para ${reportChannel}:`, error.message);
+
+      // Disparar n8n como respaldo final si falla la extracción directa
+      const n8nWebhookUrl = type === "COMPETITOR" 
+        ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap"
+        : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
+      const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+      try {
+        await fetch(n8nWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reportId: report.id,
+            type,
+            channel: reportChannel,
+            url: sanitizedUrl,
+            businessId,
+            competitorName,
+            businessName,
+            callbackUrl: `${appUrl}/api/webhook/callback`,
+          }),
+        });
+      } catch (n8nErr: any) {
+        console.error(`Error al enviar webhook de respaldo a n8n:`, n8nErr);
+        await prisma.analysisReport.update({
+          where: { id: report.id },
+          data: { status: "ERROR", error: `Error en extracción: ${error.message}` },
+        });
+      }
+    }
+  })();
 
   return report;
 }

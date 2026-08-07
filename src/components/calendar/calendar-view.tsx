@@ -172,9 +172,10 @@ export function CalendarView({
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Filtro de Campaña
+  // Filtro de Campaña y Rango de Fechas (por defecto a partir de hoy)
   const queryCampaignId = searchParams.get("campaignId");
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>(queryCampaignId || "all");
+  const [dateRangeFilter, setDateRangeFilter] = useState<"from-today" | "full-month" | "next-30-days">("from-today");
   
   const [contents, setContents] = useState<ContentItem[]>(initialContents);
   const [currentDate, setCurrentDate] = useState<Date>(() => {
@@ -475,6 +476,15 @@ export function CalendarView({
     setIsSavingEdit(true);
     try {
       const scheduledD = editForm.scheduledAt ? new Date(editForm.scheduledAt) : null;
+      if (scheduledD) {
+        const todayEndOfDay = new Date();
+        todayEndOfDay.setHours(23, 59, 59, 999);
+        if (scheduledD <= todayEndOfDay) {
+          toast.warning("La fecha de publicación debe ser a partir de mañana (no se permiten fechas pasadas ni el día de hoy).");
+          setIsSavingEdit(false);
+          return;
+        }
+      }
       
       let res;
       if (viewingContent.id === "new-draft") {
@@ -981,11 +991,11 @@ export function CalendarView({
     
     if (!draggedContent) return;
 
-    // Prevenir mover a fechas pasadas
-    const todayMidnight = new Date();
-    todayMidnight.setHours(0, 0, 0, 0);
-    if (targetDate < todayMidnight) {
-      toast.warning("No se pueden mover publicaciones a fechas pasadas.");
+    // Prevenir mover publicaciones al día de hoy o fechas pasadas
+    const todayEndOfDay = new Date();
+    todayEndOfDay.setHours(23, 59, 59, 999);
+    if (targetDate <= todayEndOfDay) {
+      toast.warning("No se pueden programar ni mover publicaciones al día de hoy o fechas pasadas. Selecciona una fecha futura (a partir de mañana).");
       setDraggedContent(null);
       return;
     }
@@ -1146,9 +1156,9 @@ export function CalendarView({
         <div className="flex flex-wrap items-center gap-3">
           {/* Filtro por Campaña */}
           <div className="flex items-center gap-2 bg-card border px-3 py-1.5 rounded-xl shadow-sm h-9">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Filtrar:</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Campaña:</span>
             <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
-              <SelectTrigger className="w-[180px] h-6 border-0 p-0 text-xs focus:ring-0 focus:ring-offset-0">
+              <SelectTrigger className="w-[170px] h-6 border-0 p-0 text-xs focus:ring-0 focus:ring-offset-0">
                 <SelectValue placeholder="Todas las campañas" />
               </SelectTrigger>
               <SelectContent>
@@ -1158,6 +1168,21 @@ export function CalendarView({
                     {camp.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtro de Rango / Vista de Fechas */}
+          <div className="flex items-center gap-2 bg-card border px-3 py-1.5 rounded-xl shadow-sm h-9">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Vista:</span>
+            <Select value={dateRangeFilter} onValueChange={(val: any) => setDateRangeFilter(val)}>
+              <SelectTrigger className="w-[145px] h-6 border-0 p-0 text-xs focus:ring-0 focus:ring-offset-0 font-bold">
+                <SelectValue placeholder="A partir de hoy" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="from-today" className="text-xs font-semibold">📌 A partir de hoy</SelectItem>
+                <SelectItem value="full-month" className="text-xs font-semibold">📅 Mes completo</SelectItem>
+                <SelectItem value="next-30-days" className="text-xs font-semibold">🗓️ Próximos 30 días</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1319,11 +1344,21 @@ export function CalendarView({
         {/* Filas de días */}
         <div className="flex-1 overflow-y-auto divide-y">
           {(() => {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            yesterday.setHours(0, 0, 0, 0);
+            const todayMidnight = new Date();
+            todayMidnight.setHours(0, 0, 0, 0);
 
-            const filteredCells = gridCells.filter(cell => cell.isCurrentMonth);
+            const dateIn30Days = new Date(todayMidnight);
+            dateIn30Days.setDate(dateIn30Days.getDate() + 30);
+
+            const filteredCells = gridCells.filter(cell => {
+              if (dateRangeFilter === "from-today") {
+                return cell.isCurrentMonth && cell.date >= todayMidnight;
+              }
+              if (dateRangeFilter === "next-30-days") {
+                return cell.date >= todayMidnight && cell.date <= dateIn30Days;
+              }
+              return cell.isCurrentMonth;
+            });
 
             return filteredCells.map((cell, idx) => {
               const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
@@ -1432,8 +1467,23 @@ export function CalendarView({
                                 setViewingContent(post);
                               }
                             }}
-                            className={`group/card px-3 py-2 rounded-xl border text-[10.5px] font-semibold flex flex-col justify-between gap-1 cursor-pointer transition-all duration-300 shadow-sm hover:scale-[1.02] ${meta.styles} ${draggedContent?.id === post.id ? 'opacity-50' : ''}`}
+                            className={`group/card relative px-3 py-2 rounded-xl border text-[10.5px] font-semibold flex flex-col justify-between gap-1 cursor-pointer transition-all duration-300 shadow-sm hover:scale-[1.02] ${meta.styles} ${draggedContent?.id === post.id ? 'opacity-50' : ''} ${isEditMode ? 'ring-2 ring-red-500/60 bg-red-500/5' : ''}`}
                           >
+                            {/* Botón X para eliminar rápidamente en Modo Edición o Hover */}
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              title="Eliminar publicación"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickDelete(post.id);
+                              }}
+                              className={`absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md z-10 transition-all duration-200 hover:scale-110 flex items-center justify-center border border-white dark:border-slate-900 ${isEditMode ? 'opacity-100 scale-100 animate-pulse' : 'opacity-0 group-hover/card:opacity-100'}`}
+                            >
+                              <X className="h-3 w-3 stroke-[3]" />
+                            </Button>
+
                             <div className="flex items-center justify-between">
                               <span className="font-bold opacity-90">{pubTime}</span>
                               <span className="text-[9px] uppercase tracking-wider px-1 bg-black/5 rounded">{post.type}</span>
@@ -1521,8 +1571,23 @@ export function CalendarView({
                                 setViewingContent(simulatedContent);
                               }
                             }}
-                            className="px-3 py-2 rounded-xl border text-[10.5px] font-bold flex flex-col justify-between gap-1 cursor-pointer transition-all duration-300 shadow bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-300 text-amber-800 animate-pulse"
+                            className="group/simCard relative px-3 py-2 rounded-xl border text-[10.5px] font-bold flex flex-col justify-between gap-1 cursor-pointer transition-all duration-300 shadow bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-300 text-amber-800 animate-pulse"
                           >
+                            {/* Botón X para borrar post simulado */}
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              title="Eliminar publicación simulada"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickDelete(`sim-${post.originalIndex}`);
+                              }}
+                              className={`absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-md z-10 transition-all duration-200 hover:scale-110 flex items-center justify-center border border-white dark:border-slate-900 ${isEditMode ? 'opacity-100 scale-100' : 'opacity-0 group-hover/simCard:opacity-100'}`}
+                            >
+                              <X className="h-3 w-3 stroke-[3]" />
+                            </Button>
+
                             <div className="flex items-center justify-between">
                               <span className="font-bold">{pubTime}</span>
                               <Sparkles className="h-3 w-3 text-amber-500" />
@@ -2177,12 +2242,14 @@ export function CalendarView({
                             title: editForm.title,
                             type: editForm.type as any,
                             format: editForm.format as any,
-                            channel: editForm.channels[0] as any,
+                            channel: (editForm.channels[0] || "INSTAGRAM") as any,
+                            channels: editForm.channels,
                             campaignId: campId,
                             productId: "",
                             socialAccountId: "",
                             body: editForm.body,
                             caption: editForm.caption,
+                            promptUsed: editForm.promptUsed,
                             hashtags: [],
                             scheduledAt: scheduledD,
                             status: "DRAFT" as any,
@@ -2191,32 +2258,12 @@ export function CalendarView({
                           });
 
                           if (res.success && res.content) {
-                            toast.success("¡Planificación diaria creada con éxito!");
-                            
-                            // Si se seleccionaron más canales además del primero
-                            if (editForm.channels.length > 1) {
-                              const otherChannels = editForm.channels.slice(1);
-                              await updateCalendarContentAction(
-                                res.content.id,
-                                {
-                                  title: editForm.title,
-                                  channels: editForm.channels,
-                                  type: editForm.type,
-                                  format: editForm.format,
-                                  scheduledAt: scheduledD,
-                                  caption: editForm.caption,
-                                  body: editForm.body,
-                                  promptUsed: editForm.promptUsed
-                                },
-                                businessId
-                              );
-                            }
-
+                            toast.success("¡Publicación creada con éxito para " + (editForm.channels[0] || "Instagram") + "!");
                             setViewingContent(null);
                             setIsEditing(false);
                             router.refresh();
                           } else {
-                            toast.error(res.error || "Error al crear la planificación.");
+                            toast.error(res.error || "Error al crear la publicación.");
                           }
                         } catch (err: any) {
                           toast.error("Error al guardar planificación.");

@@ -240,17 +240,35 @@ export default function TrendsExplorerPage() {
       {/* Resultados de Tendencias */}
       {!isLoading && results && (
         <div className="space-y-6">
-          {/* Status Bar */}
+          {/* Status Bar con Contador de Extracción Mensual */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-card border border-border/60 text-xs md:text-sm shadow-sm">
-            <div className="flex items-center gap-2">
-              <Globe className="h-4 w-4 text-cyan-500" />
-              <span>Fuentes procesadas: <strong className="text-foreground">{results.sourcesUsed}</strong></span>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Globe className="h-4 w-4 text-cyan-500" />
+                <span>Fuentes: <strong className="text-foreground">{results.sourcesUsed}</strong></span>
+              </div>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 font-bold gap-1 py-1">
+                <Calendar className="h-3.5 w-3.5 text-blue-500" />
+                Frecuencia: Mensual (1ro de cada mes)
+              </Badge>
+              {results.daysRemaining && (
+                <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 font-bold gap-1 py-1">
+                  ⏳ Próximo autodisparo: En {results.daysRemaining} {results.daysRemaining === 1 ? "día" : "días"}
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="outline" className={results.isCached ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-purple-500/10 text-purple-600 border-purple-500/20"}>
                 {results.isCached ? "⚡ SnapShot Cacheado PostgreSQL (<10ms)" : "✨ Extracción Live IA Engine"}
               </Badge>
-              <span className="text-muted-foreground">Región: <strong>{results.region}</strong></span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleFetchTrends(niche, platform, region)}
+                className="h-7 text-xs font-bold gap-1 border-cyan-500/30 text-cyan-600 hover:bg-cyan-500/10"
+              >
+                <Sparkles className="h-3 w-3" /> Refrescar Ahora
+              </Button>
             </div>
           </div>
 

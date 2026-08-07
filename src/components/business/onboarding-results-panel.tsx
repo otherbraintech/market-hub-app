@@ -1087,15 +1087,8 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
   const isStrategyProcessing = getStepStatus("STRATEGY") === "processing" || strategyLoading;
 
-  const isWaitModalOpen = 
-    activeTab === "bancodedatos" &&
-    !isDismissed && (
-      (loading && !data) ||
-      !isAnalysisComplete ||
-      isCurrentlyProcessing ||
-      scrapingStatus === "failed" ||
-      diagnosticStatus === "failed"
-    );
+  // Desactivar modal flotante por solicitud de UX (el progreso se muestra directamente en el Flujo Operativo IA y bloqueo in-page)
+  const isWaitModalOpen = false;
 
   const getDialogProgressContent = () => {
     if (loading && !data) {
@@ -1643,7 +1636,32 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
           ) : (
             <>
               {/* TAB 1: BANCO DE DATOS (UNIFICADO) */}
-              <TabsContent value="bancodedatos" className="space-y-6 mt-0">
+              <TabsContent value="bancodedatos" className="space-y-6 mt-0 relative min-h-[400px]">
+                {/* Bloqueo elegante in-page de la pantalla de información durante el reanálisis o análisis activo */}
+                {isCurrentlyProcessing && (
+                  <div className="absolute inset-0 bg-background/85 dark:bg-[#0D1526]/90 backdrop-blur-xs z-30 rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-4 border border-cyan-500/30 animate-in fade-in duration-300">
+                    <div className="relative h-16 w-16 flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin" />
+                      <Cpu className="h-7 w-7 text-cyan-500 animate-pulse" />
+                    </div>
+                    <div className="space-y-2 max-w-md">
+                      <Badge className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 font-extrabold uppercase text-[10px] tracking-wider px-3 py-1">
+                        ⚡ Agentes de IA Procesando
+                      </Badge>
+                      <h3 className="text-xl font-black text-foreground">
+                        Auditando y Consolidando Banco de Datos
+                      </h3>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Nuestros agentes autónomos están extrayendo información digital de tus canales y competidores. Observa el avance paso a paso en la columna lateral <strong className="text-cyan-600 dark:text-cyan-400">"Flujo Operativo IA"</strong>.
+                      </p>
+                      <div className="flex justify-center items-center gap-1.5 pt-2">
+                        {[0, 1, 2].map(i => (
+                          <div key={i} className="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
             {/* SECTION 1. INFORMACIÓN DEL NEGOCIO */}
             {(() => {
               const bizInfo = data?.businessInfo || data?.business;

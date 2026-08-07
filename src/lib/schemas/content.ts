@@ -15,6 +15,7 @@ export const contentSchema = z.object({
   scheduledAt: z.date().optional().nullable(),
   status: z.nativeEnum(ContentStatus),
   mediaUrl: z.string(),
+  promptUsed: z.string().optional(),
 });
 
 export type ContentFormValues = z.infer<typeof contentSchema>;

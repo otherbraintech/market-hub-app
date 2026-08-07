@@ -36,6 +36,7 @@ export interface CreateContentInput {
   title: string
   body?: string
   caption?: string
+  promptUsed?: string
   hashtags?: string[]
   mediaAssetId?: string
   mediaUrl?: string
@@ -71,6 +72,7 @@ export async function createContent(input: CreateContentInput): Promise<Content>
       title: input.title,
       body: input.body,
       caption: input.caption,
+      promptUsed: input.promptUsed,
       hashtags: input.hashtags as Prisma.JsonArray | undefined,
       mediaAssetId: input.mediaAssetId,
       mediaUrl: input.mediaUrl,

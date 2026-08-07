@@ -212,24 +212,24 @@ export default function SubscriptionPlansPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0d14] text-slate-100 p-6 md:p-12 space-y-10">
+    <div className="min-h-screen bg-background text-foreground p-6 md:p-12 space-y-10 animate-fade-in">
       {/* Header Central */}
       <div className="text-center space-y-3 max-w-3xl mx-auto">
-        <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">
+        <h1 className="text-3xl md:text-5xl font-black tracking-tight text-foreground">
           Planes de Suscripción
         </h1>
-        <p className="text-slate-400 text-base md:text-lg">
+        <p className="text-muted-foreground text-base md:text-lg font-medium">
           Escala según el crecimiento de tu negocio
         </p>
 
         {/* Badge de Rol */}
         <div className="pt-2 flex justify-center">
           {isAdmin ? (
-            <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/30 px-3 py-1 text-xs font-bold gap-1.5 shadow-sm">
+            <Badge className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30 px-3 py-1 text-xs font-bold gap-1.5 shadow-xs">
               <ShieldCheck className="w-3.5 h-3.5" /> Modo Administrador ({sessionRole}): Edición Habilitada
             </Badge>
           ) : (
-            <Badge variant="outline" className="bg-slate-800/60 text-slate-400 border-slate-700 px-3 py-1 text-xs font-medium gap-1.5">
+            <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border px-3 py-1 text-xs font-medium gap-1.5">
               <Info className="w-3.5 h-3.5" /> Vista Informativa de Planes
             </Badge>
           )}
@@ -239,12 +239,12 @@ export default function SubscriptionPlansPage() {
       {/* Loader */}
       {isLoading && (
         <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
-          <p className="text-sm text-slate-400">Cargando planes de suscripción desde PostgreSQL...</p>
+          <Loader2 className="w-10 h-10 animate-spin text-purple-600 dark:text-purple-400" />
+          <p className="text-sm text-muted-foreground font-medium">Cargando planes de suscripción desde PostgreSQL...</p>
         </div>
       )}
 
-      {/* Grid de Cards de Planes (Igual a la Imagen de Referencia) */}
+      {/* Grid de Cards de Planes */}
       {!isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-stretch">
           {plans.map((plan, index) => {
@@ -255,8 +255,8 @@ export default function SubscriptionPlansPage() {
                 key={plan.id}
                 className={`relative rounded-3xl transition-all duration-300 flex flex-col justify-between ${
                   isHighlighted 
-                    ? "bg-[#11131f] border-2 border-purple-600/80 shadow-[0_0_40px_rgba(147,51,234,0.2)] md:-translate-y-2" 
-                    : "bg-[#11131c] border border-slate-800/80 hover:border-slate-700"
+                    ? "bg-card border-2 border-purple-500 shadow-xl dark:shadow-purple-900/30 md:-translate-y-2" 
+                    : "bg-card/80 backdrop-blur-xs border border-border/80 shadow-md hover:border-indigo-500/50"
                 }`}
               >
                 {/* Badge Superior "Más popular" */}
@@ -274,39 +274,39 @@ export default function SubscriptionPlansPage() {
 
                   {/* Título & Tagline */}
                   <div>
-                    <h3 className="text-2xl font-black text-white tracking-tight">{plan.name}</h3>
-                    <p className="text-xs text-slate-400 mt-1">{plan.tagline || "Para tu negocio"}</p>
+                    <h3 className="text-2xl font-black text-foreground tracking-tight">{plan.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 font-medium">{plan.tagline || "Para tu negocio"}</p>
                   </div>
 
                   {/* Precio */}
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl md:text-5xl font-black text-white">${plan.price}</span>
-                    <span className="text-slate-400 text-sm font-semibold">/{plan.billingPeriod || "mes"}</span>
+                    <span className="text-4xl md:text-5xl font-black text-foreground">${plan.price}</span>
+                    <span className="text-muted-foreground text-sm font-semibold">/{plan.billingPeriod || "mes"}</span>
                   </div>
 
-                  {/* Límites y Posteos Clave (Puntos Celestes/Azules) */}
-                  <div className="space-y-2 py-2 border-y border-slate-800/60 text-sm font-medium">
-                    <div className="flex items-center gap-2 text-white font-bold">
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0"></span>
+                  {/* Límites y Posteos Clave */}
+                  <div className="space-y-2 py-2 border-y border-border/60 text-sm font-medium">
+                    <div className="flex items-center gap-2 text-foreground font-bold">
+                      <span className="w-2 h-2 rounded-full bg-cyan-500 shrink-0"></span>
                       <span>{plan.postsPerMonth} posteos {plan.slug === "agencia" ? "por negocio" : "mensuales"}</span>
                     </div>
                     {plan.postsPerWeek && (
-                      <div className="flex items-center gap-2 text-slate-400 text-xs pl-4">
+                      <div className="flex items-center gap-2 text-muted-foreground text-xs pl-4 font-semibold">
                         <span>•</span>
                         <span>{plan.postsPerWeek}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-slate-400 text-xs pl-4">
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs pl-4 font-semibold">
                       <span>•</span>
                       <span>{plan.maxBusinesses} {plan.maxBusinesses === 1 ? "cuenta de negocio" : "negocios incluidos"}</span>
                     </div>
                   </div>
 
-                  {/* Lista de Características (Green Checkmarks) */}
-                  <div className="space-y-3 pt-1 text-sm text-slate-300">
+                  {/* Lista de Características */}
+                  <div className="space-y-3 pt-1 text-sm text-foreground/90 font-medium">
                     {plan.features.map((feat, fIdx) => (
                       <div key={fIdx} className="flex items-start gap-3">
-                        <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                         <span className="leading-snug">{feat}</span>
                       </div>
                     ))}
@@ -321,7 +321,7 @@ export default function SubscriptionPlansPage() {
                       className={`w-full py-6 font-bold rounded-2xl transition-all gap-2 ${
                         isHighlighted 
                           ? "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30" 
-                          : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                          : "bg-muted/80 hover:bg-muted text-foreground border border-border"
                       }`}
                     >
                       <Pencil className="w-4 h-4" /> Editar Plan (Admin)
@@ -332,7 +332,7 @@ export default function SubscriptionPlansPage() {
                       className={`w-full py-6 font-bold rounded-2xl transition-all ${
                         isHighlighted 
                           ? "bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30" 
-                          : "bg-[#1d202e] hover:bg-slate-800 text-slate-200"
+                          : "bg-primary hover:bg-primary/90 text-primary-foreground"
                       }`}
                     >
                       Seleccionar Plan
@@ -347,12 +347,12 @@ export default function SubscriptionPlansPage() {
 
       {/* MODAL DE EDICIÓN PARA ADMINISTRADORES */}
       <Dialog open={!!editingPlan} onOpenChange={(open) => !open && setEditingPlan(null)}>
-        <DialogContent className="sm:max-w-xl bg-[#11131f] border-slate-800 text-slate-100">
+        <DialogContent className="sm:max-w-xl bg-card border-border text-card-foreground">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-white">
-              <Pencil className="w-5 h-5 text-purple-400" /> Editar Configuración del Plan "{editingPlan?.name}"
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-foreground">
+              <Pencil className="w-5 h-5 text-purple-600 dark:text-purple-400" /> Editar Configuración del Plan "{editingPlan?.name}"
             </DialogTitle>
-            <DialogDescription className="text-slate-400 text-xs">
+            <DialogDescription className="text-muted-foreground text-xs font-medium">
               Los cambios realizados se guardarán en PostgreSQL y se actualizarán inmediatamente en la aplicación.
             </DialogDescription>
           </DialogHeader>
@@ -360,109 +360,109 @@ export default function SubscriptionPlansPage() {
           <form onSubmit={handleSavePlan} className="space-y-4 py-2 text-xs">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="font-bold text-slate-300 uppercase tracking-wider">Nombre del Plan</label>
+                <label className="font-bold text-muted-foreground uppercase tracking-wider">Nombre del Plan</label>
                 <Input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-background border-border text-foreground font-semibold"
                   required
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-300 uppercase tracking-wider">Precio Mensual ($ USD)</label>
+                <label className="font-bold text-muted-foreground uppercase tracking-wider">Precio Mensual ($ USD)</label>
                 <Input
                   type="number"
                   min="0"
                   value={editForm.price}
                   onChange={(e) => setEditForm({ ...editForm, price: Number(e.target.value) })}
-                  className="bg-slate-900 border-slate-700 text-white font-bold"
+                  className="bg-background border-border text-foreground font-bold"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="font-bold text-slate-300 uppercase tracking-wider">Subtítulo / Tagline</label>
+              <label className="font-bold text-muted-foreground uppercase tracking-wider">Subtítulo / Tagline</label>
               <Input
                 value={editForm.tagline}
                 onChange={(e) => setEditForm({ ...editForm, tagline: e.target.value })}
                 placeholder="Ej: Para pymes y emprendimientos"
-                className="bg-slate-900 border-slate-700 text-white"
+                className="bg-background border-border text-foreground"
               />
             </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label className="font-bold text-slate-300 uppercase tracking-wider">Posteos / Mes</label>
+                <label className="font-bold text-muted-foreground uppercase tracking-wider">Posteos / Mes</label>
                 <Input
                   type="number"
                   min="1"
                   value={editForm.postsPerMonth}
                   onChange={(e) => setEditForm({ ...editForm, postsPerMonth: Number(e.target.value) })}
-                  className="bg-slate-900 border-slate-700 text-white font-bold"
+                  className="bg-background border-border text-foreground font-bold"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-300 uppercase tracking-wider">Negocios Max.</label>
+                <label className="font-bold text-muted-foreground uppercase tracking-wider">Negocios Max.</label>
                 <Input
                   type="number"
                   min="1"
                   value={editForm.maxBusinesses}
                   onChange={(e) => setEditForm({ ...editForm, maxBusinesses: Number(e.target.value) })}
-                  className="bg-slate-900 border-slate-700 text-white font-bold"
+                  className="bg-background border-border text-foreground font-bold"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-300 uppercase tracking-wider">Competidores Max.</label>
+                <label className="font-bold text-muted-foreground uppercase tracking-wider">Competidores Max.</label>
                 <Input
                   type="number"
                   min="1"
                   value={editForm.maxCompetitors}
                   onChange={(e) => setEditForm({ ...editForm, maxCompetitors: Number(e.target.value) })}
-                  className="bg-slate-900 border-slate-700 text-white font-bold"
+                  className="bg-background border-border text-foreground font-bold"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="font-bold text-slate-300 uppercase tracking-wider">Publicaciones / Semana (Texto)</label>
+                <label className="font-bold text-muted-foreground uppercase tracking-wider">Publicaciones / Semana (Texto)</label>
                 <Input
                   value={editForm.postsPerWeek}
                   onChange={(e) => setEditForm({ ...editForm, postsPerWeek: e.target.value })}
                   placeholder="Ej: 4 publicaciones/semana"
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-background border-border text-foreground"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-300 uppercase tracking-wider">Badge Superior (Opcional)</label>
+                <label className="font-bold text-muted-foreground uppercase tracking-wider">Badge Superior (Opcional)</label>
                 <Input
                   value={editForm.badge}
                   onChange={(e) => setEditForm({ ...editForm, badge: e.target.value, isPopular: !!e.target.value.trim() })}
                   placeholder="Ej: Más popular"
-                  className="bg-slate-900 border-slate-700 text-white"
+                  className="bg-background border-border text-foreground"
                 />
               </div>
             </div>
 
             {/* Lista de Características / Features */}
-            <div className="space-y-2 pt-2 border-t border-slate-800">
-              <label className="font-bold text-slate-300 uppercase tracking-wider block">Características Incluidas ({editForm.features.length})</label>
+            <div className="space-y-2 pt-2 border-t border-border">
+              <label className="font-bold text-muted-foreground uppercase tracking-wider block">Características Incluidas ({editForm.features.length})</label>
               
               <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                 {editForm.features.map((feat, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded bg-slate-900 border border-slate-800">
-                    <span className="text-slate-200">{feat}</span>
+                  <div key={idx} className="flex items-center justify-between gap-2 p-2 rounded bg-muted/40 border border-border">
+                    <span className="text-foreground font-medium">{feat}</span>
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
                       onClick={() => handleRemoveFeature(idx)}
-                      className="h-6 w-6 p-0 text-slate-400 hover:text-rose-400 hover:bg-slate-800"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -475,7 +475,7 @@ export default function SubscriptionPlansPage() {
                   value={newFeatureText}
                   onChange={(e) => setNewFeatureText(e.target.value)}
                   placeholder="Agregar nueva característica..."
-                  className="bg-slate-900 border-slate-700 text-white text-xs"
+                  className="bg-background border-border text-foreground text-xs"
                 />
                 <Button
                   type="button"
@@ -488,7 +488,7 @@ export default function SubscriptionPlansPage() {
             </div>
 
             <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setEditingPlan(null)} className="border-slate-700 text-slate-300 hover:bg-slate-800">
+              <Button type="button" variant="outline" onClick={() => setEditingPlan(null)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSaving} className="bg-purple-600 hover:bg-purple-500 text-white font-bold">

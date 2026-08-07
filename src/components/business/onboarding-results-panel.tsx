@@ -2939,64 +2939,75 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                   </div>
                 )}
 
-                {/* Buyer Personas */}
-                {parsedStrategyObj.personas.length > 0 && (
-                  <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
-                    <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
-                      <Users className="h-3.5 w-3.5 text-purple-500" /> Público Objetivo (Buyer Personas)
-                    </span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                      {parsedStrategyObj.personas.map((persona: any, index: number) => (
-                        <div key={index} className="p-4 bg-muted/10 rounded-2xl border space-y-3 flex flex-col justify-between">
-                          <div className="space-y-2.5">
-                            <div className="flex items-center justify-between border-b pb-2">
-                              <div className="flex items-center gap-2">
-                                <div className="h-7 w-7 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[10px] font-black shrink-0">
-                                  P{index + 1}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="font-bold text-[12px] text-foreground leading-tight">
-                                    {formatPersonaTitle(persona.name, index)}
-                                  </span>
-                                  {extractPersonaArchetype(persona.name) && (
-                                    <span className="text-[9.5px] font-semibold text-purple-600 dark:text-purple-400">
-                                      {extractPersonaArchetype(persona.name)}
+                {/* Buyer Personas Sincronizadas entre Banco de Datos y Estrategia */}
+                {(() => {
+                  const stratPersonas = parsedStrategyObj.personas || [];
+                  const parsedConsData = consolidatedReport ? (parseJson(consolidatedReport.data) || {}) : {};
+                  const consPersonas = parsedConsData.buyerPersonas || [];
+                  const displayPersonas = stratPersonas.length >= 6 
+                    ? stratPersonas 
+                    : (consPersonas.length > 0 ? consPersonas : stratPersonas);
+
+                  if (!displayPersonas || displayPersonas.length === 0) return null;
+
+                  return (
+                    <div className="space-y-4 bg-background/50 border rounded-2xl p-5 shadow-sm">
+                      <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider block text-[9.5px] flex items-center gap-1.5 border-b pb-2">
+                        <Users className="h-3.5 w-3.5 text-purple-500" /> Público Objetivo (6 Buyer Personas)
+                      </span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                        {displayPersonas.map((persona: any, index: number) => (
+                          <div key={index} className="p-4 bg-muted/10 rounded-2xl border space-y-3 flex flex-col justify-between">
+                            <div className="space-y-2.5">
+                              <div className="flex items-center justify-between border-b pb-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="h-7 w-7 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20 text-purple-600 text-[10px] font-black shrink-0">
+                                    P{index + 1}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-[12px] text-foreground leading-tight">
+                                      {formatPersonaTitle(persona.name, index)}
                                     </span>
-                                  )}
+                                    {extractPersonaArchetype(persona.name) && (
+                                      <span className="text-[9.5px] font-semibold text-purple-600 dark:text-purple-400">
+                                        {extractPersonaArchetype(persona.name)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
+                                {persona.demographics && (
+                                  <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-purple-500/5 text-purple-650">
+                                    {persona.demographics}
+                                  </Badge>
+                                )}
                               </div>
-                              {persona.demographics && (
-                                <Badge variant="secondary" className="text-[8.5px] font-bold rounded-lg bg-purple-500/5 text-purple-650">
-                                  {persona.demographics}
-                                </Badge>
+                              {persona.goals && (
+                                <div className="text-[10px]">
+                                  <span className="font-black text-muted-foreground uppercase text-[8.5px] block mb-0.5">Objetivos y Deseos</span>
+                                  <p className="text-slate-650 dark:text-slate-350 leading-relaxed">{persona.goals}</p>
+                                </div>
+                              )}
+                              {persona.painPoints && (
+                                <div className="text-[10px]">
+                                  <span className="font-black text-rose-500 uppercase text-[8.5px] block mb-0.5 font-bold">Puntos de Dolor</span>
+                                  <p className="text-rose-650 dark:text-rose-350 leading-relaxed font-medium">{persona.painPoints}</p>
+                                </div>
+                              )}
+                              {persona.communication && (
+                                <div className="p-2.5 bg-background/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5 text-[9.5px]">
+                                  <span className="font-black text-purple-650 uppercase text-[8px] block">Guía de Comunicación</span>
+                                  {persona.communication.tone && <div><strong>Tono de Voz:</strong> {persona.communication.tone}</div>}
+                                  {persona.communication.triggers && <div><strong>Disparadores (Triggers):</strong> {persona.communication.triggers}</div>}
+                                  {persona.communication.topics && <div><strong>Temas clave:</strong> {persona.communication.topics}</div>}
+                                </div>
                               )}
                             </div>
-                            {persona.goals && (
-                              <div className="text-[10px]">
-                                <span className="font-black text-muted-foreground uppercase text-[8.5px] block mb-0.5">Objetivos y Deseos</span>
-                                <p className="text-slate-650 dark:text-slate-350 leading-relaxed">{persona.goals}</p>
-                              </div>
-                            )}
-                            {persona.painPoints && (
-                              <div className="text-[10px]">
-                                <span className="font-black text-rose-500 uppercase text-[8.5px] block mb-0.5 font-bold">Puntos de Dolor</span>
-                                <p className="text-rose-650 dark:text-rose-350 leading-relaxed font-medium">{persona.painPoints}</p>
-                              </div>
-                            )}
-                            {persona.communication && (
-                              <div className="p-2.5 bg-background/60 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5 text-[9.5px]">
-                                <span className="font-black text-purple-650 uppercase text-[8px] block">Guía de Comunicación</span>
-                                {persona.communication.tone && <div><strong>Tono de Voz:</strong> {persona.communication.tone}</div>}
-                                {persona.communication.triggers && <div><strong>Disparadores (Triggers):</strong> {persona.communication.triggers}</div>}
-                                {persona.communication.topics && <div><strong>Temas clave:</strong> {persona.communication.topics}</div>}
-                              </div>
-                            )}
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Plan de Canales */}
                 {parsedStrategyObj.channels.length > 0 && (

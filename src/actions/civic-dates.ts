@@ -13,9 +13,7 @@ export interface CivicDateFilterOptions {
 
 export async function getCivicDatesAction(options: CivicDateFilterOptions = {}) {
   try {
-    const where: any = {
-      isActive: true,
-    };
+    const where: any = {};
 
     if (options.category && options.category !== "ALL") {
       where.category = options.category as CivicDateCategory;
@@ -106,7 +104,28 @@ export async function getCivicDatesAction(options: CivicDateFilterOptions = {}) 
       };
     }
 
-    const serialized = civicDates.map((item: any) => ({
+    // Deduplicar automáticamente por nombre y fecha si existen registros duplicados en la BD
+    const uniqueMap = new Map<string, any>();
+    const idsToDelete: string[] = [];
+
+    for (const item of civicDates) {
+      const key = `${item.name.toLowerCase().trim()}_${item.date}`;
+      if (uniqueMap.has(key)) {
+        idsToDelete.push(item.id);
+      } else {
+        uniqueMap.set(key, item);
+      }
+    }
+
+    if (idsToDelete.length > 0) {
+      prisma.civicDate.deleteMany({
+        where: { id: { in: idsToDelete } }
+      }).catch(err => console.error("Error deduplicating DB records:", err));
+    }
+
+    const deduplicatedList = Array.from(uniqueMap.values());
+
+    const serialized = deduplicatedList.map((item: any) => ({
       ...item,
       createdAt: item.createdAt?.toISOString ? item.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: item.updatedAt?.toISOString ? item.updatedAt.toISOString() : new Date().toISOString(),
@@ -122,5 +141,189 @@ export async function getCivicDatesAction(options: CivicDateFilterOptions = {}) 
       success: true,
       data: CIVIC_DATES_DATA,
     };
+  }
+}
+
+import { getSession } from "@/lib/auth";
+
+export async function upsertCivicDateAction(data: {
+  id?: string;
+  name: string;
+  date: string;
+  category: CivicDateCategory;
+  region: string;
+  description?: string;
+  importance: number;
+  hashtags?: string[];
+}) {
+  try {
+    const session = await getSession();
+    const userRole = session?.user?.role || "USER";
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
+
+    if (!isAdmin) {
+      return { success: false, error: "No tienes permisos de administrador para realizar esta acción." };
+    }
+
+    if (data.id) {
+      const updated = await prisma.civicDate.update({
+        where: { id: data.id },
+        data: {
+          name: data.name,
+          date: data.date,
+          category: data.category,
+          region: data.region,
+          description: data.description || null,
+          importance: Number(data.importance) || 5,
+          hashtags: data.hashtags || [],
+        },
+      });
+      return { success: true, data: updated };
+    } else {
+      const created = await prisma.civicDate.create({
+        data: {
+          name: data.name,
+          date: data.date,
+          category: data.category,
+          region: data.region,
+          description: data.description || null,
+          importance: Number(data.importance) || 5,
+          hashtags: data.hashtags || [],
+          isActive: true,
+        },
+      });
+      return { success: true, data: created };
+    }
+  } catch (error: any) {
+    console.error("Error upserting civic date:", error);
+    return { success: false, error: "No se pudo guardar la fecha cívica." };
+  }
+}
+
+export async function toggleCivicDateActiveAction(id: string, isActive: boolean) {
+  try {
+    const session = await getSession();
+    const userRole = session?.user?.role || "USER";
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
+
+    if (!isAdmin) {
+      return { success: false, error: "No tienes permisos de administrador para realizar esta acción." };
+    }
+
+    const updated = await prisma.civicDate.update({
+      where: { id },
+      data: { isActive },
+    });
+    return { success: true, data: updated };
+  } catch (error: any) {
+    console.error("Error toggling civic date status:", error);
+    return { success: false, error: "No se pudo cambiar el estado de la fecha cívica." };
+  }
+}
+
+export async function resetCivicDatesSeedAction() {
+  try {
+    const session = await getSession();
+    const userRole = session?.user?.role || "USER";
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
+
+    if (!isAdmin) {
+      return { success: false, error: "No tienes permisos de administrador para realizar esta acción." };
+    }
+
+    for (const item of CIVIC_DATES_DATA) {
+      const existing = await prisma.civicDate.findFirst({
+        where: { name: item.name },
+      });
+
+      if (existing) {
+        await prisma.civicDate.update({
+          where: { id: existing.id },
+          data: {
+            date: item.date,
+            fixedYear: item.fixedYear ?? null,
+            category: item.category as CivicDateCategory,
+            region: item.region,
+            description: item.description ?? null,
+            importance: item.importance,
+            hashtags: item.hashtags ?? [],
+            industries: item.industries ?? [],
+            isActive: true,
+          },
+        });
+      } else {
+        await prisma.civicDate.create({
+          data: {
+            name: item.name,
+            date: item.date,
+            fixedYear: item.fixedYear ?? null,
+            category: item.category as CivicDateCategory,
+            region: item.region,
+            description: item.description ?? null,
+            importance: item.importance,
+            hashtags: item.hashtags ?? [],
+            industries: item.industries ?? [],
+            isActive: true,
+          },
+        });
+      }
+    }
+
+    const allDbDates = await prisma.civicDate.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    const seenKeys = new Set<string>();
+    const duplicateIdsToDelete: string[] = [];
+
+    for (const d of allDbDates) {
+      const key = `${d.name.toLowerCase().trim()}_${d.date}`;
+      if (seenKeys.has(key)) {
+        duplicateIdsToDelete.push(d.id);
+      } else {
+        seenKeys.add(key);
+      }
+    }
+
+    if (duplicateIdsToDelete.length > 0) {
+      await prisma.civicDate.deleteMany({
+        where: { id: { in: duplicateIdsToDelete } },
+      });
+    }
+
+    const finalDates = await prisma.civicDate.findMany({
+      orderBy: [{ date: "asc" }, { importance: "desc" }],
+    });
+
+    const serialized = finalDates.map((item: any) => ({
+      ...item,
+      createdAt: item.createdAt?.toISOString ? item.createdAt.toISOString() : new Date().toISOString(),
+      updatedAt: item.updatedAt?.toISOString ? item.updatedAt.toISOString() : new Date().toISOString(),
+    }));
+
+    return { success: true, data: serialized };
+  } catch (error: any) {
+    console.error("Error resetting civic dates:", error);
+    return { success: false, error: "No se pudo re-sembrar el catálogo de fechas." };
+  }
+}
+
+export async function deleteCivicDateAction(id: string) {
+  try {
+    const session = await getSession();
+    const userRole = session?.user?.role || "USER";
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPERADMIN";
+
+    if (!isAdmin) {
+      return { success: false, error: "No tienes permisos de administrador para realizar esta acción." };
+    }
+
+    await prisma.civicDate.delete({
+      where: { id },
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting civic date:", error);
+    return { success: false, error: "No se pudo eliminar la fecha cívica." };
   }
 }

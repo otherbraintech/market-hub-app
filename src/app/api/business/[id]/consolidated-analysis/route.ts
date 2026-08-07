@@ -281,7 +281,7 @@ function buildConsolidatedPrompt(context: any) {
   prompt += `PROMPT DE ANÁLISIS DE OPORTUNIDADES Y ENFOQUE SOCIOCULTURAL (MANDATORIO PARA GENERAR LAS BUYER PERSONAS):\n`;
   prompt += `Analiza el contexto del negocio, descripción y catálogo de productos, en conjunto con las variables demográficas, nivel adquisitivo e idiosincrasia cultural de la ciudad de ${business.location || 'operación'}.\n`;
   prompt += `Identifica patrones socioculturales específicos (hábitos de fin de semana, micro-dolores cotidianos de la población local, festividades tradicionales relevantes y modismos de consumo).\n`;
-  prompt += `Con esta base de oportunidades sociológicas, modela exactamente 4 Buyer Personas de alta fidelidad psicográfica en el array 'buyerPersonas'. Usa únicamente títulos profesionales y representativos de la audiencia objetiva del negocio (Ej. Consumidor Habitual B2C, Comprador Corporativo, etc.). Queda estrictamente prohibido usar nombres personales ficticios como "María" o "Carlos".\n\n`;
+  prompt += `Con esta base de oportunidades sociológicas, modela exactamente 6 Buyer Personas de alta fidelidad psicográfica en el array 'buyerPersonas'. Usa únicamente títulos profesionales y representativos de la audiencia objetiva del negocio (Ej. Consumidor Habitual B2C, Comprador Corporativo B2B, Cliente Familiar, etc.). Queda estrictamente prohibido usar nombres personales ficticios como "María" o "Carlos".\n\n`;
   prompt += `Responde SOLO con el JSON, sin texto adicional. Sé específico y accionable.`;
   
   return prompt;
@@ -350,36 +350,69 @@ function generatePlaceholderAnalysis(context: any) {
     },
     buyerPersonas: [
       {
-        "name": "Carlos",
-        "demographics": "Varón, 25-40 años, trabajador activo, compras por WhatsApp",
-        "goals": "Obtener rapidez en la atención y entregas confiables.",
-        "painPoints": "Poco tiempo de cocina, valora la rapidez de compra a través de WhatsApp, prefiere delivery rápido.",
+        "name": "Consumidor Habitual de Conveniencia (B2C)",
+        "demographics": "Adultos de 25-45 años, trabajadores activos, usuarios intensivos de WhatsApp y compras locales",
+        "goals": "Obtener rapidez en la atención, facilidad de pedido directo y entregas puntuales y confiables.",
+        "painPoints": "Poco tiempo libre en rutina diaria, busca simplicidad de compra vía WhatsApp y atención fluida.",
         "communication": {
-          "tone": "Moderno, directo y entusiasta",
-          "triggers": "Salida de la oficina, antojos de media tarde, fines de semana con amigos",
-          "topics": "Combos rápidos, promociones del día, facilidad de pedido"
+          "tone": "Directo, accesible y servicial",
+          "triggers": "Antojos de media tarde, promociones del día y pedidos rápidos por WhatsApp",
+          "topics": "Combos rápidos, facilidad de pago y pedidos en un solo clic"
         }
       },
       {
-        "name": "Sofía",
-        "demographics": "Mujer, 18-24 años, estudiante o joven trabajadora, activa en TikTok e Instagram",
-        "goals": "Probar sabores únicos, productos estéticamente atractivos para compartir en sus redes sociales.",
-        "painPoints": "Aburrimiento con productos comunes, busca experiencias visuales y sabores exóticos o tradicionales innovadores.",
+        "name": "Joven Buscador de Experiencias y Tendencias (B2C)",
+        "demographics": "Jóvenes de 18-28 años, estudiantes y jóvenes profesionales, muy activos en TikTok e Instagram",
+        "goals": "Probar sabores y productos estéticamente atractivos para compartir en sus plataformas sociales.",
+        "painPoints": "Aburrimiento de ofertas tradicionales, busca experiencias visuales instagrameables y novedades.",
         "communication": {
-          "tone": "Alegre y dinámico",
-          "triggers": "Tendencias en redes, juntadas de tarde con amigas, eventos de vida estudiantiles",
-          "topics": "Detrás de escena (UGC), lanzamientos de productos nuevos, sorteos e interacción"
+          "tone": "Fresco, dinámico y alegre",
+          "triggers": "Tendencias en redes, lanzamientos exclusivos y contenido visual de alto impacto",
+          "topics": "Detrás de escena (UGC), ediciones limitadas y dinámicas de interacción"
         }
       },
       {
-        "name": "Roberto",
-        "demographics": "Varón, 40-55 años, administrador o dueño de negocio, compras de volumen",
-        "goals": "Abastecer eventos corporativos y reuniones con productos confiables y de excelente presentación.",
-        "painPoints": "Exigencia de puntualidad extrema, requiere facturación y cotizaciones rápidas, teme fallas en el stock.",
+        "name": "Comprador Corporativo y Eventos (B2B)",
+        "demographics": "Administradores, gestores de talento y dueños de empresas de 30-55 años",
+        "goals": "Abastecer reuniones corporativas, eventos de equipo y festejos con productos de alta presentación.",
+        "painPoints": "Exigencia de puntualidad extrema, requiere facturación inmediata y cotizaciones sin demoras.",
         "communication": {
-          "tone": "Profesional y seguro",
-          "triggers": "Reuniones de oficina, festejos de fin de año, catering para seminarios",
-          "topics": "Descuentos por volumen, testimonios corporativos, catálogo de catering especial"
+          "tone": "Profesional, ejecutivo y seguro",
+          "triggers": "Reuniones de oficina, catering corporativo y festejos de fin de año",
+          "topics": "Descuentos por volumen, facturación rápida y catálogo corporativo VIP"
+        }
+      },
+      {
+        "name": "Cliente Familiar de Fines de Semana",
+        "demographics": "Familias de 30-50 años con hijos, residentes locales de nivel socioeconómico medio a medio-alto",
+        "goals": "Disfrutar momentos de unión familiar y celebraciones memorables sin complicaciones de preparación.",
+        "painPoints": "Falta de tiempo para cocina compleja, temor a fallas de calidad o presentación en reuniones familiares.",
+        "communication": {
+          "tone": "Cálido, familiar y confiable",
+          "triggers": "Reuniones de fin de semana, festividades locales y compras anticipadas",
+          "topics": "Paquetes familiares, tradiciones locales y calidad garantizada"
+        }
+      },
+      {
+        "name": "Profesional Exigente y de Alto Rendimiento",
+        "demographics": "Ejecutivos y profesionales independientes de 28-48 años con ritmo de vida acelerado",
+        "goals": "Consumir productos de la más alta calidad, ingredientes seleccionados y presentación impecable.",
+        "painPoints": "Sensible a la mala atención o productos de baja calidad, busca practicidad sin comprometer la excelencia.",
+        "communication": {
+          "tone": "Refinado, conciso y de alto valor",
+          "triggers": "Línea gourmet/premium, sellos de calidad e historias de origen",
+          "topics": "Ingredientes seleccionados, atención preferencial y beneficios exclusivos"
+        }
+      },
+      {
+        "name": "Cliente Leal Tradicional de la Marca",
+        "demographics": "Clientes frecuentes de 35-60 años que valoran la consistencia y la relación directa con el negocio",
+        "goals": "Mantener su hábito de compra regular disfrutando de un trato personalizado y reconocimiento VIP.",
+        "painPoints": "Temor a cambios bruscos en la calidad o atención despersonalizada.",
+        "communication": {
+          "tone": "Atento, cordial y cercano",
+          "triggers": "Club de fidelidad, atención directa por WhatsApp y regalos por aniversario de cliente",
+          "topics": "Beneficios de lealtad, preventas exclusivas y novedades de la marca"
         }
       }
     ],

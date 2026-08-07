@@ -8,6 +8,7 @@ export async function listUsers() {
       username: true,
       name: true,
       role: true,
+      plan: true,
       maxBusinesses: true,
       maxCompetitors: true,
       createdAt: true,
@@ -40,9 +41,11 @@ export async function listUsers() {
   return usersWithCompetitors
 }
 
-export async function updateUserLimit(userId: string, maxBusinesses: number) {
+export async function updateUserLimit(userId: string, maxBusinesses: number, plan?: string) {
+  const data: any = { maxBusinesses };
+  if (plan) data.plan = plan;
   return prisma.user.update({
     where: { id: userId },
-    data: { maxBusinesses }
+    data
   })
 }

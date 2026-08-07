@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { 
@@ -16,12 +18,31 @@ import {
   RefreshCw,
   X,
   Building2,
-  ChevronDown
+  ChevronDown,
+  Eye,
+  ExternalLink,
+  ZoomIn
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   listMediaAssetsAction, 
   createMediaAssetAction, 
@@ -63,7 +84,7 @@ function colorDistance(hex1: string, hex2: string): number {
  * Extracción cromática inteligente mediante HTML5 Canvas (Client-side)
  * Prioriza los tonos visualmente más DISTINTOS (salto de distancia en espacio RGB).
  */
-function extractDominantColorsFromImage(imageSrc: string, colorCount = 10): Promise<string[]> {
+function extractDominantColorsFromImage(imageSrc: string, colorCount = 5): Promise<string[]> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "Anonymous";
@@ -83,6 +104,7 @@ function extractDominantColorsFromImage(imageSrc: string, colorCount = 10): Prom
         const data = imageData.data;
 
         const colorBuckets: { [hex: string]: number } = {};
+        let totalValidPixels = 0;
 
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i];
@@ -91,7 +113,7 @@ function extractDominantColorsFromImage(imageSrc: string, colorCount = 10): Prom
           const a = data[i + 3];
 
           // Omitir píxeles transparentes
-          if (a < 40) continue;
+          if (a < 50) continue;
 
           // Agrupar píxeles en pasos de 16
           const qR = Math.round(r / 16) * 16;
@@ -100,15 +122,19 @@ function extractDominantColorsFromImage(imageSrc: string, colorCount = 10): Prom
 
           const hex = `#${((1 << 24) + (qR << 16) + (qG << 8) + qB).toString(16).slice(1).toUpperCase()}`;
           colorBuckets[hex] = (colorBuckets[hex] || 0) + 1;
+          totalValidPixels++;
         }
 
-        const sortedHexes = Object.keys(colorBuckets).sort(
-          (a, b) => colorBuckets[b] - colorBuckets[a]
-        );
+        // Solo considerar colores significativos (que representen al menos el 1.5% del total)
+        const minPixelCount = Math.max(5, Math.floor(totalValidPixels * 0.015));
 
-        // PASO 1: Priorizar tonos con alta distancia de color entre sí (distintos primero)
+        const sortedHexes = Object.keys(colorBuckets)
+          .filter(hex => colorBuckets[hex] >= minPixelCount)
+          .sort((a, b) => colorBuckets[b] - colorBuckets[a]);
+
+        // PASO 1: Priorizar tonos con alta distancia cromática entre sí (distintos primero)
         const result: string[] = [];
-        const primaryThreshold = 65; // Distancia cromática para salto entre colores marcadamente distintos
+        const primaryThreshold = 60; // Distancia cromática sustancial entre colores distintos
 
         for (const hex of sortedHexes) {
           if (result.length >= colorCount) break;
@@ -120,8 +146,8 @@ function extractDominantColorsFromImage(imageSrc: string, colorCount = 10): Prom
           }
         }
 
-        // PASO 2: Si quedan espacios, relajar umbral a 35 para capturar matices secundarios
-        if (result.length < colorCount) {
+        // PASO 2: Si sólo hay 1 color principal, relajar suavemente el umbral a 35 para capturar un color secundario real
+        if (result.length < 2) {
           const secondaryThreshold = 35;
           for (const hex of sortedHexes) {
             if (result.length >= colorCount) break;
@@ -137,7 +163,7 @@ function extractDominantColorsFromImage(imageSrc: string, colorCount = 10): Prom
         }
 
         if (result.length === 0) resolve(["#0F172A", "#3B82F6", "#10B981"]);
-        else resolve(result);
+        else resolve(result.slice(0, colorCount));
       } catch (err) {
         console.error("Error al extraer paleta cromática:", err);
         resolve(["#0F172A", "#3B82F6", "#10B981"]);
@@ -166,6 +192,16 @@ interface BusinessItem {
   id: string;
   name: string;
   logo?: string | null;
+}
+
+export function getCategoryLabel(category?: string | null): string {
+  if (!category) return "Arte de Inspiración";
+  const cat = category.toUpperCase();
+  if (cat === "LOGO" || cat === "MANUAL") return "Logotipo de Marca";
+  if (cat === "INSPIRATION") return "Arte de Inspiración";
+  if (cat === "NICHO_TERCEROS") return "Referencia de Nicho";
+  if (cat === "VIDEO") return "Video de Marca";
+  return "Arte de Inspiración";
 }
 
 interface MediaLibraryClientProps {
@@ -223,6 +259,8 @@ export function MediaLibraryClient({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [filterCategory, setFilterCategory] = useState<"ALL" | "LOGO" | "INSPIRATION" | "VIDEO">("ALL");
+  const [previewAsset, setPreviewAsset] = useState<MediaAsset | null>(null);
+  const [assetToDelete, setAssetToDelete] = useState<MediaAsset | null>(null);
 
   const fetchAssets = async () => {
     const res = await listMediaAssetsAction(businessId);
@@ -265,7 +303,7 @@ export function MediaLibraryClient({
       }
 
       const cdnUrl = obData.url;
-      const extractedColors = await extractDominantColorsFromImage(cdnUrl, 10);
+      const extractedColors = await extractDominantColorsFromImage(cdnUrl, 5);
 
       const res = await updateBusinessLogoAction({
         businessId,
@@ -324,10 +362,10 @@ export function MediaLibraryClient({
     const targetLogo = logoUrl || activeBusiness?.logo;
     if (!targetLogo) return;
     toast.info("Re-analizando paleta cromática del logotipo...");
-    const reextracted = await extractDominantColorsFromImage(targetLogo, 10);
+    const reextracted = await extractDominantColorsFromImage(targetLogo, 5);
     setBrandColors(reextracted);
     await updateBusinessBrandColorsAction(businessId, reextracted);
-    toast.success("Paleta re-extraída con éxito.");
+    toast.success("Paleta de 5 colores dominantes re-extraída con éxito.");
   };
 
   /**
@@ -423,19 +461,21 @@ export function MediaLibraryClient({
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("¿Estás seguro de que deseas eliminar este recurso?")) return;
+  const handleDelete = (asset: MediaAsset) => {
+    setAssetToDelete(asset);
+  };
 
+  const confirmDelete = async (id: string) => {
     try {
       const res = await deleteMediaAssetAction(id, businessId);
       if (res.success) {
-        toast.success("Asset eliminado correctamente.");
+        toast.success("Recurso gráfico eliminado correctamente.");
         await fetchAssets();
       } else {
-        toast.error(res.error || "Error al eliminar.");
+        toast.error(res.error || "Error al eliminar el recurso.");
       }
     } catch (err) {
-      toast.error("Error de base de datos.");
+      toast.error("Error de base de datos al eliminar.");
     }
   };
 
@@ -785,38 +825,56 @@ export function MediaLibraryClient({
                   const isVideo = asset.type === "VIDEO";
                   return (
                     <div key={asset.id} className="group relative aspect-square rounded-xl border overflow-hidden bg-muted flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow">
-                      <div className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center bg-zinc-900">
+                      <div 
+                        className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center bg-zinc-900 cursor-pointer"
+                        onClick={() => setPreviewAsset(asset)}
+                        title="Clic para previsualizar foto en tamaño completo"
+                      >
                         {isVideo ? (
                           <video src={asset.url} className="w-full h-full object-cover" muted />
                         ) : (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={asset.url} alt={asset.filename} className="w-full h-full object-cover" />
+                          <img src={asset.url} alt={asset.filename} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
                         )}
 
-                        <div className="absolute top-1.5 left-1.5">
+                        <div className="absolute top-1.5 left-1.5 pointer-events-none">
                           {isVideo ? (
                             <Badge className="bg-blue-600 text-white text-[8px] font-bold px-1 py-0">VIDEO</Badge>
                           ) : (
-                            <Badge className="bg-cyan-600 text-white text-[8px] font-bold px-1 py-0">ARTE</Badge>
+                            <Badge className="bg-cyan-600 text-white text-[8px] font-bold px-1 py-0">
+                              {asset.category === "LOGO" || asset.category === "MANUAL" ? "LOGOTIPO" : "ARTE"}
+                            </Badge>
                           )}
-                        </div>
-
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Button 
-                            size="icon" 
-                            variant="destructive" 
-                            className="h-7 w-7 rounded-lg cursor-pointer"
-                            onClick={() => handleDelete(asset.id)}
-                            title="Eliminar recurso"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
                         </div>
                       </div>
 
-                      <div className="bg-card p-1.5 text-[9.5px] leading-tight border-t">
-                        <p className="font-bold truncate text-foreground">{asset.filename}</p>
-                        <p className="text-[8.5px] text-muted-foreground mt-0.5">{formatBytes(asset.size)}</p>
+                      <div className="bg-card p-2 text-[9.5px] leading-tight border-t flex flex-col gap-1.5">
+                        <div className="truncate">
+                          <p className="font-bold truncate text-foreground">{asset.filename}</p>
+                          <p className="text-[8.5px] text-muted-foreground mt-0.5 font-medium">{formatBytes(asset.size)}</p>
+                        </div>
+
+                        {/* Botones Ver y Eliminar Visibles Directamente (Sin requerir hover) */}
+                        <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 flex-1 text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/20 border-cyan-500/30 font-extrabold text-[10px] gap-1 transition-all rounded-lg cursor-pointer px-1.5"
+                            onClick={() => setPreviewAsset(asset)}
+                            title="Ver foto en tamaño completo"
+                          >
+                            <Eye className="h-3 w-3 shrink-0 text-cyan-600 dark:text-cyan-400" /> Ver
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 flex-1 text-rose-700 dark:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 font-extrabold text-[10px] gap-1 transition-all rounded-lg cursor-pointer px-1.5"
+                            onClick={() => handleDelete(asset)}
+                            title="Eliminar foto"
+                          >
+                            <Trash2 className="h-3 w-3 shrink-0 text-rose-600 dark:text-rose-400" /> Eliminar
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -826,6 +884,95 @@ export function MediaLibraryClient({
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Previsualización (Ver Foto / Arte) */}
+      <Dialog open={!!previewAsset} onOpenChange={(open) => !open && setPreviewAsset(null)}>
+        <DialogContent className="sm:max-w-3xl bg-card border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between text-base font-bold pr-6">
+              <span className="truncate flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-cyan-500" />
+                {previewAsset?.filename}
+              </span>
+              <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 text-xs font-black">
+                {previewAsset?.type === "VIDEO" ? "VIDEO" : (previewAsset?.category === "LOGO" || previewAsset?.category === "MANUAL" ? "LOGOTIPO DE MARCA" : "ARTE DE INSPIRACIÓN")}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {previewAsset && (
+            <div className="space-y-4 py-2">
+              <div className="relative rounded-2xl overflow-hidden bg-slate-950 flex items-center justify-center max-h-[70vh] border border-border shadow-inner">
+                {previewAsset.type === "VIDEO" ? (
+                  <video src={previewAsset.url} controls autoPlay className="max-h-[68vh] w-full object-contain" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewAsset.url} alt={previewAsset.filename} className="max-h-[68vh] w-full object-contain" />
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-3 pt-2 border-t">
+                <div className="flex items-center gap-4 font-semibold">
+                  <span><strong>Tamaño:</strong> {formatBytes(previewAsset.size)}</span>
+                  <span><strong>Categoría:</strong> {getCategoryLabel(previewAsset.category)}</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <a 
+                    href={previewAsset.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-xs transition-all shadow-md shadow-cyan-600/30 hover:scale-102 active:scale-98"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Ver en Tamaño Completo ↗
+                  </a>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      const targetAsset = previewAsset;
+                      setPreviewAsset(null);
+                      handleDelete(targetAsset);
+                    }}
+                    className="gap-1.5 font-extrabold text-xs px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/30 hover:scale-102 active:scale-98 transition-all"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Eliminar foto
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmación de Eliminación (shadcn AlertDialog) */}
+      <AlertDialog open={!!assetToDelete} onOpenChange={(open) => !open && setAssetToDelete(null)}>
+        <AlertDialogContent className="bg-card border-border text-foreground max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-extrabold text-base">
+              <AlertCircle className="h-5 w-5 shrink-0" /> ¿Eliminar este recurso gráfico?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
+              Esta acción eliminará permanentemente el archivo <strong className="text-foreground">{assetToDelete?.filename}</strong> de tu biblioteca de marca. Esta operación no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-3 gap-2">
+            <AlertDialogCancel className="font-extrabold text-xs cursor-pointer border-border">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (assetToDelete) {
+                  const targetId = assetToDelete.id;
+                  setAssetToDelete(null);
+                  confirmDelete(targetId);
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs cursor-pointer border-0 shadow-md shadow-rose-600/30"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" /> Sí, Eliminar permanente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/sidebar"
 import { logout } from "@/app/(auth)/login/actions"
 
+import { hasRouteAccess } from "@/lib/access-control"
+
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   businesses: any[]
   selectedId?: string
@@ -46,8 +48,10 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
     id: b.id
   }))
 
+  const userRole = session?.user?.role || session?.role || "USER";
+
   const navMain = React.useMemo(() => {
-    return [
+    const allItems = [
       {
         title: "Crear Negocio",
         url: "/business/create?new=true",
@@ -88,8 +92,10 @@ export function AppSidebar({ businesses, selectedId, session, ...props }: AppSid
         url: "/plans",
         icon: CreditCard,
       },
-    ]
-  }, [selectedId]);
+    ];
+
+    return allItems.filter(item => hasRouteAccess(userRole, item.url));
+  }, [selectedId, userRole]);
 
   const user = {
     name: session?.user?.name || session?.user?.username || "Usuario",

@@ -8,12 +8,16 @@ import bcrypt from "bcryptjs";
 /**
  * Actualiza límites, rol y datos de un usuario existente.
  */
+/**
+ * Actualiza límites, rol, plan y datos de un usuario existente.
+ */
 export async function updateUserLimitAction(
   userId: string, 
   maxBusinesses: number,
   maxCompetitors: number,
   role?: string,
-  name?: string
+  name?: string,
+  plan?: string
 ) {
   try {
     const session = await getSession();
@@ -24,6 +28,7 @@ export async function updateUserLimitAction(
     const dataToUpdate: any = { maxBusinesses, maxCompetitors };
     if (role) dataToUpdate.role = role;
     if (name) dataToUpdate.name = name;
+    if (plan) dataToUpdate.plan = plan;
 
     await prisma.user.update({
       where: { id: userId },
@@ -41,6 +46,7 @@ export async function updateUserLimitAction(
           ...session.user,
           name: name || session.user.name,
           role: role || session.user.role,
+          plan: plan || session.user.plan || "FREE",
           maxBusinesses,
           maxCompetitors
         }
@@ -57,6 +63,7 @@ export async function updateUserLimitAction(
     }
 
     revalidatePath('/settings/users');
+    revalidatePath('/settings');
     revalidatePath('/business');
     return { success: true };
   } catch (error: any) {
@@ -73,6 +80,7 @@ export async function createUserAction(data: {
   name: string;
   password: string;
   role: string;
+  plan?: string;
   maxBusinesses?: number;
   maxCompetitors?: number;
 }) {
@@ -107,12 +115,14 @@ export async function createUserAction(data: {
         name: data.name.trim(),
         password: hashedPassword,
         role: data.role || "USER",
+        plan: data.plan || "FREE",
         maxBusinesses: data.maxBusinesses ?? 1,
         maxCompetitors: data.maxCompetitors ?? 3
       }
     });
 
     revalidatePath('/settings/users');
+    revalidatePath('/settings');
     return { success: true, user: newUser };
   } catch (error: any) {
     console.error("Error in createUserAction:", error);

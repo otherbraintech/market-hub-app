@@ -152,7 +152,7 @@ export async function createMediaAssetAction(data: {
         url: data.url,
         mimeType: data.mimeType,
         size: data.size,
-        category: data.category || "MANUAL",
+        category: data.category || "INSPIRATION",
         formatCategory: data.formatCategory || (data.type === "VIDEO" ? "VIDEO" : "ART"),
       },
     });

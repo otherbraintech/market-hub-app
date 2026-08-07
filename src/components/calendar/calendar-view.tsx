@@ -1664,37 +1664,46 @@ export function CalendarView({
                     const getPromptsArray = (promptText: string | null) => {
                       if (!promptText) return [];
                       const text = promptText.trim();
+                      const clean = text.toLowerCase();
                       
-                      // Detect slide-based prompt
-                      const regex = /(?:Slide|Diapositiva|Paso|Imagen)?\s*(\d+)\s*[:.-]\s*([\s\S]*?)(?=(?:Slide|Diapositiva|Paso|Imagen)?\s*\d+\s*[:.-]|$)/gi;
-                      const matches = [...text.matchAll(regex)];
-                      
-                      if (matches.length > 0) {
-                        return matches.map(m => ({
+                      if (["", "n/a", "none", "no aplica", "n.a.", "no disponible", "n / a", "none."].includes(clean)) {
+                        return [];
+                      }
+
+                      const isCarousel = editForm.type === "CAROUSEL";
+
+                      // Detect explicit slide headers starting at newlines or start of string
+                      // Must match words like Slide/Diapositiva/Paso/Imagen ONLY at start of lines (not --ar 9:16)
+                      const explicitSlideRegex = /(?:^|\n)\s*(?:Slide|Diapositiva|Paso|Imagen)\s*(\d+)\s*[:.-]\s*([\s\S]*?)(?=(?:\n)\s*(?:Slide|Diapositiva|Paso|Imagen)\s*\d+\s*[:.-]|$)/gi;
+                      const slideMatches = [...text.matchAll(explicitSlideRegex)];
+
+                      if (slideMatches.length > 0) {
+                        return slideMatches.map(m => ({
                           label: `Slide ${m[1]}`,
                           prompt: m[2].trim()
                         })).filter(item => item.prompt.length > 0);
                       }
-                      
-                      // Try splitting by lines starting with numbers
-                      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-                      const numberedLines = lines.filter(l => /^\d+[\s.:-]/.test(l));
-                      if (numberedLines.length > 1) {
-                        return numberedLines.map((line, idx) => {
-                          const clean = line.replace(/^\d+[\s.:-]\s*/, '').trim();
-                          return {
-                            label: `Slide ${idx + 1}`,
-                            prompt: clean
-                          };
-                        });
+
+                      // If carousel and text has numbered lines like "1. prompt...", "2. prompt..." at line starts
+                      if (isCarousel) {
+                        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+                        const numberedLines = lines.filter(l => /^\d+[\s.:-]/.test(l));
+                        if (numberedLines.length > 1) {
+                          return numberedLines.map((line, idx) => {
+                            const cleanLine = line.replace(/^\d+[\s.:-]\s*/, '').trim();
+                            return {
+                              label: `Slide ${idx + 1}`,
+                              prompt: cleanLine
+                            };
+                          });
+                        }
                       }
 
-                      // Fallback to single prompt
-                      const clean = text.toLowerCase();
-                      if (["", "n/a", "none", "no aplica", "n.a.", "no disponible", "n / a", "none."].includes(clean)) {
-                        return [];
-                      }
-                      return [{ label: "Imagen de Portada / Post", prompt: text }];
+                      // Fallback to single prompt (preserving aspect ratios like --ar 9:16)
+                      return [{ 
+                        label: isCarousel ? "Prompt Principal de Carrusel" : "Prompt para Generar Imagen / Portada", 
+                        prompt: text 
+                      }];
                     };
 
                     const prompts = getPromptsArray(editForm.promptUsed);

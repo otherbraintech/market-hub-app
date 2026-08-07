@@ -196,9 +196,9 @@ export function AgentPipelineSidebar({
     : hasCalendar ? "completed" : !hasStrategy ? "locked" : "idle";
 
   return (
-    <Card className="border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-lg overflow-hidden rounded-2xl">
-      {/* Header */}
-      <CardHeader className="border-b border-border dark:border-cyan-500/10 bg-muted/40 dark:bg-[#080E1A]/80 pb-3.5">
+    <Card className="h-full min-h-0 flex flex-col border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-lg overflow-hidden rounded-2xl">
+      {/* Header (Fijo al inicio de la columna) */}
+      <CardHeader className="shrink-0 border-b border-border dark:border-cyan-500/10 bg-muted/40 dark:bg-[#080E1A]/80 pb-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Cpu className="h-4.5 w-4.5 text-slate-700 dark:text-cyan-400 animate-pulse" />
@@ -223,7 +223,8 @@ export function AgentPipelineSidebar({
         </div>
       </CardHeader>
 
-      <CardContent className="p-3.5 space-y-3">
+      {/* Contenedor de las 5 Etapas con Scroll Independiente */}
+      <CardContent className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3">
         {/* Step 1: Digital Audit */}
         <AgentStepCard
           stepNumber={1}

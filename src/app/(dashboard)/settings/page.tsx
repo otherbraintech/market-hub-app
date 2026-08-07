@@ -22,6 +22,7 @@ export default async function SettingsPage() {
         name: true,
         username: true,
         role: true,
+        plan: true,
         maxBusinesses: true,
         maxCompetitors: true,
         createdAt: true
@@ -33,6 +34,15 @@ export default async function SettingsPage() {
   const userName = dbUser?.name || session?.user?.name || "Usuario Administrador";
   const userEmail = dbUser?.username || session?.user?.email || session?.user?.username || "admin@markethub.ai";
   const userRole = dbUser?.role || session?.user?.role || "USER";
+  const rawPlan = dbUser?.plan || session?.user?.plan || "FREE";
+  const planDisplayNames: Record<string, string> = {
+    FREE: "GRATUITO",
+    profesional: "PROFESIONAL",
+    premium: "PREMIUM",
+    agencia: "AGENCIA",
+    CUSTOM: "PERSONALIZADO"
+  };
+  const userPlanLabel = planDisplayNames[rawPlan] || rawPlan.toUpperCase();
   const maxBusinesses = dbUser?.maxBusinesses ?? 5;
   const maxCompetitors = dbUser?.maxCompetitors ?? 3;
   const businessPercentage = Math.min((businessCount / maxBusinesses) * 100, 100);
@@ -56,9 +66,14 @@ export default async function SettingsPage() {
               <CardTitle className="flex items-center gap-2 text-base font-extrabold">
                 <User className="h-5 w-5 text-indigo-600" /> Perfil del Usuario
               </CardTitle>
-              <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 text-xs font-black px-3 py-1">
-                ROL: {userRole}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 text-xs font-black px-3 py-1">
+                  ROL: {userRole}
+                </Badge>
+                <Badge className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-200 text-xs font-black px-3 py-1">
+                  PLAN: {userPlanLabel}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
@@ -90,7 +105,7 @@ export default async function SettingsPage() {
                 </CardDescription>
               </div>
               <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20 text-xs font-black self-start sm:self-auto px-3 py-1">
-                ✓ PLAN HABILITADO
+                ✓ PLAN {userPlanLabel} ACTIVO
               </Badge>
             </div>
           </CardHeader>

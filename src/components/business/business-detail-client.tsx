@@ -51,7 +51,7 @@ export function BusinessDetailClient({
         </div>
 
         {/* Right Column (1/4): 5-Step Agent Pipeline Sidebar with Independent Scroll */}
-        <div className="lg:col-span-1 h-full min-h-0 overflow-y-auto pr-1">
+        <div className="lg:col-span-1 h-full min-h-0 flex flex-col overflow-hidden">
           <AgentPipelineSidebar
             businessId={business.id}
             hasAudit={hasAudit}

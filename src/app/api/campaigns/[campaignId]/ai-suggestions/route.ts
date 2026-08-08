@@ -100,6 +100,7 @@ async function generateAISuggestionsWithOpenRouter(context: any) {
   try {
     const prompt = buildPrompt(context);
     
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -109,7 +110,7 @@ async function generateAISuggestionsWithOpenRouter(context: any) {
         'X-Title': 'MarketOps',
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4.5',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',

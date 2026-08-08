@@ -100,7 +100,7 @@ export async function POST(
         runBusinessConsolidatedAnalysis(businessId).catch((err) => console.error(err));
       } catch (error: any) {
         console.warn(`[BUSINESS-SCRAP-ROUTE] Fallback a n8n para ${reportChannel}:`, error.message);
-        const n8nWebhookUrl = "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap";
+        const n8nWebhookUrl = "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
         try {
           await fetch(n8nWebhookUrl, {
             method: "POST",
@@ -109,13 +109,10 @@ export async function POST(
               reportId: report.id,
               type: "MY_BUSINESS",
               channel: reportChannel,
-              redSocial: reportChannel,
               url: sanitizedUrl,
-              link: sanitizedUrl,
               businessId,
-              entityId: businessId,
+              competitorName: "",
               businessName: business.name,
-              competitorName: business.name,
               callbackUrl: `${process.env.APP_URL || "http://localhost:3000"}/api/webhook/callback`,
             }),
           });

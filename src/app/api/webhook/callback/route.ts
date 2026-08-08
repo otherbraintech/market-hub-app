@@ -156,35 +156,35 @@ export async function POST(request: Request) {
               status: "COMPLETED"
             }
           });
+
+          // Si todos los reportes están listos, disparar la consolidación y el informe general (evita llamadas duplicadas redundantes a la IA)
+          try {
+            if (report.type === "COMPETITOR") {
+              const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
+              const { runCompetitorConsolidatedAnalysis } = await import("@/app/api/competitors/[businessId]/consolidated-analysis/route");
+
+              console.log(`🤖 Disparando regeneración automática de Informe General y Análisis Consolidado de Competidores para negocio: ${resolvedBusinessId}`);
+              runGenerateGeneralReport(resolvedBusinessId).catch((err) => {
+                console.error("Error en regeneración de informe de competidores:", err);
+              });
+              runCompetitorConsolidatedAnalysis(resolvedBusinessId).catch((err) => {
+                console.error("Error en consolidación de análisis de competidores:", err);
+              });
+            } else if (report.type === "MY_BUSINESS") {
+              const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
+
+              console.log(`🤖 Disparando regeneración automática de Análisis Consolidado Propio para negocio: ${resolvedBusinessId}`);
+              runBusinessConsolidatedAnalysis(resolvedBusinessId).catch((err) => {
+                console.error("Error en consolidación automática propia de negocio:", err);
+              });
+            }
+          } catch (err) {
+            console.error("Error al procesar los triggers automáticos de consolidación/informe general:", err);
+          }
         }
       } catch (err) {
         console.error("Error al verificar finalización de scraping global:", err);
       }
-    }
-
-    // Si el reporte es exitoso, actualizar automáticamente el informe consolidado / análisis general del negocio
-    try {
-      if (report.type === "COMPETITOR" && resolvedBusinessId) {
-        const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
-        const { runCompetitorConsolidatedAnalysis } = await import("@/app/api/competitors/[businessId]/consolidated-analysis/route");
-
-        console.log(`🤖 Disparando regeneración automática de Informe General y Análisis Consolidado de Competidores para negocio: ${resolvedBusinessId}`);
-        runGenerateGeneralReport(resolvedBusinessId).catch((err) => {
-          console.error("Error en regeneración de informe de competidores:", err);
-        });
-        runCompetitorConsolidatedAnalysis(resolvedBusinessId).catch((err) => {
-          console.error("Error en consolidación de análisis de competidores:", err);
-        });
-      } else if (report.type === "MY_BUSINESS" && resolvedBusinessId) {
-        const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
-
-        console.log(`🤖 Disparando regeneración automática de Análisis Consolidado Propio para negocio: ${resolvedBusinessId}`);
-        runBusinessConsolidatedAnalysis(resolvedBusinessId).catch((err) => {
-          console.error("Error en consolidación automática propia de negocio:", err);
-        });
-      }
-    } catch (err) {
-      console.error("Error al procesar los triggers automáticos de consolidación/informe general:", err);
     }
 
     return NextResponse.json({ success: true, report });

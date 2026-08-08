@@ -260,11 +260,13 @@ export async function scrapeWithN8nWebhook(options: ScrapeOptions): Promise<Scra
   const sanitizedUrl = sanitizeSocialUrl(options.url);
   const username = extractSocialUsername(sanitizedUrl);
 
-  const n8nWebhookUrl = options.type === "COMPETITOR"
-    ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio"
-    : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap";
+  const primaryHost = process.env.N8N_HOST || "https://n8n-n8n-start.ddt6vc.easypanel.host";
+  const fallbackHost = "https://otherbrain-n8n.c1hohn.easypanel.host";
 
-  console.log(`⚡ [N8N] Disparando webhook en n8n: ${n8nWebhookUrl} (${channel} - ${options.type || "MY_BUSINESS"}: ${sanitizedUrl})`);
+  // Webhook endpoints de n8n (POST)
+  const primaryUrl = `${primaryHost}/webhook/scrap-negocio`;
+  const secondaryUrl = `${primaryHost}/webhook/sitioweb-scrap`;
+  const fallbackUrl = `${fallbackHost}/webhook/scrap-negocio`;
 
   const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const callbackUrl = `${appUrl}/api/webhook/callback`;
@@ -273,53 +275,70 @@ export async function scrapeWithN8nWebhook(options: ScrapeOptions): Promise<Scra
     reportId: options.reportId || "",
     type: options.type || "MY_BUSINESS",
     channel,
-    redSocial: channel,
     url: sanitizedUrl,
-    link: sanitizedUrl,
     businessId: options.businessId || "",
-    entityId: options.businessId || "",
+    competitorName: options.type === "COMPETITOR" ? (options.businessName || "") : "",
     businessName: options.businessName || "",
-    competitorName: options.businessName || "",
     callbackUrl,
-    platform: channel.toLowerCase(),
-    maxPosts: options.maxPosts || 5,
   };
 
+  console.log(`⚡ [N8N POST] Disparando webhook en n8n: ${primaryUrl} (${channel} - ${options.type || "MY_BUSINESS"}: ${sanitizedUrl})`);
+  console.log(`📦 [N8N PAYLOAD]`, JSON.stringify(payload));
+
   try {
-    const res = await fetch(n8nWebhookUrl, {
+    let res = await fetch(primaryUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       cache: "no-store",
     });
 
+    if (!res.ok) {
+      console.warn(`⚠️ [N8N] ${primaryUrl} respondió con HTTP ${res.status}. Probando endpoint secundario: ${secondaryUrl}`);
+      res = await fetch(secondaryUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      });
+    }
+
+    if (!res.ok) {
+      console.warn(`⚠️ [N8N] ${secondaryUrl} respondió con HTTP ${res.status}. Probando fallback host: ${fallbackUrl}`);
+      res = await fetch(fallbackUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        cache: "no-store",
+      });
+    }
+
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
-      if (data && (data.scraped_posts || data.author_name || data.description)) {
-        return {
-          platform: channel.toLowerCase(),
-          author_name: data.author_name || username || `Perfil ${channel}`,
-          user_handle: `@${username || "perfil"}`,
-          profile_url: sanitizedUrl,
-          avatar_url: data.avatar_url || "",
-          followers_count: data.followers_count || "N/A",
-          following_count: data.following_count || "N/A",
-          posts_count: data.posts_count || (data.scraped_posts ? data.scraped_posts.length : 0),
-          description: data.description || "",
-          scraped_posts: data.scraped_posts || [],
-          scraped_at: new Date().toISOString(),
-          source: "N8N_WEBHOOK",
-        };
-      }
+      console.log(`✅ [N8N SUCCESS] Webhook POST aceptado exitosamente por n8n (HTTP ${res.status}):`, data);
+      return {
+        platform: channel.toLowerCase(),
+        author_name: data.author_name || (username ? `@${username}` : `Perfil ${channel}`),
+        user_handle: `@${username || "perfil"}`,
+        profile_url: sanitizedUrl,
+        avatar_url: data.avatar_url || "",
+        followers_count: data.followers_count || "En actualización",
+        following_count: data.following_count || "En actualización",
+        posts_count: data.posts_count || (data.scraped_posts ? data.scraped_posts.length : 0),
+        description: data.description || "Solicitud de extracción enviada exitosamente a n8n vía POST",
+        scraped_posts: data.scraped_posts || [],
+        scraped_at: new Date().toISOString(),
+        source: "N8N_WEBHOOK",
+      };
     } else {
       const errText = await res.text().catch(() => "");
-      console.error(`❌ [N8N] Webhook respondió con estado HTTP ${res.status}: ${errText}`);
+      console.error(`❌ [N8N ERROR] Webhook respondió con estado HTTP ${res.status}: ${errText}`);
     }
   } catch (err: any) {
-    console.warn(`⚠️ [N8N] Advertencia en webhook n8n (${channel}): ${err.message}`);
+    console.warn(`⚠️ [N8N ERROR] Excepción enviando webhook POST n8n (${channel}): ${err.message}`);
   }
 
-  return buildFallbackProfile(sanitizedUrl, channel, username, "Extracción vía Apify/n8n activada");
+  return buildFallbackProfile(sanitizedUrl, channel, username, "Extracción vía n8n webhook activada");
 }
 
 /**
@@ -344,17 +363,17 @@ function buildFallbackProfile(url: string, channel: string, username: string, re
 export async function unifiedScrapeChannel(options: ScrapeOptions): Promise<ScrapedProfileResult> {
   const channelUpper = (options.channel || "").toUpperCase();
 
-  // Para redes sociales (Facebook, Instagram, TikTok), invocar primariamente OBFarmer (Pool de Teléfonos ADB)
-  if (["FACEBOOK", "INSTAGRAM", "TIKTOK", "FB", "IG", "TT"].includes(channelUpper)) {
+  // Si OBFarmer está activado por variable de entorno explícita, probar OBFarmer primero
+  if (process.env.ENABLE_OB_FARMER === "true" && ["FACEBOOK", "INSTAGRAM", "TIKTOK", "FB", "IG", "TT"].includes(channelUpper)) {
     try {
       console.log(`🚀 [SCRAPER] Disparando extracción primaria vía OBFarmer (ADB Phones) para ${options.channel}: ${options.url}`);
       return await scrapeWithObScrap(options);
     } catch (obErr: any) {
-      console.warn(`⚠️ [OB-SCRAP] Falló OBFarmer (${obErr.message}). Probando respaldo vía n8n webhook...`);
+      console.warn(`⚠️ [OB-SCRAP] Falló OBFarmer (${obErr.message}). Probando n8n webhook...`);
     }
   }
 
-  // Para sitios web o como respaldo de redes sociales, usar n8n webhook / Apify
-  console.log(`🚀 [SCRAPER] Disparando extracción vía n8n webhook / Apify para ${options.channel} (${options.type || "MY_BUSINESS"}): ${options.url}`);
+  // Por defecto, enviar directamente a n8n Webhook para todos los canales
+  console.log(`🚀 [SCRAPER] Disparando extracción vía n8n webhook para ${options.channel} (${options.type || "MY_BUSINESS"}): ${options.url}`);
   return await scrapeWithN8nWebhook(options);
 }

@@ -307,6 +307,23 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="industry"
+                  render={({ field }) => (
+                    <FormItem>
+                      <LabelHelp label="Rubro / Sector Comercial (Opcional)" help="Especifica tu rubro exacto (ej. Gastronomía, Moda, Software, Odontología, etc.). Si lo dejas vacío, la IA lo detectará automáticamente de la descripción." />
+                      <FormControl>
+                        <Input 
+                          placeholder="Ej. Moda y Boutiques, Software SaaS, Odontología (Opcional - Autodetectado por IA)" 
+                          {...field} 
+                          className="h-11 rounded-xl" 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {singleStep && (
                   <>

@@ -191,6 +191,7 @@ async function generateConsolidatedAnalysisWithAI(context: any) {
   try {
     const prompt = buildConsolidatedPrompt(context);
     
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -200,7 +201,7 @@ async function generateConsolidatedAnalysisWithAI(context: any) {
         'X-Title': 'MarketOps',
       },
       body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4.5',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',

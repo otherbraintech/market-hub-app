@@ -1769,10 +1769,15 @@ export function OnboardingContent() {
                 singleStep={true}
                 defaultValues={businessFormValues || undefined}
                 onSubmitOverride={async (data) => {
-                  setBusinessFormValues(data);
+                  const inferredIndustry = getIndustryPlaceholders(data.industry, data.description, data.name).industryLabel;
+                  const updatedFormValues = {
+                    ...data,
+                    industry: (data.industry && data.industry.trim().length > 0) ? data.industry : inferredIndustry,
+                  };
+                  setBusinessFormValues(updatedFormValues);
                   setBusinessName(data.name);
                   if (businessId) {
-                    const { onboardingStrategy, ...cleanData } = data as any;
+                    const { onboardingStrategy, ...cleanData } = updatedFormValues as any;
                     const res = await updateBusiness(businessId, cleanData);
                     if (!res.success) {
                       toast.error(res.error || "Error al actualizar los datos del negocio");

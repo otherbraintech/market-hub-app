@@ -97,26 +97,14 @@ export async function upsertCompetitorAction(
       const promises = channelUrls
         .filter((ch) => ch.url && ch.url.trim() !== "")
         .map(async (ch) => {
-          const existing = await prisma.analysisReport.findFirst({
-            where: {
-              entityId: dbCompetitor.id,
-              type: "COMPETITOR",
-              channel: ch.name,
-              url: ch.url!,
-            },
-            orderBy: { createdAt: "desc" }
+          return triggerAnalysis({
+            type: "COMPETITOR",
+            entityId: dbCompetitor.id,
+            channel: ch.name,
+            url: ch.url!,
+          }).catch((err) => {
+            console.error(`Error al disparar scraping automático de competidor para canal ${ch.name}:`, err);
           });
-
-          if (!existing || existing.status === "FAILED") {
-            return triggerAnalysis({
-              type: "COMPETITOR",
-              entityId: dbCompetitor.id,
-              channel: ch.name,
-              url: ch.url!,
-            }).catch((err) => {
-              console.error(`Error al disparar scraping automático de competidor para canal ${ch.name}:`, err);
-            });
-          }
         });
 
       await Promise.allSettled(promises);

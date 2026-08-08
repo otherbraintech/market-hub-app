@@ -442,6 +442,85 @@ export function OnboardingResultsPanel({
   const [isFbActive, setIsFbActive] = useState<boolean>(true);
   const [isTiktokActive, setIsTiktokActive] = useState<boolean>(true);
   const [isRegeneratingPlan, setIsRegeneratingPlan] = useState<boolean>(false);
+  const [isTestN8nOpen, setIsTestN8nOpen] = useState<boolean>(false);
+  const [testN8nLoading, setTestN8nLoading] = useState<boolean>(false);
+  const [testN8nResult, setTestN8nResult] = useState<any>(null);
+  const [selectedTestEntityType, setSelectedTestEntityType] = useState<"MY_BUSINESS" | "COMPETITOR">("MY_BUSINESS");
+  const [selectedTestCompetitorId, setSelectedTestCompetitorId] = useState<string>("");
+  const [selectedTestChannel, setSelectedTestChannel] = useState<string>("WEBSITE");
+  const [testChannelUrl, setTestChannelUrl] = useState<string>("");
+  const [customWebhookPath, setCustomWebhookPath] = useState<string>("/webhook/scrap-negocio");
+
+  useEffect(() => {
+    if (selectedTestEntityType === "MY_BUSINESS") {
+      const bizInfo = data?.businessInfo || {};
+      const social = bizInfo.socialLinks ? (typeof bizInfo.socialLinks === "string" ? JSON.parse(bizInfo.socialLinks) : bizInfo.socialLinks) : {};
+      if (selectedTestChannel === "WEBSITE") setTestChannelUrl(bizInfo.website || "https://www.polocruz.com/");
+      else if (selectedTestChannel === "FACEBOOK") setTestChannelUrl(social.facebook || social.facebookUrl || "https://facebook.com/");
+      else if (selectedTestChannel === "INSTAGRAM") setTestChannelUrl(social.instagram || social.instagramUrl || "https://instagram.com/");
+      else if (selectedTestChannel === "TIKTOK") setTestChannelUrl(social.tiktok || social.tiktokUrl || "https://tiktok.com/");
+    } else {
+      const compList = data?.competitors || competitorsList || [];
+      const comp = compList.find((c: any) => c.id === selectedTestCompetitorId) || compList[0];
+      if (comp) {
+        if (selectedTestChannel === "WEBSITE") setTestChannelUrl(comp.website || "https://www.competidor.com");
+        else if (selectedTestChannel === "FACEBOOK") setTestChannelUrl(comp.facebook || "https://facebook.com/");
+        else if (selectedTestChannel === "INSTAGRAM") setTestChannelUrl(comp.instagram || "https://instagram.com/");
+        else if (selectedTestChannel === "TIKTOK") setTestChannelUrl(comp.tiktok || "https://tiktok.com/");
+      }
+    }
+  }, [selectedTestEntityType, selectedTestCompetitorId, selectedTestChannel, data]);
+
+  const handleRunN8nTest = async () => {
+    setTestN8nLoading(true);
+    setTestN8nResult(null);
+
+    let targetBusinessName = data?.businessInfo?.name || "Mi Negocio";
+    let targetCompetitorName = "";
+    const compList = data?.competitors || competitorsList || [];
+    
+    if (selectedTestEntityType === "COMPETITOR") {
+      const comp = compList.find((c: any) => c.id === selectedTestCompetitorId) || compList[0];
+      if (comp) {
+        targetCompetitorName = comp.name || "Competidor";
+        targetBusinessName = comp.name || "Competidor";
+      }
+    }
+
+    const payloadToSend = {
+      webhookUrl: `https://n8n-n8n-start.ddt6vc.easypanel.host${customWebhookPath}`,
+      businessId,
+      businessName: targetBusinessName,
+      competitorName: targetCompetitorName,
+      url: testChannelUrl || "https://www.polocruz.com/",
+      channel: selectedTestChannel,
+      type: selectedTestEntityType,
+    };
+
+    console.log("--------------------------------------------------");
+    console.log("⚡ [CLIENT ENVIANDO CANAL INDIVIDUAL A N8N]", payloadToSend);
+    console.log("--------------------------------------------------");
+
+    try {
+      const res = await fetch("/api/test-n8n-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadToSend)
+      });
+      const resultData = await res.json();
+      console.log("📥 [CLIENT RESPUESTA N8N]", resultData);
+      setTestN8nResult(resultData);
+      if (resultData.success) {
+        toast.success(`¡Señal enviada a n8n para ${selectedTestChannel}! (HTTP ${resultData.received?.status})`);
+      } else {
+        toast.error(`Respuesta n8n: HTTP ${resultData.received?.status || "Error conexión"}`);
+      }
+    } catch (err: any) {
+      toast.error("Error al enviar señal a n8n: " + err.message);
+    } finally {
+      setTestN8nLoading(false);
+    }
+  };
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -459,6 +538,7 @@ export function OnboardingResultsPanel({
     setIsDismissed(false);
     setIsTriggeredInSession(true);
     setScrapingLoading(true);
+    setDiagnosticLoading(true);
     if (data) {
       setData((prev: any) => {
         if (!prev) return prev;
@@ -476,16 +556,33 @@ export function OnboardingResultsPanel({
     try {
       const res = await startScrapingStage(businessId);
       if (res.success) {
-        toast.success("¡Agente de Extracción activado!");
-        fetchResults(true);
-        fetchNotifications(true);
+        toast.info("¡Extracción enviada a n8n! Consolidando Banco de Datos y FODA...");
+        await fetchResults(true);
+        await fetchNotifications(true);
+
+        // Polling para consultar la actualización del Banco de Datos e informe FODA
+        let attempts = 0;
+        const maxAttempts = 12; // ~30 segundos
+        const interval = setInterval(async () => {
+          attempts++;
+          await fetchResults(true);
+          await fetchNotifications(true);
+          if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            setScrapingLoading(false);
+            setDiagnosticLoading(false);
+            toast.success("¡Banco de datos e informe FODA actualizados exitosamente!");
+          }
+        }, 2500);
       } else {
         toast.error(res.error || "Fallo al iniciar extracción");
+        setScrapingLoading(false);
+        setDiagnosticLoading(false);
       }
     } catch (e) {
       toast.error("Error al iniciar extracción");
-    } finally {
       setScrapingLoading(false);
+      setDiagnosticLoading(false);
     }
   };
 
@@ -1713,9 +1810,15 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
                       1. Banco de Datos & Auditoría Digital
                     </h3>
-                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-black text-[9.5px] border-emerald-300/40">
-                      Completado
-                    </Badge>
+                    {scrapingLoading || diagnosticLoading ? (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-black text-[9.5px] border-amber-300/40 animate-pulse">
+                        Procesando...
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-black text-[9.5px] border-emerald-300/40">
+                        Completado
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {data && (
@@ -1738,6 +1841,15 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                       <RefreshCw className="h-3 w-3 text-orange-600" />
                       Reanalizar Banco de Datos
                     </Button>
+                    <Button
+                      onClick={() => setIsTestN8nOpen(true)}
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-[10px] font-black uppercase border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10 rounded-xl gap-1.5 bg-purple-500/5"
+                    >
+                      <Terminal className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                      ⚡ Enviar Canal a n8n
+                    </Button>
                   </div>
                 </div>
 
@@ -1746,14 +1858,26 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                   <span className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground shrink-0 flex items-center gap-1">
                     <Bot className="h-3.5 w-3.5 text-orange-600" /> Agentes Especializados:
                   </span>
-                  <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
-                    <span>🕸️</span> Agente Extractor de Canales <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                   <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
+                    <span>🕸️</span> Agente Extractor de Canales {scrapingLoading ? (
+                      <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    )}
                   </Badge>
                   <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
-                    <span>🎯</span> Agente Mapeador de Competencia <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    <span>🎯</span> Agente Mapeador de Competencia {scrapingLoading ? (
+                      <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    )}
                   </Badge>
                   <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
-                    <span>📊</span> Agente de Diagnóstico FODA <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    <span>📊</span> Agente de Diagnóstico FODA {diagnosticLoading ? (
+                      <Loader2 className="h-3 w-3 text-amber-500 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                    )}
                   </Badge>
                   <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
                     <span>💡</span> Agente de Configuración Base <CheckCircle2 className="h-3 w-3 text-emerald-600" />
@@ -3897,6 +4021,175 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
 
 
+      {/* DIÁLOGO PROBADOR DIRECTO CANAL A CANAL n8n */}
+      <Dialog open={isTestN8nOpen} onOpenChange={setIsTestN8nOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-black uppercase text-purple-700 dark:text-purple-400">
+              <Terminal className="h-5 w-5 text-purple-600" />
+              Enviar Canal Individual a Webhook n8n
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Envía una señal individual por canal (Sitio Web, FB, IG, TikTok) de Tu Negocio o Competidor a n8n y visualiza el paquete enviado y la respuesta recibida.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            {/* 1. Selección Entidad y Endpoint */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">
+                  1. Seleccionar Objetivo:
+                </label>
+                <select
+                  value={selectedTestEntityType}
+                  onChange={(e: any) => setSelectedTestEntityType(e.target.value)}
+                  className="w-full bg-background border border-input rounded-xl p-2 font-bold text-xs"
+                >
+                  <option value="MY_BUSINESS">🏢 Mi propio negocio</option>
+                  <option value="COMPETITOR">🎯 Competidor</option>
+                </select>
+              </div>
+
+              {selectedTestEntityType === "COMPETITOR" && (
+                <div>
+                  <label className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">
+                    Seleccionar Competidor:
+                  </label>
+                  <select
+                    value={selectedTestCompetitorId}
+                    onChange={(e: any) => setSelectedTestCompetitorId(e.target.value)}
+                    className="w-full bg-background border border-input rounded-xl p-2 font-bold text-xs"
+                  >
+                    {(data?.competitors || competitorsList || []).map((comp: any) => (
+                      <option key={comp.id} value={comp.id}>
+                        {comp.name || "Competidor sin nombre"}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">
+                  2. Webhook Endpoint Target:
+                </label>
+                <select
+                  value={customWebhookPath}
+                  onChange={(e: any) => setCustomWebhookPath(e.target.value)}
+                  className="w-full bg-background border border-input rounded-xl p-2 font-bold text-xs font-mono"
+                >
+                  <option value="/webhook/scrap-negocio">/webhook/scrap-negocio (POST)</option>
+                  <option value="/webhook/sitioweb-scrap">/webhook/sitioweb-scrap (POST)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 2. Selección de Canal */}
+            <div>
+              <label className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">
+                3. Canal a Enviar (Una señal, un canal):
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: "WEBSITE", label: "Sitio Web", icon: Globe },
+                  { id: "FACEBOOK", label: "Facebook", icon: Facebook },
+                  { id: "INSTAGRAM", label: "Instagram", icon: Instagram },
+                  { id: "TIKTOK", label: "TikTok", icon: TikTokIcon },
+                ].map((item) => {
+                  const IconComp = item.icon;
+                  const isSel = selectedTestChannel === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSelectedTestChannel(item.id)}
+                      className={`flex items-center gap-1.5 p-2.5 rounded-xl border text-xs font-black uppercase transition-all ${
+                        isSel
+                          ? "bg-purple-600 text-white border-purple-600 shadow-md"
+                          : "bg-background hover:bg-muted text-muted-foreground border-slate-200 dark:border-slate-800"
+                      }`}
+                    >
+                      <IconComp className="h-4 w-4 shrink-0" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. URL del Canal */}
+            <div>
+              <label className="font-bold text-muted-foreground uppercase text-[10px] block mb-1">
+                4. URL del Canal a Enviar:
+              </label>
+              <input
+                type="text"
+                value={testChannelUrl}
+                onChange={(e) => setTestChannelUrl(e.target.value)}
+                placeholder="https://www.ejemplo.com"
+                className="w-full bg-background border border-input rounded-xl p-2.5 font-mono text-xs text-foreground"
+              />
+            </div>
+
+            {/* 4. Botón Acción */}
+            <Button
+              onClick={handleRunN8nTest}
+              disabled={testN8nLoading}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-black text-xs uppercase tracking-wider rounded-xl gap-2 h-10 shadow-lg shadow-purple-500/20"
+            >
+              {testN8nLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Enviando Señal POST a n8n...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  🚀 Enviar Señal de Canal a n8n (POST)
+                </>
+              )}
+            </Button>
+
+            {/* 5. Respuesta e Inspección */}
+            {testN8nResult && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between p-3 rounded-xl border bg-card">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold">Estado HTTP Recibido:</span>
+                    <Badge className={testN8nResult.success ? "bg-emerald-600 text-white font-black" : "bg-rose-600 text-white font-black"}>
+                      {testN8nResult.received?.status || "ERR"} {testN8nResult.received?.statusText || ""}
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] font-mono text-muted-foreground">
+                    Respuesta en: {testN8nResult.received?.durationMs || 0} ms
+                  </span>
+                </div>
+
+                <div>
+                  <h5 className="text-[11px] font-black uppercase text-muted-foreground mb-1">📦 Paquete Enviado (POST JSON):</h5>
+                  <pre className="p-3 bg-slate-950 text-emerald-400 font-mono text-[11px] rounded-xl overflow-x-auto border">
+                    {JSON.stringify(testN8nResult.sent?.payload, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <h5 className="text-[11px] font-black uppercase text-muted-foreground mb-1">📥 Respuesta Recibida desde n8n:</h5>
+                  <pre className="p-3 bg-slate-950 text-sky-300 font-mono text-[11px] rounded-xl overflow-x-auto border max-h-48">
+                    {testN8nResult.received?.rawText || JSON.stringify(testN8nResult.received?.jsonResponse, null, 2) || "Sin cuerpo de respuesta"}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsTestN8nOpen(false)} className="rounded-xl text-xs font-bold">
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

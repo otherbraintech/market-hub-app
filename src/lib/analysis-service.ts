@@ -125,27 +125,33 @@ export async function triggerAnalysis({
 
       // Disparar n8n como respaldo final si falla la extracción directa
       const n8nWebhookUrl = type === "COMPETITOR"
-        ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio"
-        : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap";
+        ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap"
+        : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
       const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const callbackUrl = `${appUrl}/api/webhook/callback`;
+
+      const payload = type === "COMPETITOR" ? {
+        reportId: report.id,
+        type: "COMPETITOR",
+        channel: reportChannel,
+        url: sanitizedUrl,
+        callbackUrl,
+      } : {
+        reportId: report.id,
+        type: "MY_BUSINESS",
+        channel: reportChannel,
+        url: sanitizedUrl,
+        businessId,
+        competitorName: competitorName || "",
+        businessName: businessName || "",
+        callbackUrl,
+      };
 
       try {
         await fetch(n8nWebhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reportId: report.id,
-            type,
-            channel: reportChannel,
-            redSocial: reportChannel,
-            url: sanitizedUrl,
-            link: sanitizedUrl,
-            businessId,
-            entityId: entityId || businessId,
-            competitorName,
-            businessName,
-            callbackUrl: `${appUrl}/api/webhook/callback`,
-          }),
+          body: JSON.stringify(payload),
         });
       } catch (n8nErr: any) {
         console.error(`Error al enviar webhook de respaldo a n8n:`, n8nErr);

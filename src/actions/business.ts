@@ -685,27 +685,46 @@ export async function startScrapingStage(businessId: string) {
       }
     }
 
-    // Await execution to prevent Next.js from terminating the context prematurely
-    const results = await Promise.allSettled(promises);
+    // Await execution of n8n POST webhooks to prevent Next.js context termination
+    await Promise.allSettled(promises);
 
-    const fulfilledCount = results.filter(r => r.status === "fulfilled").length;
-    const totalCount = promises.length;
-
-    // 4. Si no existen canales con URL, gatillar el diagnóstico agéntico consolidado directamente con los datos de registro
-    if (totalCount === 0) {
+    // 4. Gatillar el diagnóstico agéntico consolidado únicamente si no hay canales pendientes de extracción
+    if (promises.length === 0) {
       await prisma.agentNotification.create({
         data: {
           businessId,
           title: "Agente de Diagnóstico",
-          message: "Analizando propuesta de valor y consolidando informe FODA con los datos de registro del negocio.",
+          message: "Consolidando informe FODA con los datos de registro (sin perfiles externos).",
           step: "DIAGNOSTIC",
           status: "PROCESSING"
         }
-      });
-      const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
-      const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
-      runBusinessConsolidatedAnalysis(businessId).catch(err => console.error("Error en diagnóstico consolidado:", err));
-      runGenerateGeneralReport(businessId).catch(err => console.error("Error en reporte general de competidores:", err));
+      }).catch(err => console.error("Error al crear notificación de diagnóstico:", err));
+
+      try {
+        const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
+        const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
+        const { runCompetitorConsolidatedAnalysis } = await import("@/app/api/competitors/[businessId]/consolidated-analysis/route");
+
+        await Promise.allSettled([
+          runBusinessConsolidatedAnalysis(businessId).catch(err => console.error("Error en diagnóstico consolidado propio:", err)),
+          runGenerateGeneralReport(businessId).catch(err => console.error("Error en reporte general de competidores:", err)),
+          runCompetitorConsolidatedAnalysis(businessId).catch(err => console.error("Error en análisis consolidado de competidores:", err))
+        ]);
+
+        await prisma.agentNotification.create({
+          data: {
+            businessId,
+            title: "Agente de Diagnóstico",
+            message: "Informe general, FODA y Banco de Datos inicializado con éxito.",
+            step: "DIAGNOSTIC",
+            status: "COMPLETED"
+          }
+        }).catch(err => console.error("Error al crear notificación final de diagnóstico:", err));
+      } catch (diagErr) {
+        console.error("Error al ejecutar consolidación agéntica:", diagErr);
+      }
+    } else {
+      console.log(`📡 [START-SCRAPING-STAGE] ${promises.length} canales en curso. La consolidación esperará a que finalicen las llamadas de n8n.`);
     }
 
     return { success: true };

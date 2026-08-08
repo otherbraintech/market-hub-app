@@ -479,7 +479,7 @@ export function getIndustryPlaceholders(
     textToSearch.includes("pasteler") ||
     textToSearch.includes("torta") ||
     textToSearch.includes("postre") ||
-    textToSearch.includes("bar") ||
+    /\bbar\b|\bbares\b|\bpub\b|\bcoctel/i.test(textToSearch) ||
     textToSearch.includes("snack") ||
     textToSearch.includes("hamburgue") ||
     textToSearch.includes("pizza") ||
@@ -498,6 +498,7 @@ export function getIndustryPlaceholders(
     textToSearch.includes("cosmétic") ||
     textToSearch.includes("cosmetic") ||
     textToSearch.includes("peluquer") ||
+    textToSearch.includes("barber") ||
     textToSearch.includes("estétic") ||
     textToSearch.includes("estetic") ||
     textToSearch.includes("joya") ||
@@ -548,7 +549,8 @@ export function getIndustryPlaceholders(
     textToSearch.includes("contab") ||
     textToSearch.includes("asesor") ||
     textToSearch.includes("arquitect") ||
-    textToSearch.includes("servicio")
+    textToSearch.includes("servicios profesionales") ||
+    textToSearch.includes("despacho")
   ) {
     matchedPreset = SERVICIOS_PRESETS;
   }

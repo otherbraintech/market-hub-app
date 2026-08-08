@@ -311,34 +311,29 @@ export async function triggerCascadeGeneration(
 
       // Regenerar contenidos para cada campaña existente
       for (const campaign of existingCampaignsForCal) {
-        const campaignChannels = Array.isArray(campaign.channels)
-          ? (campaign.channels as any[]).map((c: any) => c.platform || String(c))
-          : ['INSTAGRAM'];
-        
         // Re-generar los contenidos de la campaña usando IA
         const contentsData = await generateCalendarContentsCascade(business, savedStrategies, campaign);
         
+        console.log(`[CASCADE] Guardando ${contentsData.length} publicaciones del calendario en la base de datos...`);
         for (const post of contentsData) {
-          for (const chan of campaignChannels) {
-            const normalizedChannel = String(chan).toUpperCase();
-            await prisma.content.create({
-              data: {
-                campaignId: campaign.id,
-                type: (post.type as any) || "POST",
-                title: post.title,
-                body: post.body || '',
-                caption: post.caption || '',
-                promptUsed: post.promptUsed || '',
-                channel: (normalizedChannel as any) || "INSTAGRAM",
-                status: "SCHEDULED",
-                scheduledAt: new Date(post.scheduledAt),
-              }
-            });
-          }
+          const postChannel = (post.channel || 'INSTAGRAM').toUpperCase();
+          await prisma.content.create({
+            data: {
+              campaignId: campaign.id,
+              type: (post.type as any) || "POST",
+              title: post.title,
+              body: post.body || '',
+              caption: post.caption || '',
+              promptUsed: post.promptUsed || '',
+              channel: (postChannel as any) || "INSTAGRAM",
+              status: "SCHEDULED",
+              scheduledAt: new Date(post.scheduledAt),
+            }
+          });
         }
       }
 
-      await addAgentNotification(businessId, "Agente Editorial de Contenido", "Calendario editorial regenerado con éxito.", "CALENDAR", "COMPLETED");
+      await addAgentNotification(businessId, "Agente Editorial de Contenido", `¡Calendario editorial generado con éxito con publicaciones multicanal (Facebook, Instagram y TikTok) y feriados incluidos!`, "CALENDAR", "COMPLETED");
       return;
     }
 
@@ -380,7 +375,8 @@ export async function triggerCascadeGeneration(
         } else {
           finalStartDate = new Date(camp.startDate);
         }
-        const finalEndDate = new Date(finalStartDate.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 días
+        // Fin de campaña = último día del mes de la fecha de inicio
+        const finalEndDate = new Date(finalStartDate.getFullYear(), finalStartDate.getMonth() + 1, 0, 23, 59, 59);
 
         await prisma.campaign.create({
           data: {
@@ -596,23 +592,30 @@ export async function getUserPlanPublicationLimits(businessIdOrUserId?: string, 
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { plan: true }
+        select: { plan: true, name: true }
       });
+      console.log(`[CASCADE-PLAN] Usuario encontrado: "${user?.name}", plan en BDD: "${user?.plan}"`);
       if (user?.plan) {
-        userPlanSlug = user.plan.toLowerCase();
+        userPlanSlug = user.plan.toLowerCase().trim();
         userPlanName = user.plan;
       }
+    } else {
+      console.warn(`[CASCADE-PLAN] No se pudo resolver userId para businessId=${businessIdOrUserId}`);
     }
 
-    // Consultar tabla SubscriptionPlan en Prisma
+    // Consultar tabla SubscriptionPlan en Prisma (búsqueda flexible)
     const dbPlan = await prisma.subscriptionPlan.findFirst({
       where: {
         OR: [
           { slug: userPlanSlug },
-          { name: { equals: userPlanSlug, mode: 'insensitive' } }
+          { slug: { contains: userPlanSlug, mode: 'insensitive' } },
+          { name: { equals: userPlanSlug, mode: 'insensitive' } },
+          { name: { contains: userPlanSlug, mode: 'insensitive' } }
         ]
       }
     });
+
+    console.log(`[CASCADE-PLAN] SubscriptionPlan encontrado en BDD: ${dbPlan ? `"${dbPlan.name}" (slug: ${dbPlan.slug}, postsPerMonth: ${dbPlan.postsPerMonth})` : 'NO ENCONTRADO → usando fallback por nombre'}`);
 
     let postsPerMonth = 8;
     let postsPerWeek = "2 publicaciones/semana";
@@ -622,28 +625,45 @@ export async function getUserPlanPublicationLimits(businessIdOrUserId?: string, 
       postsPerWeek = dbPlan.postsPerWeek || `${Math.round(postsPerMonth / 4)} publicaciones/semana`;
       userPlanName = dbPlan.name;
     } else {
-      if (userPlanSlug.includes("premium")) {
+      // Fallback inteligente por nombre de plan
+      const slug = userPlanSlug;
+      if (slug.includes("premium") || slug.includes("pro_plus")) {
         postsPerMonth = 22;
         postsPerWeek = "5-6 publicaciones/semana";
         userPlanName = "Premium";
-      } else if (userPlanSlug.includes("agencia") || userPlanSlug.includes("enterprise")) {
+      } else if (slug.includes("agencia") || slug.includes("enterprise") || slug.includes("agency")) {
         postsPerMonth = 30;
         postsPerWeek = "7+ publicaciones/semana";
         userPlanName = "Agencia";
-      } else if (userPlanSlug.includes("profesional") || userPlanSlug.includes("growth") || userPlanSlug.includes("starter")) {
+      } else if (slug.includes("profesional") || slug.includes("professional") || slug.includes("growth") || slug.includes("starter") || slug.includes("pro")) {
         postsPerMonth = 16;
         postsPerWeek = "4 publicaciones/semana";
         userPlanName = "Profesional";
       } else {
-        postsPerMonth = 8;
-        postsPerWeek = "2 publicaciones/semana";
-        userPlanName = "Free (Inicial)";
+        // Último recurso: buscar CUALQUIER plan activo que no sea free
+        const anyPlan = await prisma.subscriptionPlan.findFirst({
+          where: { isActive: true, postsPerMonth: { gt: 8 } },
+          orderBy: { order: 'asc' }
+        });
+        if (anyPlan) {
+          console.log(`[CASCADE-PLAN] Usando plan por defecto de tabla: "${anyPlan.name}" (${anyPlan.postsPerMonth} posts/mes)`);
+          postsPerMonth = anyPlan.postsPerMonth;
+          postsPerWeek = anyPlan.postsPerWeek || `${Math.round(postsPerMonth / 4)} publicaciones/semana`;
+          userPlanName = anyPlan.name;
+        } else {
+          postsPerMonth = 8;
+          postsPerWeek = "2 publicaciones/semana";
+          userPlanName = "Free (Inicial)";
+        }
       }
     }
 
-    const reelsCount = Math.max(1, Math.round(postsPerMonth * 0.60));
-    const carouselsCount = Math.max(1, Math.round(postsPerMonth * 0.25));
-    const staticPostsCount = Math.max(1, postsPerMonth - reelsCount - carouselsCount);
+    // Distribución por formato según plan del usuario
+    const reelsCount = Math.max(1, Math.round(postsPerMonth * 0.50));  // 50% reels/videos
+    const carouselsCount = Math.max(1, Math.round(postsPerMonth * 0.25)); // 25% carruseles
+    const staticPostsCount = Math.max(1, postsPerMonth - reelsCount - carouselsCount); // 25% posts estáticos
+
+    console.log(`[CASCADE-PLAN] RESULTADO FINAL → Plan: "${userPlanName}", Posts/mes: ${postsPerMonth}, Reels: ${reelsCount}, Carruseles: ${carouselsCount}, Posts: ${staticPostsCount}`);
 
     return {
       planName: userPlanName,
@@ -657,11 +677,11 @@ export async function getUserPlanPublicationLimits(businessIdOrUserId?: string, 
     console.error('[CASCADE] Error en getUserPlanPublicationLimits:', e);
     return {
       planName: "Estándar",
-      postsPerMonth: 8,
-      postsPerWeek: "2 publicaciones/semana",
-      reelsCount: 5,
-      carouselsCount: 2,
-      staticPostsCount: 1
+      postsPerMonth: 16,
+      postsPerWeek: "4 publicaciones/semana",
+      reelsCount: 8,
+      carouselsCount: 4,
+      staticPostsCount: 4
     };
   }
 }
@@ -676,7 +696,12 @@ export async function generateCampaignsCascade(
   const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
   if (!openRouterKey) return getFallbackCampaigns(business, strategies, count);
 
-  const baseDateStr = startDateRequested || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const baseDateStr = startDateRequested || new Date().toISOString().split('T')[0];
+  // Calcular último día del mes para la fecha solicitada
+  const baseDate = new Date(baseDateStr);
+  const endOfMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0);
+  const endOfMonthStr = endOfMonthDate.toISOString().split('T')[0];
+  const daysInPeriod = Math.ceil((endOfMonthDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
   const planLimits = await getUserPlanPublicationLimits(business.id, business.userId || undefined);
   console.log(`[CASCADE] Generando campaña acorde al Plan de Suscripción: "${planLimits.planName}" (${planLimits.postsPerMonth} publicaciones/mes, ${planLimits.postsPerWeek})`);
@@ -714,7 +739,7 @@ export async function generateCampaignsCascade(
 
 PLAN DE SUSCRIPCIÓN ACTIVO DEL USUARIO:
 - Plan Contratado: ${planLimits.planName}
-- Cuota de Publicaciones del Plan: Exactamente ${planLimits.postsPerMonth} publicaciones en los próximos 30 días (${planLimits.postsPerWeek}).
+- Cuota de Publicaciones del Plan: Exactamente ${planLimits.postsPerMonth} publicaciones TOTALES desde "${baseDateStr}" hasta "${endOfMonthStr}" (${daysInPeriod} días).
 - Distribución Estratégica Obligatoria por Formato:
   * ${planLimits.reelsCount} publicaciones de tipo 'REEL' o 'VIDEO' (60%)
   * ${planLimits.carouselsCount} publicaciones de tipo 'CAROUSEL' (25%)
@@ -736,14 +761,14 @@ REGLAS DE CALIDAD OBLIGATORIAS PARA CADA PUBLICACIÓN:
    - Debe ser un prompt en INGLÉS extremadamente detallado (mínimo 25 palabras) optimizado para Midjourney v6, Flux o DALL-E 3.
    - Describe el sujeto principal, estilo fotográfico realista (ej: 8k resolution, cinematic lighting, shallow depth of field, commercial product design, vibrant colors).
 5. REGLA ESTRICTA DE NO INVENTAR PRODUCTOS: Queda terminantemente prohibido inventar o sugerir productos que no estén explícitamente declarados en la información del negocio. Promociona única y exclusivamente los productos reales dados.
-6. FRECUENCIA SEGÚN PLAN EN 30 DÍAS: Genera exactamente ${planLimits.postsPerMonth} publicaciones por campaña distribuidas uniformemente en los 30 días siguientes a "${baseDateStr}":
+6. PERÍODO DE LA CAMPAÑA: La campaña inicia el "${baseDateStr}" y termina OBLIGATORIAMENTE el "${endOfMonthStr}" (último día del mes). Distribuye las ${planLimits.postsPerMonth} publicaciones uniformemente en estos ${daysInPeriod} días:
    - ${planLimits.reelsCount} publicaciones de tipo 'REEL' o 'VIDEO'
    - ${planLimits.carouselsCount} publicaciones de tipo 'CAROUSEL'
    - ${planLimits.staticPostsCount} publicaciones de tipo 'POST'`,
       prompt: `Crea ${count} campañas para ${business.name} acorde a su plan contratado "${planLimits.planName}" (${planLimits.postsPerMonth} publicaciones/mes). Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
         (business.onboardingStrategy ? `\nESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA - usar como base para targeting, canales de conversión y tono de copies):\n${JSON.stringify(business.onboardingStrategy)}` : '') +
-        `\nGenera exactamente ${planLimits.postsPerMonth} publicaciones completas (${planLimits.reelsCount} reels, ${planLimits.carouselsCount} carruseles y ${planLimits.staticPostsCount} posts) distribuida de forma constante iniciando exactamente desde "${baseDateStr}" en adelante en el año ${new Date().getFullYear()}.`,
+        `\nGenera exactamente ${planLimits.postsPerMonth} publicaciones completas (${planLimits.reelsCount} reels, ${planLimits.carouselsCount} carruseles y ${planLimits.staticPostsCount} posts) distribuidas desde "${baseDateStr}" hasta "${endOfMonthStr}" para los canales FACEBOOK, INSTAGRAM y TIKTOK.`,
     });
     return object.campaigns.slice(0, count);
   } catch (e) {
@@ -752,24 +777,94 @@ REGLAS DE CALIDAD OBLIGATORIAS PARA CADA PUBLICACIÓN:
   }
 }
 
+// Helper para detectar feriados patrios y días festivos clave según el mes
+function getHolidaysInMonth(startDate: Date): { dateStr: string; name: string }[] {
+  const year = startDate.getFullYear();
+  const month = startDate.getMonth(); // 0-indexed
+
+  const holidayCatalog: Record<number, { day: number; name: string }[]> = {
+    0: [{ day: 1, name: "Año Nuevo" }, { day: 22, name: "Día del Estado Plurinacional (Bolivia)" }],
+    1: [{ day: 2, name: "Virgen de Candelaria" }, { day: 14, name: "Día del Amor y la Amistad (San Valentín)" }, { day: 27, name: "Carnaval" }],
+    2: [{ day: 8, name: "Día Internacional de la Mujer" }, { day: 19, name: "Día del Padre y del Artesano (Bolivia)" }, { day: 23, name: "Día del Mar (Bolivia)" }],
+    3: [{ day: 12, name: "Día del Niño (Bolivia)" }, { day: 30, name: "Viernes Santo / Semana Santa" }],
+    4: [{ day: 1, name: "Día del Trabajo" }, { day: 27, name: "Día de la Madre (Bolivia)" }],
+    5: [{ day: 21, name: "Año Nuevo Andino Amazónico (Bolivia)" }, { day: 24, name: "Noche de San Juan" }],
+    6: [{ day: 16, name: "Efeméride Departamental de La Paz" }, { day: 23, name: "Día de la Amistad" }],
+    7: [{ day: 6, name: "Día de la Patria / Independencia de Bolivia" }, { day: 17, name: "Día de la Bandera (Bolivia)" }],
+    8: [{ day: 14, name: "Efeméride Departamental de Cochabamba" }, { day: 21, name: "Día de la Primavera / Día del Estudiante / Día del Amor" }, { day: 24, name: "Efeméride Departamental de Santa Cruz" }],
+    9: [{ day: 11, name: "Día de la Mujer Boliviana" }, { day: 31, name: "Halloween / Noche de Brujas" }],
+    10: [{ day: 2, name: "Todos Santos / Día de los Difuntos" }, { day: 18, name: "Efeméride Departamental de Beni" }],
+    11: [{ day: 24, name: "Nochebuena" }, { day: 25, name: "Navidad" }, { day: 31, name: "Fin de Año" }]
+  };
+
+  const monthHolidays = holidayCatalog[month] || [];
+  return monthHolidays.map(h => {
+    const d = new Date(year, month, h.day, 10, 0, 0);
+    return {
+      dateStr: d.toISOString().split('T')[0],
+      name: h.name
+    };
+  });
+}
+
 // Regenera SOLO los contenidos/publicaciones para una campaña existente (sin tocar la campaña)
 export async function generateCalendarContentsCascade(
-  business: { id?: string; name: string; onboardingStrategy?: any; userId?: string | null },
+  business: { id?: string; name: string; industry?: string | null; onboardingStrategy?: any; userId?: string | null },
   strategies: Strategy[],
-  campaign: { id: string; name: string; description: string | null; channels: any; objective: string }
+  campaign: { id: string; name: string; description: string | null; channels: any; objective: string; startDate?: Date | null; endDate?: Date | null }
 ) {
   const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
   
   const campaignChannels = Array.isArray(campaign.channels)
     ? (campaign.channels as any[]).map((c: any) => c.platform || String(c))
-    : ['INSTAGRAM'];
+    : ['INSTAGRAM', 'FACEBOOK', 'TIKTOK'];
+
+  const startDate = campaign.startDate ? new Date(campaign.startDate) : new Date();
+  const startDateStr = startDate.toISOString().split('T')[0];
+  const holidaysInMonth = getHolidaysInMonth(startDate);
 
   if (!openRouterKey) {
-    return getFallbackCalendarContents(business, campaign, campaignChannels);
+    return getFallbackCalendarContents(business, campaign, ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'], startDate);
   }
 
+  // 1. Obtener límites de publicaciones del Plan del Usuario
   const planLimits = await getUserPlanPublicationLimits(business.id, business.userId || undefined);
   console.log(`[CASCADE] Regenerando calendario acorde al Plan de Suscripción: "${planLimits.planName}" (${planLimits.postsPerMonth} publicaciones/mes)`);
+
+  // 2. Obtener tendencias dinámicas del Banco de Tendencias (TikTok / IG / Social SEO)
+  let trendsContext = "";
+  try {
+    const { getUnifiedTrendsContext } = await import("@/lib/services/ob-tendencias");
+    trendsContext = await getUnifiedTrendsContext(business.industry || "general", "tiktok", "BO");
+  } catch (e) {
+    console.warn("[CASCADE] No se pudo obtener tendencias dinámicas para el calendario:", e);
+  }
+
+  // 3. Obtener productos reales del negocio si existe business.id
+  let productsInfo = "";
+  if (business.id) {
+    try {
+      const dbProducts = await prisma.product.findMany({
+        where: { businessId: business.id },
+        select: { name: true, description: true, pricing: true }
+      });
+      if (dbProducts.length > 0) {
+        productsInfo = "\nPRODUCTOS REALES DEL NEGOCIO (Usar única y exclusivamente estos productos en los copies y guiones):\n" +
+          dbProducts.map(p => `- ${p.name}: ${p.description || ''}`).join('\n');
+      }
+    } catch (e) {
+      console.warn("[CASCADE] No se pudieron cargar productos del negocio:", e);
+    }
+  }
+
+  // 4. Construir contexto completo de estrategias
+  const strategiesContext = strategies.length > 0
+    ? strategies.map((s, idx) => `Estrategia ${idx + 1}: "${s.name}" - Desc: ${s.description || ''}`).join('\n')
+    : "Estrategia estándar de posicionamiento y ventas directas.";
+
+  const holidaysText = holidaysInMonth.length > 0
+    ? holidaysInMonth.map(h => `- ${h.dateStr}: ${h.name}`).join('\n')
+    : "Sin feriados mayores registrados en este mes.";
 
   try {
     const { object } = await generateObject({
@@ -778,88 +873,154 @@ export async function generateCalendarContentsCascade(
         contents: z.array(z.object({
           type: z.enum(['POST', 'STORY', 'REEL', 'VIDEO', 'CAROUSEL', 'EMAIL', 'AD']),
           title: z.string(),
-          body: z.string().describe("Guion estructurado paso a paso del contenido, desglose por slides o storyboard visual"),
-          caption: z.string().describe("Copy completo e íntegro para redes sociales en español con gancho inicial, viñetas con emojis, CTA claro a WhatsApp y hashtags"),
-          promptUsed: z.string().describe("AI image generator prompt en INGLÉS hiper-detallado de al menos 25 palabras para Midjourney o Flux"),
-          scheduledAt: z.string()
+          body: z.string().describe("Guion estructurado paso a paso del contenido (0-3s Hook viral, 3-15s Demostración, 15-30s Cierre) o desglose de diapositivas"),
+          caption: z.string().describe("Copy completo e íntegro para redes sociales en español con gancho inicial persuasivo, viñetas con emojis, CTA directo a WhatsApp y 5-8 hashtags de tendencia"),
+          promptUsed: z.string().describe("AI image generator prompt en INGLÉS hiper-detallado de al menos 25 palabras optimizado para Midjourney v6 o Flux"),
+          channel: z.enum(['FACEBOOK', 'INSTAGRAM', 'TIKTOK']),
+          scheduledAt: z.string().describe("Fecha y hora ISOString de publicación recomendada distribuida en el mes")
         }))
       }),
-      system: `Eres un Director Editorial y de Contenidos Digitales de alto rendimiento. Tu función es generar publicaciones completas, persuasivas y detalladas para la campaña de marketing del negocio, ajustadas rigurosamente a su PLAN DE SUSCRIPCIÓN ACTIVO.
+      system: `Eres el Director Editorial y Estratega de Contenidos Digitales de élite de OB-MarketHub. Tu función es formular el CALENDARIO EDITORIAL COMPLETO del mes para este negocio, alineado 100% con su CAMPAÑA DE MARKETING, sus ESTRATEGIAS BASE, el BANCO DE TENDENCIAS VIRALES y su PLAN DE SUSCRIPCIÓN ACTIVO.
 
+=======================================================
 PLAN DE SUSCRIPCIÓN ACTIVO DEL USUARIO:
-- Plan Contratado: ${planLimits.planName}
-- Total de Publicaciones permitidas: Exactamente ${planLimits.postsPerMonth} publicaciones en los próximos 30 días (${planLimits.postsPerWeek}).
-- Desglose recomendado por formato:
-  * ${planLimits.reelsCount} publicaciones de tipo 'REEL' o 'VIDEO' (60%)
+- Plan del Usuario: ${planLimits.planName}
+- Publicaciones Totales Obligatorias: EXACTAMENTE ${planLimits.postsPerMonth} PUBLICACIONES en los próximos 30 días (${planLimits.postsPerWeek}).
+- Distribución por Formato:
+  * ${planLimits.reelsCount} publicaciones de tipo 'REEL' o 'VIDEO' (50-60%)
   * ${planLimits.carouselsCount} publicaciones de tipo 'CAROUSEL' (25%)
-  * ${planLimits.staticPostsCount} publicaciones de tipo 'POST' (15%)
+  * ${planLimits.staticPostsCount} publicaciones de tipo 'POST' (25%)
+=======================================================
 
-REGLAS DE CALIDAD OBLIGATORIAS:
-1. COPY COMPLETO Y LISTO PARA PUBLICAR ('caption'):
-   - Redacta un copy 100% completo e íntegro en español para redes sociales.
-   - Debe iniciar obligatoriamente con un GANCHO PERSUASIVO en la primera línea.
-   - Debe incluir un cuerpo con viñetas explicativas y emojis contextuales.
-   - Debe tener un Llamado a la Acción (CTA) directo (ej. escribir por WhatsApp o comentar).
-   - Debe incluir de 5 a 8 hashtags de tendencia relevantes.
-2. GUION O ESTRUCTURA TÉCNICA ('body'):
-   - Para REELS/VIDEOS: Desarrolla el guion detallado (0-3s Hook, 3-15s Demostración, 15-30s Cierre) + sugerencia de estilo de audio.
-   - Para CARROUSEL: Detalla el concepto visual diapositiva por diapositiva (Slide 1 a 5).
-   - Para POST/STORY: Describe la composición y el mensaje clave.
-3. PROMPT DE IMAGEN/VIDEO EN INGLÉS ('promptUsed'):
-   - Redacta un prompt en INGLÉS detallado (mínimo 25 palabras) optimizado para Midjourney v6, Flux o DALL-E 3.
-   - Especifica sujeto principal, iluminación (ej. cinematic natural lighting), encuadre, texturas y paleta de colores.
-4. NO INVENTES PRODUCTOS que no existan en la información del negocio.
-5. FRECUENCIA AJUSTADA AL PLAN:
-   - Genera exactamente ${planLimits.postsPerMonth} publicaciones distribuidas en los próximos 30 días (${planLimits.reelsCount} reels, ${planLimits.carouselsCount} carruseles, ${planLimits.staticPostsCount} posts estáticos).`,
-      prompt: `Genera las publicaciones completas del calendario para:
-Negocio: ${business.name}
-Plan Activo del Usuario: ${planLimits.planName} (${planLimits.postsPerMonth} publicaciones en 30 días)
-Campaña: "${campaign.name}" - ${campaign.description || 'Sin descripción'}
-Objetivo de la campaña: ${campaign.objective}
-Canales activos: ${campaignChannels.join(', ')}
-${strategies.length > 0 ? `Estrategia base: "${strategies[0].name}" - ${strategies[0].description}` : ''}
-${business.onboardingStrategy ? `ESTRATEGIA DIRECTA DEL CLIENTE:\n${JSON.stringify(business.onboardingStrategy)}` : ''}
-Genera exactamente ${planLimits.postsPerMonth} publicaciones totalmente desarrolladas (${planLimits.reelsCount} reels/videos, ${planLimits.carouselsCount} carruseles y ${planLimits.staticPostsCount} posts) espaciadas en los próximos 30 días.`,
+=======================================================
+REGLA ESTRICTA DE TRES CANALES (FACEBOOK, INSTAGRAM Y TIKTOK):
+DEBES generar publicaciones para los TRES CANALES SIN EXCEPCIÓN.
+- AL MENOS 5 A 6 PUBLICACIONES DEBEN SER DE CANAL 'TIKTOK' (Reels / Videos verticales con ganchos virales).
+- AL MENOS 5 A 6 PUBLICACIONES DEBEN SER DE CANAL 'INSTAGRAM'.
+- AL MENOS 4 A 5 PUBLICACIONES DEBEN SER DE CANAL 'FACEBOOK'.
+Queda prohibido dejar cualquiera de los 3 canales con 0 publicaciones.
+=======================================================
+
+=======================================================
+REGLA OBLIGATORIA DE DÍAS FESTIVOS Y FERIADOS:
+Fechas festivas/feriados en este período:
+${holidaysText}
+
+SI HAY DÍAS FESTIVOS EN LA LISTA ANTERIOR:
+PARA CADA DÍA FESTIVO, DEBES GENERAR OBLIGATORIAMENTE 3 PUBLICACIONES DEDICADAS A ESA FESTIVIDAD:
+- 1 PUBLICACIÓN PARA FACEBOOK
+- 1 PUBLICACIÓN PARA INSTAGRAM
+- 1 PUBLICACIÓN PARA TIKTOK
+Las 3 publicaciones deben estar programadas ('scheduledAt') exactamente en la fecha del feriado a las 10:00 AM.
+=======================================================
+
+BANCO DE TENDENCIAS Y GANCHOS VIRALES DE REDES SOCIALES:
+${trendsContext || "Tendencias de alto impacto: ganchos de curiosidad en 0-1.7s, audios en auge, desafíos virales, hashtags 30/70 y contenidos educativos estilo 'lo que nadie te dice'."}
+
+REGLAS EDITORIALES DE ALTA CALIDAD:
+1. COPY PERSUASIVO Y COMPLETO ('caption'):
+   - Inicia siempre en la 1ra línea con un GANCHO IMPACTANTE inspirado en el Banco de Tendencias.
+   - Desarrolla el cuerpo con viñetas claras y emojis contextuales.
+   - Finaliza con un Llamado a la Acción (CTA) directo hacia WhatsApp o interacción.
+   - Añade un bloque final de 5 a 8 hashtags altamente relevantes para el rubro.
+2. GUION TÉCNICO Y CONCEPTO ('body'):
+   - Para REELS/VIDEOS: Detalla el guion paso a paso (0-3s Gancho, 3-15s Demostración/Valor, 15-30s Cierre con CTA) + sugerencia de estilo de audio o música en auge.
+   - Para CARROUSELES: Especifica el concepto diapositiva por diapositiva (Slide 1 a 5).
+3. PROMPTS VISUALES EN INGLÉS ('promptUsed'):
+   - Prompt en INGLÉS hiper-detallado (mínimo 25 palabras) optimizado para Midjourney v6, Flux o DALL-E 3.
+4. NO INVENTAR PRODUCTOS: Promociona únicamente la oferta real declarada.
+5. CALENDARIZACIÓN UNIFORME EN 30 DÍAS: Distribuye las ${planLimits.postsPerMonth} publicaciones uniformemente desde el "${startDateStr}" a lo largo de los 30 días del mes.`,
+      prompt: `Genera el Calendario Editorial completo para:
+- Negocio: ${business.name} (Rubro: ${business.industry || 'General'})
+- Plan de Suscripción: ${planLimits.planName} (${planLimits.postsPerMonth} publicaciones en 30 días)
+- Campaña Activa: "${campaign.name}" - ${campaign.description || 'Sin descripción'} (Objetivo: ${campaign.objective})
+- Canales obligatorios: FACEBOOK, INSTAGRAM y TIKTOK (Generar publicaciones para los 3 canales)
+- Feriados clave en el período:\n${holidaysText}
+- Estrategias Base:\n${strategiesContext}
+${business.onboardingStrategy ? `- ESTRATEGIA DIRECTA DEL CLIENTE:\n${JSON.stringify(business.onboardingStrategy)}` : ''}
+${productsInfo}
+
+Genera EXACTAMENTE ${planLimits.postsPerMonth} publicaciones completas distribuidas entre FACEBOOK, INSTAGRAM y TIKTOK (incluyendo 3 publicaciones por cada feriado: 1 FB, 1 IG, 1 TIKTOK) calendarizadas desde "${startDateStr}".`,
     });
-    return object.contents;
+
+    let rawContents = object.contents || [];
+
+    // Garantizar presencia de feriados en los 3 canales si la IA omitió alguno
+    for (const h of holidaysInMonth) {
+      const holidayPosts = rawContents.filter(c => c.scheduledAt && c.scheduledAt.startsWith(h.dateStr));
+      const hasFb = holidayPosts.some(c => c.channel === 'FACEBOOK');
+      const hasIg = holidayPosts.some(c => c.channel === 'INSTAGRAM');
+      const hasTk = holidayPosts.some(c => c.channel === 'TIKTOK');
+
+      const basePost = holidayPosts[0] || {
+        type: 'POST' as const,
+        title: `Especial ${h.name} en ${business.name}`,
+        body: `Celebrando ${h.name} con nuestros clientes y promociones especiales.`,
+        caption: `🎉 ¡Feliz ${h.name}! De parte de todo el equipo de ${business.name}, te deseamos un excelente día. ¡Conoce nuestras ofertas especiales de hoy! #${h.name.replace(/\s/g, '')} #${business.name.replace(/\s/g, '')}`,
+        promptUsed: `Festive promotional graphic for ${h.name} with ${business.name}, professional social media branding, vibrant lighting`,
+        scheduledAt: `${h.dateStr}T10:00:00.000Z`
+      };
+
+      if (!hasFb) rawContents.push({ ...basePost, channel: 'FACEBOOK', title: `[FB] ${basePost.title}`, scheduledAt: `${h.dateStr}T10:00:00.000Z` });
+      if (!hasIg) rawContents.push({ ...basePost, channel: 'INSTAGRAM', title: `[IG] ${basePost.title}`, scheduledAt: `${h.dateStr}T10:30:00.000Z` });
+      if (!hasTk) rawContents.push({ ...basePost, channel: 'TIKTOK', type: 'REEL' as const, title: `[TikTok] ${basePost.title}`, scheduledAt: `${h.dateStr}T11:00:00.000Z` });
+    }
+
+    return rawContents;
   } catch (e) {
     console.error('[CASCADE] Error llamando a IA para calendario, usando fallback:', e);
-    return getFallbackCalendarContents(business, campaign, campaignChannels);
+    return getFallbackCalendarContents(business, campaign, ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'], startDate);
   }
 }
 
 function getFallbackCalendarContents(
   business: { name: string },
   campaign: { name: string; description: string | null },
-  channels: string[]
+  channels: string[],
+  startDateObj: Date = new Date()
 ) {
-  const today = new Date();
-  return [
-    {
-      type: 'POST' as const,
-      title: `Conoce lo mejor de ${business.name}`,
-      body: `Descubre nuestra selección especial en ${business.name}.`,
-      caption: `✨ Lo mejor de ${business.name} te espera. ¡No te lo pierdas! #${business.name.replace(/\s/g, '')}`,
-      promptUsed: `Professional product photography for ${business.name}, clean white background, premium lighting, commercial style`,
-      scheduledAt: new Date(today.getTime() + 2 * 86400000).toISOString()
-    },
-    {
-      type: 'STORY' as const,
-      title: `Detrás de escena de ${business.name}`,
-      body: `Un vistazo al proceso creativo.`,
-      caption: `👀 Así trabajamos en ${business.name}. ¿Te gusta lo que ves? #BehindTheScenes`,
-      promptUsed: `Behind the scenes candid shot of a small business workspace, warm ambient lighting, authentic feel, Instagram story format`,
-      scheduledAt: new Date(today.getTime() + 5 * 86400000).toISOString()
-    },
-    {
-      type: 'REEL' as const,
-      title: `Tips rápidos con ${business.name}`,
-      body: `Contenido dinámico y educativo.`,
-      caption: `🎬 Tips que no te puedes perder de ${business.name}. ¡Guarda este reel! #Tips #${business.name.replace(/\s/g, '')}`,
-      promptUsed: `Dynamic social media reel thumbnail, vibrant colors, bold text overlay, engaging visual for ${business.name}`,
-      scheduledAt: new Date(today.getTime() + 10 * 86400000).toISOString()
+  const posts: any[] = [];
+  const channelsList: Array<'FACEBOOK' | 'INSTAGRAM' | 'TIKTOK'> = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'];
+  const types: Array<'POST' | 'REEL' | 'CAROUSEL'> = ['REEL', 'CAROUSEL', 'POST', 'REEL'];
+
+  const holidays = getHolidaysInMonth(startDateObj);
+
+  // 1. Feriados patrios y festividades: 3 publicaciones por feriado (FB, IG, TIKTOK)
+  for (const h of holidays) {
+    for (const chan of channelsList) {
+      posts.push({
+        type: (chan === 'TIKTOK' ? 'REEL' : 'POST') as any,
+        title: `Especial ${h.name} en ${business.name}`,
+        body: `Celebración especial por ${h.name} con promociones exclusivas para nuestros clientes.`,
+        caption: `🎉 ¡Feliz ${h.name}! En ${business.name} celebramos este día tan especial contigo. ¡Escríbenos por WhatsApp para promociones exclusivas! #${h.name.replace(/\s/g, '')} #${business.name.replace(/\s/g, '')}`,
+        promptUsed: `Festive holiday banner for ${h.name} featuring ${business.name}, vibrant colors, commercial social media graphics, 8k resolution`,
+        channel: chan,
+        scheduledAt: `${h.dateStr}T10:00:00.000Z`
+      });
     }
-  ];
+  }
+
+  // 2. Completar hasta 16 publicaciones distribuidas uniformemente en el mes
+  const targetCount = 16;
+  let dayOffset = 1;
+  while (posts.length < targetCount) {
+    const chan = channelsList[posts.length % 3];
+    const postType = chan === 'TIKTOK' ? 'REEL' : types[posts.length % types.length];
+    const d = new Date(startDateObj.getTime() + (dayOffset * 86400000));
+
+    posts.push({
+      type: postType as any,
+      title: `Publicación ${posts.length + 1} para ${business.name}`,
+      body: `Guion de contenido estratégico para ${campaign.name || business.name} (Gancho 0-3s, Valor 3-15s, CTA 15-30s).`,
+      caption: `✨ En ${business.name} te ofrecemos calidad y atención personalizada. ¡Contáctanos hoy por WhatsApp! #${business.name.replace(/\s/g, '')} #Marketing`,
+      promptUsed: `Professional commercial photography for ${business.name}, clean lighting, high resolution product shot`,
+      channel: chan,
+      scheduledAt: d.toISOString()
+    });
+    dayOffset += 2;
+  }
+
+  return posts.slice(0, targetCount);
 }
 
 function getFallbackStrategies(context: CascadeContext, count: number) {

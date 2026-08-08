@@ -87,7 +87,9 @@ function colorDistance(hex1: string, hex2: string): number {
 function extractDominantColorsFromImage(imageSrc: string, colorCount = 5): Promise<string[]> {
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = "Anonymous";
+    if (!imageSrc.startsWith("blob:") && !imageSrc.startsWith("data:")) {
+      img.crossOrigin = "Anonymous";
+    }
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
@@ -303,7 +305,11 @@ export function MediaLibraryClient({
       }
 
       const cdnUrl = obData.url;
-      const extractedColors = await extractDominantColorsFromImage(cdnUrl, 5);
+      
+      // Extraer paleta usando URL local de Blob sin restricciones CORS
+      const blobUrl = URL.createObjectURL(file);
+      const extractedColors = await extractDominantColorsFromImage(blobUrl, 5);
+      URL.revokeObjectURL(blobUrl);
 
       const res = await updateBusinessLogoAction({
         businessId,

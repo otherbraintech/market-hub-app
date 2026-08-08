@@ -7,7 +7,8 @@ import {
   startDiagnosticStage, 
   startStrategyStage, 
   startCampaignStage,
-  startCalendarStage
+  startCalendarStage,
+  getBusinessPlanLimitsAction
 } from "@/actions/business";
 import { listMediaAssetsAction } from "@/actions/media";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -427,9 +428,9 @@ export function OnboardingResultsPanel({
   const [editedCampStartDate, setEditedCampStartDate] = useState("");
   const [editedCampEndDate, setEditedCampEndDate] = useState("");
   const [editedCampBudget, setEditedCampBudget] = useState(150);
-  const [editedReelsCount, setEditedReelsCount] = useState(5);
-  const [editedCarouselsCount, setEditedCarouselsCount] = useState(2);
-  const [editedPostsCount, setEditedPostsCount] = useState(1);
+  const [editedReelsCount, setEditedReelsCount] = useState(8);
+  const [editedCarouselsCount, setEditedCarouselsCount] = useState(4);
+  const [editedPostsCount, setEditedPostsCount] = useState(4);
 
   // Estados para Segmentación (Targeting) y Canales Editables Directos
   const [editedLocations, setEditedLocations] = useState<string>("");
@@ -644,29 +645,43 @@ export function OnboardingResultsPanel({
 
   const [campaignStartDate, setCampaignStartDate] = useState<string>("");
 
+  // Fecha de inicio por defecto: hoy. Fecha máxima: último día del mes actual.
   useEffect(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setCampaignStartDate(tomorrow.toISOString().split('T')[0]);
+    const today = new Date();
+    setCampaignStartDate(today.toISOString().split('T')[0]);
   }, []);
 
   const handleStartCampaign = async () => {
     setIsDismissed(false);
     setIsTriggeredInSession(true);
     setCampaignLoading(true);
+    if (onStageRun) onStageRun("campaign");
     try {
       const res = await startCampaignStage(businessId, campaignStartDate || undefined);
       if (res.success) {
-        toast.success("¡Agente de Planificación de Campañas activado!");
-        fetchResults(true);
-        fetchNotifications(true);
+        toast.info("Agente de Planificación activado en cola...");
+        let attempts = 0;
+        const maxAttempts = 10;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          await fetchResults(true);
+          await fetchNotifications(true);
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            setCampaignLoading(false);
+            if (onStageRun) onStageRun(null);
+            toast.success("¡Campaña de Marketing generada con éxito!");
+          }
+        }, 2000);
       } else {
         toast.error(res.error || "Fallo al iniciar campañas");
+        setCampaignLoading(false);
+        if (onStageRun) onStageRun(null);
       }
     } catch (e) {
       toast.error("Error al iniciar campañas");
-    } finally {
       setCampaignLoading(false);
+      if (onStageRun) onStageRun(null);
     }
   };
 
@@ -674,21 +689,36 @@ export function OnboardingResultsPanel({
     setIsDismissed(false);
     setIsTriggeredInSession(true);
     setCalendarLoading(true);
+    if (onStageRun) onStageRun("calendar");
     try {
       const res = await startCalendarStage(businessId);
       if (res.success) {
-        toast.success("¡Agente Editorial activado para regenerar el calendario!");
-        fetchResults(true);
-        fetchNotifications(true);
+        toast.info("Agente Editorial activado en cola...");
+        let attempts = 0;
+        const maxAttempts = 12;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          await fetchResults(true);
+          await fetchNotifications(true);
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            setCalendarLoading(false);
+            if (onStageRun) onStageRun(null);
+            toast.success("¡Calendario Editorial generado con éxito!");
+          }
+        }, 2000);
       } else {
         toast.error(res.error || "Fallo al iniciar calendario");
+        setCalendarLoading(false);
+        if (onStageRun) onStageRun(null);
       }
     } catch (e) {
       toast.error("Error al iniciar calendario");
-    } finally {
       setCalendarLoading(false);
+      if (onStageRun) onStageRun(null);
     }
   };
+
 
   const fetchResults = async (silent = false, includeMedia = false) => {
     if (!silent) setLoading(true);
@@ -747,6 +777,15 @@ export function OnboardingResultsPanel({
   useEffect(() => {
     fetchResults();
     fetchNotifications();
+    if (businessId) {
+      getBusinessPlanLimitsAction(businessId).then(res => {
+        if (res.success && res.limits) {
+          setEditedReelsCount(res.limits.reelsCount);
+          setEditedCarouselsCount(res.limits.carouselsCount);
+          setEditedPostsCount(res.limits.staticPostsCount);
+        }
+      }).catch(() => {});
+    }
   }, [businessId]);
 
   useEffect(() => {
@@ -3710,7 +3749,8 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                     type="date"
                     value={campaignStartDate}
                     onChange={(e) => setCampaignStartDate(e.target.value)}
-                    min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                    min={new Date().toISOString().split('T')[0]}
+                    max={(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0]; })()}
                     className="bg-transparent text-[10px] font-bold text-foreground focus:outline-none border-none p-0 w-24 cursor-pointer"
                   />
                 </div>

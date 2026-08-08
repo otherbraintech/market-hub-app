@@ -71,6 +71,8 @@ export async function listMediaAssetsAction(
   }
 }
 
+import { analyzeVisualAssetsAction } from "@/actions/business";
+
 export async function updateBusinessLogoAction(data: {
   businessId: string;
   logoUrl: string;
@@ -105,6 +107,11 @@ export async function updateBusinessLogoAction(data: {
       },
     });
 
+    // Ejecutar diagnóstico visual en segundo plano tras subir logotipo
+    analyzeVisualAssetsAction(data.businessId).catch(err => {
+      console.warn("[MEDIA] Error al generar reporte de análisis visual post-logotipo:", err);
+    });
+
     revalidatePath("/media");
     revalidatePath(`/business/${data.businessId}`);
     revalidatePath("/", "layout");
@@ -120,6 +127,11 @@ export async function updateBusinessBrandColorsAction(businessId: string, brandC
       where: { id: businessId },
       data: { brandColors },
     });
+
+    analyzeVisualAssetsAction(businessId).catch(err => {
+      console.warn("[MEDIA] Error al actualizar reporte visual tras cambio de paleta:", err);
+    });
+
     revalidatePath("/media");
     revalidatePath(`/business/${businessId}`);
     revalidatePath("/", "layout");
@@ -157,7 +169,13 @@ export async function createMediaAssetAction(data: {
       },
     });
 
+    // Ejecutar diagnóstico visual automático tras subir cada recurso
+    analyzeVisualAssetsAction(data.businessId).catch(err => {
+      console.warn("[MEDIA] Error al generar reporte de análisis visual post-recurso:", err);
+    });
+
     revalidatePath("/media");
+    revalidatePath(`/business/${data.businessId}`);
     revalidatePath("/", "layout");
     return { success: true, message: "Archivo subido correctamente", asset };
   } catch (error: any) {

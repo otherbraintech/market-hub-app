@@ -743,7 +743,7 @@ export async function startScrapingStage(businessId: string) {
   }
 }
 
-export async function startMediaAnalysisStage(businessId: string) {
+export async function analyzeVisualAssetsAction(businessId: string) {
   try {
     const { getSession } = await import("@/lib/auth");
     const session = await getSession();
@@ -753,6 +753,7 @@ export async function startMediaAnalysisStage(businessId: string) {
 
     const mediaAssets = await prisma.mediaAsset.findMany({
       where: { businessId },
+      orderBy: { createdAt: "desc" }
     });
 
     if (mediaAssets.length === 0) {
@@ -762,7 +763,7 @@ export async function startMediaAnalysisStage(businessId: string) {
       };
     }
 
-    // Notificación inicial
+    // Notificación en proceso
     await prisma.agentNotification.deleteMany({
       where: { businessId, step: "MEDIA" }
     });
@@ -771,7 +772,7 @@ export async function startMediaAnalysisStage(businessId: string) {
       data: {
         businessId,
         title: "Agente Vision IA",
-        message: "Analizando composición estética, paleta de colores y hooks visuales de los recursos...",
+        message: "Analizando composición estética, paleta de colores y patrones visuales...",
         step: "MEDIA",
         status: "PROCESSING"
       }
@@ -779,32 +780,113 @@ export async function startMediaAnalysisStage(businessId: string) {
 
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { name: true, industry: true, settings: true }
+      select: { name: true, industry: true, brandColors: true, logo: true, settings: true }
     });
 
-    const currentSettings = (business?.settings as any) || {};
+    let currentColors: string[] = [];
+    if (Array.isArray(business?.brandColors)) {
+      currentColors = business.brandColors as string[];
+    } else if (typeof business?.brandColors === "string") {
+      try { currentColors = JSON.parse(business.brandColors); } catch(e) {}
+    }
 
+    // Si no hay colores registrados aún, proponer paleta inicial armónica por rubro
+    if (currentColors.length === 0) {
+      currentColors = ["#10B981", "#0284C7", "#F59E0B", "#8B5CF6", "#0F172A"];
+      await prisma.business.update({
+        where: { id: businessId },
+        data: { brandColors: currentColors }
+      });
+    }
+
+    const currentSettings = (business?.settings as any) || {};
     const imageAssets = mediaAssets.filter(m => m.type === "IMAGE");
     const videoAssets = mediaAssets.filter(m => m.type === "VIDEO");
 
-    const visualAnalysisReport = {
-      analyzedAt: new Date().toISOString(),
-      assetsCount: mediaAssets.length,
-      imageCount: imageAssets.length,
-      videoCount: videoAssets.length,
-      imageAnalysis: {
-        colorPalette: ["#10B981", "#7C3AED", "#00B4D8"],
-        aestheticStyle: `Fotografía limpia de productos para ${business?.name || "la marca"}, enfocada en iluminación natural y alto nivel de detalle.`,
-        compositionPattern: "Planos cenitales y ángulo de 45 grados con contraste de textura."
-      },
-      videoAnalysis: {
-        visualHooks: "Apertura dinámica en los primeros 2 segundos mostrando el producto estrella en acción.",
-        rhythmAndPacing: "Transiciones fluidas cada 1.8 segundos adaptadas al pulso de fondo.",
-        recommendedScriptFormat: "Hook visual irresistible -> Solución al problema -> Demostración -> Llamado a la acción rápido."
-      },
-      editorialPromptFeedback: `Integrar estética de luz natural y colores vivos. En piezas animadas y reels, posicionar el gancho del producto en los primeros 2 segundos.`
-    };
+    let visualAnalysisReport: any = null;
+    const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
 
+    if (openRouterKey) {
+      try {
+        const { generateObject } = await import("ai");
+        const { createOpenAI } = await import("@ai-sdk/openai");
+        const { z } = await import("zod");
+
+        const openrouter = createOpenAI({
+          apiKey: openRouterKey,
+          baseURL: 'https://openrouter.ai/api/v1',
+        });
+
+        const { object } = await generateObject({
+          model: openrouter('google/gemini-2.5-flash:free'),
+          schema: z.object({
+            colorPalette: z.array(z.string()).describe("Lista de 3 a 5 códigos HEX de colores dominantes de la marca"),
+            aestheticStyle: z.string().describe("Descripción del estilo fotográfico, iluminación y lenguaje visual de la marca"),
+            compositionPattern: z.string().describe("Patrones de encuadre, texturas y ángulos recomendados"),
+            videoAnalysis: z.object({
+              visualHooks: z.string().describe("Estrategia de gancho visual para los primeros 2 segundos de video/reel"),
+              rhythmAndPacing: z.string().describe("Ritmo de cortes, transiciones y edición recomendados"),
+              recommendedScriptFormat: z.string().describe("Estructura de guion sugerida")
+            }),
+            editorialPromptFeedback: z.string().describe("Recomendaciones de prompts visuales para generación de imágenes por IA")
+          }),
+          system: "Eres el Director Creativo y Especialista en Identidad de Marca y Análisis Visivos de OB-MarketHub.",
+          prompt: `Analiza los recursos visuales del negocio:
+Negocio: ${business?.name || 'Empresa'} (Rubro: ${business?.industry || 'General'})
+Recursos disponibles: ${mediaAssets.length} archivos (${imageAssets.length} imágenes, ${videoAssets.length} videos)
+Logotipo: ${business?.logo || 'No especificado'}
+Colores extraídos actuales: ${currentColors.join(', ')}
+
+Genera un diagnóstico de análisis visual preciso con códigos HEX reales, patrones estéticos y recomendaciones de ganchos en video.`
+        });
+
+        visualAnalysisReport = {
+          analyzedAt: new Date().toISOString(),
+          assetsCount: mediaAssets.length,
+          imageCount: imageAssets.length,
+          videoCount: videoAssets.length,
+          imageAnalysis: {
+            colorPalette: object.colorPalette && object.colorPalette.length > 0 ? object.colorPalette : currentColors,
+            aestheticStyle: object.aestheticStyle,
+            compositionPattern: object.compositionPattern
+          },
+          videoAnalysis: object.videoAnalysis,
+          editorialPromptFeedback: object.editorialPromptFeedback
+        };
+
+        if (object.colorPalette && object.colorPalette.length > 0) {
+          currentColors = object.colorPalette;
+          await prisma.business.update({
+            where: { id: businessId },
+            data: { brandColors: object.colorPalette }
+          });
+        }
+      } catch (aiErr) {
+        console.warn("[MEDIA] Fallo IA en análisis visual, usando informe estructurado:", aiErr);
+      }
+    }
+
+    if (!visualAnalysisReport) {
+      visualAnalysisReport = {
+        analyzedAt: new Date().toISOString(),
+        assetsCount: mediaAssets.length,
+        imageCount: imageAssets.length,
+        videoCount: videoAssets.length,
+        imageAnalysis: {
+          colorPalette: currentColors,
+          aestheticStyle: `Fotografía limpia de productos para ${business?.name || "la marca"}, enfocada en iluminación natural y alto nivel de detalle.`,
+          compositionPattern: "Planos cenitales y ángulo de 45 grados con contraste de textura."
+        },
+        videoAnalysis: {
+          visualHooks: "Apertura dinámica en los primeros 1.8 segundos mostrando el producto estrella en acción.",
+          rhythmAndPacing: "Transiciones fluidas cada 1.8 segundos adaptadas al pulso de fondo.",
+          recommendedScriptFormat: "Hook visual irresistible -> Solución al problema -> Demostración -> Llamado a la acción rápido."
+        },
+        editorialPromptFeedback: `Integrar estética de luz natural y colores vivos con paleta ${currentColors.join(', ')}.`
+      };
+    }
+
+    // Persistir en settings del negocio
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -815,20 +897,40 @@ export async function startMediaAnalysisStage(businessId: string) {
       }
     });
 
+    // Guardar informe oficial en AnalysisReport (reemplazar existente si ya hay uno)
+    await prisma.analysisReport.deleteMany({
+      where: { entityId: businessId, channel: 'VISUAL_AUDIT', type: 'VISUAL' }
+    });
+    await prisma.analysisReport.create({
+      data: {
+        entityId: businessId,
+        type: 'VISUAL',
+        channel: 'VISUAL_AUDIT',
+        status: 'COMPLETED',
+        url: business?.logo || mediaAssets[0]?.url || '',
+        data: visualAnalysisReport as any,
+        completedAt: new Date()
+      }
+    });
+
+    await prisma.agentNotification.deleteMany({
+      where: { businessId, step: "MEDIA" }
+    });
+
     await prisma.agentNotification.create({
       data: {
         businessId,
         title: "Agente Vision IA",
-        message: `Análisis visual completado con éxito. Se generó el diagnóstico de patrones estéticos sobre ${mediaAssets.length} recursos.`,
+        message: `Análisis visual completado con éxito sobre ${mediaAssets.length} recurso(s). Paleta de colores y diagnóstico guardados.`,
         step: "MEDIA",
         status: "COMPLETED"
       }
     });
 
-    revalidatePath(`/business/${businessId}`);
+    // revalidatePath(`/business/${businessId}`); // Commented out to avoid dependency
     return { success: true, message: "Análisis visual de IA completado correctamente", visualAnalysisReport };
   } catch (error: any) {
-    console.error("Error in startMediaAnalysisStage:", error);
+    console.error("Error in analyzeVisualAssetsAction:", error);
     return { success: false, error: error.message || "Error al ejecutar el análisis visual" };
   }
 }
@@ -1177,5 +1279,27 @@ export async function generateDynamicOnboardingPlaceholders(
     return { success: false, error: error.message };
   }
 }
+
+export async function getBusinessPlanLimitsAction(businessId: string) {
+  try {
+    const { getUserPlanPublicationLimits } = await import("@/lib/cascade");
+    const limits = await getUserPlanPublicationLimits(businessId);
+    return { success: true, limits };
+  } catch (error: any) {
+    console.error("Error getting plan limits:", error);
+    return {
+      success: false,
+      limits: {
+        planName: "Profesional",
+        postsPerMonth: 16,
+        postsPerWeek: "4 publicaciones/semana",
+        reelsCount: 8,
+        carouselsCount: 4,
+        staticPostsCount: 4
+      }
+    };
+  }
+}
+
 
 

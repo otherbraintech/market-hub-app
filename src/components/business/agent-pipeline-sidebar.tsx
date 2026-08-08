@@ -117,8 +117,8 @@ export function AgentPipelineSidebar({
     setRunningStep("media");
     toast.info("Agente Vision IA analizando composición y patrones estéticos...");
     try {
-      const { startMediaAnalysisStage } = await import("@/actions/business");
-      const res = await startMediaAnalysisStage(businessId);
+      const { analyzeVisualAssetsAction } = await import("@/actions/business");
+      const res = await analyzeVisualAssetsAction(businessId);
       if (res.success) {
         toast.success("Análisis visual de IA completado.");
         router.refresh();

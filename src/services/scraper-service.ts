@@ -4,6 +4,10 @@ export interface ScrapeOptions {
   url: string;
   channel: string; // "FACEBOOK" | "INSTAGRAM" | "TIKTOK" | "WEBSITE" | "WEB"
   maxPosts?: number;
+  reportId?: string;
+  type?: "MY_BUSINESS" | "COMPETITOR";
+  businessId?: string;
+  businessName?: string;
 }
 
 export interface ScrapedPost {
@@ -86,16 +90,30 @@ export async function scrapeWithObScrap(options: ScrapeOptions): Promise<Scraped
 
   console.log(`📡 [OB-SCRAP] Enviando solicitud a OBFarmer API: ${endpoint} (${platform}: ${sanitizedUrl})`);
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      profile_url: sanitizedUrl,
-      platform,
-      max_posts: options.maxPosts || 5,
-    }),
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 7000); // 7s timeout para verificar conexión con OB-Scrap API
+
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profile_url: sanitizedUrl,
+        platform,
+        max_posts: options.maxPosts || 5,
+      }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (fetchErr: any) {
+    clearTimeout(timeoutId);
+    if (fetchErr.name === "AbortError") {
+      throw new Error(`Servicio OB-Scrap offline o no respondió dentro del tiempo límite de conexión (7s).`);
+    }
+    throw new Error(`No se pudo conectar con el servicio OB-Scrap (${OB_SCRAPER_API_URL}): ${fetchErr.message}`);
+  }
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "");
@@ -150,7 +168,7 @@ export async function scrapeWithObScrap(options: ScrapeOptions): Promise<Scraped
 }
 
 /**
- * Realiza el scraping usando Apify API o Fallback.
+ * Realiza el scraping usando Apify API directo.
  * Soporta Instagram, TikTok, Facebook y Sitios Web.
  */
 export async function scrapeWithApify(options: ScrapeOptions): Promise<ScrapedProfileResult> {
@@ -161,8 +179,8 @@ export async function scrapeWithApify(options: ScrapeOptions): Promise<ScrapedPr
   console.log(`🚀 [APIFY] Iniciando extracción vía Apify para ${channel} (${sanitizedUrl})`);
 
   if (!APIFY_API_TOKEN) {
-    console.warn(`⚠️ [APIFY] APIFY_API_TOKEN no configurado en variables de entorno. Usando mock/n8n fallback.`);
-    return buildFallbackProfile(sanitizedUrl, channel, username, "APIFY_NO_TOKEN");
+    console.warn(`⚠️ [APIFY] APIFY_API_TOKEN no configurado en variables de entorno. Activando n8n fallback.`);
+    return await scrapeWithN8nWebhook(options);
   }
 
   try {
@@ -229,9 +247,79 @@ export async function scrapeWithApify(options: ScrapeOptions): Promise<ScrapedPr
       source: "APIFY",
     };
   } catch (err: any) {
-    console.error(`❌ [APIFY] Error durante el scraping de ${channel}:`, err.message);
-    return buildFallbackProfile(sanitizedUrl, channel, username, err.message);
+    console.error(`❌ [APIFY] Error durante el scraping directo de ${channel}: ${err.message}. Probando respaldo vía n8n webhook...`);
+    return await scrapeWithN8nWebhook(options);
   }
+}
+
+/**
+ * Realiza el scraping respaldado mediante el webhook de n8n.
+ */
+export async function scrapeWithN8nWebhook(options: ScrapeOptions): Promise<ScrapedProfileResult> {
+  const channel = options.channel.toUpperCase();
+  const sanitizedUrl = sanitizeSocialUrl(options.url);
+  const username = extractSocialUsername(sanitizedUrl);
+
+  const n8nWebhookUrl = options.type === "COMPETITOR"
+    ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio"
+    : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap";
+
+  console.log(`⚡ [N8N] Disparando webhook en n8n: ${n8nWebhookUrl} (${channel} - ${options.type || "MY_BUSINESS"}: ${sanitizedUrl})`);
+
+  const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const callbackUrl = `${appUrl}/api/webhook/callback`;
+
+  const payload = {
+    reportId: options.reportId || "",
+    type: options.type || "MY_BUSINESS",
+    channel,
+    redSocial: channel,
+    url: sanitizedUrl,
+    link: sanitizedUrl,
+    businessId: options.businessId || "",
+    entityId: options.businessId || "",
+    businessName: options.businessName || "",
+    competitorName: options.businessName || "",
+    callbackUrl,
+    platform: channel.toLowerCase(),
+    maxPosts: options.maxPosts || 5,
+  };
+
+  try {
+    const res = await fetch(n8nWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data && (data.scraped_posts || data.author_name || data.description)) {
+        return {
+          platform: channel.toLowerCase(),
+          author_name: data.author_name || username || `Perfil ${channel}`,
+          user_handle: `@${username || "perfil"}`,
+          profile_url: sanitizedUrl,
+          avatar_url: data.avatar_url || "",
+          followers_count: data.followers_count || "N/A",
+          following_count: data.following_count || "N/A",
+          posts_count: data.posts_count || (data.scraped_posts ? data.scraped_posts.length : 0),
+          description: data.description || "",
+          scraped_posts: data.scraped_posts || [],
+          scraped_at: new Date().toISOString(),
+          source: "N8N_WEBHOOK",
+        };
+      }
+    } else {
+      const errText = await res.text().catch(() => "");
+      console.error(`❌ [N8N] Webhook respondió con estado HTTP ${res.status}: ${errText}`);
+    }
+  } catch (err: any) {
+    console.warn(`⚠️ [N8N] Advertencia en webhook n8n (${channel}): ${err.message}`);
+  }
+
+  return buildFallbackProfile(sanitizedUrl, channel, username, "Extracción vía Apify/n8n activada");
 }
 
 /**
@@ -253,42 +341,20 @@ function buildFallbackProfile(url: string, channel: string, username: string, re
   };
 }
 
-/**
- * Orquestador Unificado de Scraping con Estrategia de Fallback Automática:
- * 1. WEBSITE -> Siempre usa Apify / Web Scraper.
- * 2. TIKTOK, INSTAGRAM, FACEBOOK:
- *    a) Intenta primero OB-Scrap (OBFarmer API con teléfonos ADB).
- *    b) Si OB-Scrap falla (HTTP 503, queue timeout, error de Facebook):
- *       -> Activa automáticamente el Fallback con Apify.
- */
 export async function unifiedScrapeChannel(options: ScrapeOptions): Promise<ScrapedProfileResult> {
-  const channel = options.channel.toUpperCase();
-  const isWebsite = channel === "WEBSITE" || channel === "WEB" || channel.includes("SITE");
+  const channelUpper = (options.channel || "").toUpperCase();
 
-  // 1. Si es Sitio Web -> Directo a Apify / Web Crawler
-  if (isWebsite) {
-    console.log(`🌐 [SCRAPER] Canal es Sitio Web (${options.url}). Ejecutando extracción vía Apify...`);
-    return await scrapeWithApify(options);
-  }
-
-  // 2. Si es Red Social (FB, IG, TikTok) -> Intentar OB-Scrap primero
-  try {
-    console.log(`📱 [SCRAPER] Intentando extracción primaria con OB-Scrap (OBFarmer API) para ${channel}...`);
-    const obResult = await scrapeWithObScrap(options);
-    return obResult;
-  } catch (obError: any) {
-    console.warn(
-      `⚠️ [SCRAPER] OB-Scrap no disponible o falló para ${channel} (${options.url}): ${obError.message}. Actividad de respaldo enviada a APIFY...`
-    );
-
-    // Fallback automático a Apify
+  // Para redes sociales (Facebook, Instagram, TikTok), invocar primariamente OBFarmer (Pool de Teléfonos ADB)
+  if (["FACEBOOK", "INSTAGRAM", "TIKTOK", "FB", "IG", "TT"].includes(channelUpper)) {
     try {
-      const apifyResult = await scrapeWithApify(options);
-      return apifyResult;
-    } catch (apifyError: any) {
-      console.error(`❌ [SCRAPER] Apify también falló para ${channel}:`, apifyError.message);
-      const username = extractSocialUsername(options.url);
-      return buildFallbackProfile(options.url, channel, username, `OB-Scrap: ${obError.message} | Apify: ${apifyError.message}`);
+      console.log(`🚀 [SCRAPER] Disparando extracción primaria vía OBFarmer (ADB Phones) para ${options.channel}: ${options.url}`);
+      return await scrapeWithObScrap(options);
+    } catch (obErr: any) {
+      console.warn(`⚠️ [OB-SCRAP] Falló OBFarmer (${obErr.message}). Probando respaldo vía n8n webhook...`);
     }
   }
+
+  // Para sitios web o como respaldo de redes sociales, usar n8n webhook / Apify
+  console.log(`🚀 [SCRAPER] Disparando extracción vía n8n webhook / Apify para ${options.channel} (${options.type || "MY_BUSINESS"}): ${options.url}`);
+  return await scrapeWithN8nWebhook(options);
 }

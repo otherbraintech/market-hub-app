@@ -29,6 +29,7 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/comp
 import { BusinessFormValues } from "@/lib/schemas/business";
 import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction, updateBusiness, startStrategyStage } from "@/actions/business";
 import { getIndustryPlaceholders } from "@/lib/industry-suggestions";
+import { InteractiveMapPicker } from "@/components/ui/interactive-map-picker";
 
 interface MultiSelectQuestionProps {
   label: string;
@@ -759,7 +760,7 @@ function SucursalesGoogleMapsPicker({
     return [
       {
         id: "suc-1",
-        name: "Casa Matriz / Sucursal Central",
+        name: "Sucursal de Venta #1",
         address: defaultLocation || "Av. Principal #100",
         city: "Santa Cruz de la Sierra",
         phone: defaultPhone || "",
@@ -771,13 +772,31 @@ function SucursalesGoogleMapsPicker({
 
   const [activeIdx, setActiveIdx] = useState<number>(0);
 
+  // Sincronizar e hidratar sucursales cuando se cargan de la base de datos
+  useEffect(() => {
+    if (value) {
+      let parsed: SucursalItem[] = [];
+      if (Array.isArray(value) && value.length > 0) {
+        parsed = value;
+      } else if (typeof value === "string") {
+        try {
+          const p = JSON.parse(value);
+          if (Array.isArray(p) && p.length > 0) parsed = p;
+        } catch (e) {}
+      }
+      if (parsed.length > 0) {
+        setSucursales(parsed);
+      }
+    }
+  }, [value]);
+
   useEffect(() => {
     onChange(sucursales);
   }, [sucursales]);
 
   const activeSucursal = sucursales[activeIdx] || sucursales[0] || {
     id: "suc-1",
-    name: "Sucursal Principal",
+    name: "Sucursal de Venta #1",
     address: "",
     city: "Santa Cruz de la Sierra",
     phone: "",
@@ -786,12 +805,16 @@ function SucursalesGoogleMapsPicker({
   };
 
   const updateSucursal = (field: keyof SucursalItem, val: any) => {
+    updateSucursalFields({ [field]: val });
+  };
+
+  const updateSucursalFields = (fields: Partial<SucursalItem>) => {
     setSucursales((prev) => {
       const next = [...prev];
       if (!next[activeIdx]) return prev;
-      next[activeIdx] = { ...next[activeIdx], [field]: val };
+      next[activeIdx] = { ...next[activeIdx], ...fields };
 
-      if (field === "isMain" && val === true) {
+      if (fields.isMain === true) {
         next.forEach((item, idx) => {
           if (idx !== activeIdx) item.isMain = false;
         });
@@ -802,18 +825,19 @@ function SucursalesGoogleMapsPicker({
 
   const addSucursal = () => {
     const newIdx = sucursales.length;
+    const prevSuc = sucursales[activeIdx] || sucursales[sucursales.length - 1];
     const newSuc: SucursalItem = {
       id: `suc-${Date.now()}`,
-      name: `Sucursal #${newIdx + 1}`,
-      address: "",
-      city: "Santa Cruz de la Sierra",
+      name: `Sucursal de Venta #${newIdx + 1}`,
+      address: prevSuc?.address || "",
+      city: prevSuc?.city || "Santa Cruz de la Sierra",
       phone: defaultPhone || "",
-      googleMapsUrl: "",
+      googleMapsUrl: prevSuc?.googleMapsUrl || "",
       isMain: sucursales.length === 0,
     };
     setSucursales((prev) => [...prev, newSuc]);
     setActiveIdx(newIdx);
-    toast.success(`¡Sucursal #${newIdx + 1} añadida! Configura su ubicación y datos.`);
+    toast.success(`¡Sucursal de Venta #${newIdx + 1} añadida! Ajusta el pin en el mapa si lo deseas.`);
   };
 
   const removeSucursal = (idx: number) => {
@@ -905,40 +929,26 @@ function SucursalesGoogleMapsPicker({
                 Nombre de la Sucursal / Punto de Venta
               </label>
               <Input
-                placeholder="Ej. Casa Matriz - Equipetrol / Sucursal Calacoto"
+                placeholder="Ej. Sucursal de Venta #1 - Equipetrol / Sucursal Calacoto"
                 value={activeSucursal.name}
                 onChange={(e) => updateSucursal("name", e.target.value)}
                 className="h-9 text-xs rounded-xl bg-background font-bold border-slate-200 focus-visible:ring-indigo-500"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
-                  Ciudad / Municipio
-                </label>
-                <select
-                  value={activeSucursal.city}
-                  onChange={(e) => updateSucursal("city", e.target.value)}
-                  className="w-full h-9 rounded-xl bg-background border border-slate-200 px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  {BOLIVIA_CITIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
-                  Teléfono / WhatsApp Directo
-                </label>
-                <Input
-                  placeholder="Ej. +591 76543210"
-                  value={activeSucursal.phone}
-                  onChange={(e) => updateSucursal("phone", e.target.value)}
-                  className="h-9 text-xs rounded-xl bg-background border-slate-200 focus-visible:ring-indigo-500 font-medium"
-                />
-              </div>
+            <div>
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">
+                Ciudad / Municipio
+              </label>
+              <select
+                value={activeSucursal.city}
+                onChange={(e) => updateSucursal("city", e.target.value)}
+                className="w-full h-9 rounded-xl bg-background border border-slate-200 px-3 text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {BOLIVIA_CITIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -995,38 +1005,27 @@ function SucursalesGoogleMapsPicker({
           </div>
         </div>
 
-        {/* Mapa Interactivo Google Maps Embed (Lado derecho) */}
+        {/* Mapa Interactivo con Pin Arrastrable y Búsqueda (Lado derecho) */}
         <div className="md:col-span-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-              <Globe className="h-3 w-3 text-indigo-600" /> Vista Previa Google Maps API
+            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+              <Globe className="h-3 w-3" /> Selector de Mapa Interactivo
             </span>
-            {activeSucursal.address && (
-              <a
-                href={directMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-0.5"
-              >
-                Abrir Mapa Completo ↗
-              </a>
-            )}
           </div>
 
-          <div className="h-[230px] w-full rounded-2xl overflow-hidden border border-indigo-200/80 dark:border-indigo-900/60 shadow-inner bg-slate-900 relative">
-            <iframe
-              title="Google Maps Location Preview"
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              loading="lazy"
-              allowFullScreen
-              src={embedUrl}
-            />
-          </div>
-          <p className="text-[9.5px] text-muted-foreground italic text-center">
-            📍 Mapa interactivo centrado en: <strong>{mapQuery || "Bolivia"}</strong>
-          </p>
+          <InteractiveMapPicker
+            key={`sucursal-map-${activeIdx}`}
+            city={activeSucursal.city}
+            address={activeSucursal.address}
+            googleMapsUrl={activeSucursal.googleMapsUrl}
+            onLocationChange={({ address: newAddr, city: newCity, googleMapsUrl: newMapsUrl }) => {
+              updateSucursalFields({
+                address: newAddr,
+                city: newCity || activeSucursal.city,
+                googleMapsUrl: newMapsUrl,
+              });
+            }}
+          />
         </div>
       </div>
     </div>
@@ -1390,7 +1389,7 @@ export function OnboardingContent() {
     if (businessId) {
       setLoading(true);
       try {
-        const res = await saveMultipleCompetitorsAction(businessId, validList, true);
+        const res = await saveMultipleCompetitorsAction(businessId, validList, false);
         if (res.success) {
           toast.success("¡Competidores guardados con éxito!");
         } else {
@@ -1408,42 +1407,24 @@ export function OnboardingContent() {
   };
 
   const handleFinishStrategy = async () => {
-    // Validaciones de canal de conversión (Pregunta 4)
-    const convChannel = strategyValues.conversionChannel || "";
-    if (convChannel.toLowerCase().includes("moderno")) {
-      const hasModernoDetails = convChannel.includes("Cadenas Canal Moderno:") && convChannel.split("Cadenas Canal Moderno:")[1]?.trim();
-      if (!hasModernoDetails) {
-        toast.error("Por favor, especifica el nombre de los supermercados o cadenas del Canal Moderno.");
-        return;
-      }
+    setLoading(true);
+
+    // Auto-sanitizar canales de conversión para evitar bloqueos si no ingresó sub-detalles
+    let sanitizedConvChannel = strategyValues.conversionChannel || "";
+    if (sanitizedConvChannel.includes("Canal Moderno") && !sanitizedConvChannel.includes("Cadenas Canal Moderno:")) {
+      sanitizedConvChannel += ", Cadenas Canal Moderno: Supermercados y cadenas locales";
     }
-    if (convChannel.toLowerCase().includes("tradicional")) {
-      const hasTradicionalDetails = convChannel.includes("Comercios Canal Tradicional:") && convChannel.split("Comercios Canal Tradicional:")[1]?.trim();
-      if (!hasTradicionalDetails) {
-        toast.error("Por favor, especifica los mercados, pulperías o zonas del Canal Tradicional.");
-        return;
-      }
+    if (sanitizedConvChannel.includes("Canal Tradicional") && !sanitizedConvChannel.includes("Comercios Canal Tradicional:")) {
+      sanitizedConvChannel += ", Comercios Canal Tradicional: Friales, mercados y pulperías";
     }
-    if (convChannel.toLowerCase().includes("delivery") || convChannel.toLowerCase().includes("pedidosya") || convChannel.toLowerCase().includes("yango")) {
-      const hasDeliveryDetails = convChannel.includes("Apps de Delivery:") && convChannel.split("Apps de Delivery:")[1]?.trim();
-      if (!hasDeliveryDetails) {
-        toast.error("Por favor, especifica el nombre de las Apps de Delivery que utilizas (ej. PedidosYa, Yango).");
-        return;
-      }
-    }
-    if (convChannel.toLowerCase().includes("whatsapp")) {
-      const hasWaNumber = convChannel.includes("Número WhatsApp:") && convChannel.split("Número WhatsApp:")[1]?.trim();
-      if (!hasWaNumber && !businessFormValues?.phoneNumbers) {
-        toast.error("Por favor, ingresa el número de WhatsApp para atención y ventas.");
-        return;
-      }
-    }
-    if (convChannel.includes("Otros") && !convChannel.split(",").some(item => !item.includes(":") && item.trim() !== "Otros" && item.trim() !== "")) {
-      toast.error("Has seleccionado la opción 'Otros' en canales pero el campo de texto está vacío.");
-      return;
+    if (sanitizedConvChannel.includes("Apps de Delivery") && !sanitizedConvChannel.includes("Apps de Delivery:")) {
+      sanitizedConvChannel += ", Apps de Delivery: PedidosYa, Yango";
     }
 
-    setLoading(true);
+    const finalStrategyValues = {
+      ...strategyValues,
+      conversionChannel: sanitizedConvChannel,
+    };
 
     // Ejecutar el proceso de creación y guardado, luego redirigir al detalle del negocio
     const runCreationAndRedirect = async () => {
@@ -1463,8 +1444,9 @@ export function OnboardingContent() {
             website: businessFormValues.website || "",
             phoneNumbers: businessFormValues.phoneNumbers,
             location: businessFormValues.location,
+            branches: businessFormValues.branches,
             socialLinks: businessFormValues.socialLinks,
-            onboardingStrategy: strategyValues
+            onboardingStrategy: finalStrategyValues
           }, false);
 
           if (createRes.success && createRes.data?.id) {
@@ -1481,7 +1463,7 @@ export function OnboardingContent() {
             const { onboardingStrategy, ...cleanFormValues } = businessFormValues as any;
             await updateBusiness(activeBusinessId, cleanFormValues);
           }
-          const saveRes = await saveOnboardingStrategyAction(activeBusinessId, strategyValues);
+          const saveRes = await saveOnboardingStrategyAction(activeBusinessId, finalStrategyValues);
           if (!saveRes.success) {
             toast.error(saveRes.error || "Ocurrió un error al guardar las preguntas estratégicas.");
           }
@@ -1489,7 +1471,7 @@ export function OnboardingContent() {
 
         const validList = competitors.filter(c => c.name.trim() !== "");
         if (validList.length > 0) {
-          const res = await saveMultipleCompetitorsAction(activeBusinessId, validList, true);
+          const res = await saveMultipleCompetitorsAction(activeBusinessId, validList, false);
           if (res.success) {
             toast.success("¡Negocio, estrategia y competidores guardados correctamente!");
           } else {

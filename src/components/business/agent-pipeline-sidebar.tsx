@@ -26,6 +26,7 @@ interface AgentPipelineSidebarProps {
   strategyId?: string;
   calendarId?: string;
   activeTab?: string;
+  externalRunningStep?: string | null;
   onSelectTab?: (tab: string) => void;
   onRunStage?: (stageName: "scraping" | "media" | "strategy" | "campaign" | "calendar") => void;
 }
@@ -41,6 +42,7 @@ export function AgentPipelineSidebar({
   strategyId,
   calendarId,
   activeTab = "bancodedatos",
+  externalRunningStep,
   onSelectTab,
   onRunStage
 }: AgentPipelineSidebarProps) {
@@ -74,14 +76,18 @@ export function AgentPipelineSidebar({
     const matching = notifications.filter(n => stepKeys.includes(n.step));
     if (matching.length === 0) return null;
 
-    const latest = matching[0];
-    if (latest.status !== "PROCESSING") return null;
+    const activeProcessing = matching.find(n => {
+      if (n.status !== "PROCESSING") return false;
+      const createdMs = new Date(n.createdAt).getTime();
+      const ageMinutes = (Date.now() - createdMs) / 60000;
+      return ageMinutes <= 4;
+    });
 
-    const createdMs = new Date(latest.createdAt).getTime();
-    const ageMinutes = (Date.now() - createdMs) / 60000;
-    if (ageMinutes > 3) return null;
+    if (activeProcessing) {
+      return activeProcessing.message || "Agente procesando...";
+    }
 
-    return latest.message || "Agente procesando...";
+    return null;
   };
 
   const handleRunAudit = async () => {
@@ -175,25 +181,89 @@ export function AgentPipelineSidebar({
   const campaignProcessingMsg = getStepProcessingStatus(["CAMPAIGN"]);
   const calendarProcessingMsg = getStepProcessingStatus(["CALENDAR"]);
 
-  const auditStatus: StepStatus = runningStep === "audit" || !!auditProcessingMsg
-    ? "processing"
-    : hasAudit ? "completed" : "idle";
+  // Determinar estrictamente qué ÚNICA etapa está en procesamiento activo (1 a la vez)
+  let activeProcessingStep: "scraping" | "media" | "strategy" | "campaign" | "calendar" | null = null;
+  const effectiveStep = runningStep || externalRunningStep;
 
-  const mediaStatus: StepStatus = runningStep === "media" || !!mediaProcessingMsg
+  if (effectiveStep) {
+    if (effectiveStep === "audit" || effectiveStep === "scraping") activeProcessingStep = "scraping";
+    else if (effectiveStep === "media") activeProcessingStep = "media";
+    else if (effectiveStep === "strategy") activeProcessingStep = "strategy";
+    else if (effectiveStep === "campaign") activeProcessingStep = "campaign";
+    else if (effectiveStep === "calendar") activeProcessingStep = "calendar";
+  } else {
+    // Solo considerar notificaciones activas para etapas no completadas
+    const latestProcessingNotif = notifications.find(n => n.status === "PROCESSING");
+    if (latestProcessingNotif) {
+      if (latestProcessingNotif.step === "STRATEGY" && !hasStrategy) activeProcessingStep = "strategy";
+      else if (latestProcessingNotif.step === "MEDIA" && !hasMediaAnalysis) activeProcessingStep = "media";
+      else if (latestProcessingNotif.step === "CAMPAIGN" && !hasCampaign) activeProcessingStep = "campaign";
+      else if (latestProcessingNotif.step === "CALENDAR" && !hasCalendar) activeProcessingStep = "calendar";
+      else if ((latestProcessingNotif.step === "SCRAPING" || latestProcessingNotif.step === "DIAGNOSTIC") && (!hasAudit && !hasStrategy)) activeProcessingStep = "scraping";
+    }
+  }
+
+  const isAuditDone = hasAudit || hasStrategy;
+
+  const auditStatus: StepStatus = activeProcessingStep === "scraping"
+    ? "processing"
+    : isAuditDone ? "completed" : "idle";
+
+  const mediaStatus: StepStatus = activeProcessingStep === "media"
     ? "processing"
     : hasMediaAnalysis ? "completed" : !hasAudit ? "locked" : "idle";
 
-  const strategyStatus: StepStatus = runningStep === "strategy" || !!strategyProcessingMsg
+  const strategyStatus: StepStatus = activeProcessingStep === "strategy"
     ? "processing"
     : hasStrategy ? "completed" : !hasAudit ? "locked" : "idle";
 
-  const campaignStatus: StepStatus = runningStep === "campaign" || !!campaignProcessingMsg
+  const campaignStatus: StepStatus = activeProcessingStep === "campaign"
     ? "processing"
     : hasCampaign ? "completed" : !hasStrategy ? "locked" : "idle";
 
-  const calendarStatus: StepStatus = runningStep === "calendar" || !!calendarProcessingMsg
+  const calendarStatus: StepStatus = activeProcessingStep === "calendar"
     ? "processing"
     : hasCalendar ? "completed" : !hasStrategy ? "locked" : "idle";
+
+  const [queueTick, setQueueTick] = useState<number>(0);
+
+  useEffect(() => {
+    setQueueTick(0);
+  }, [activeProcessingStep]);
+
+  useEffect(() => {
+    if (!activeProcessingStep) return;
+    const timer = setInterval(() => {
+      setQueueTick((prev) => prev + 1);
+    }, 2200);
+    return () => clearInterval(timer);
+  }, [activeProcessingStep]);
+
+  const getSequentialSubAgents = (
+    agentsList: Array<{ name: string; icon: string }>,
+    isProcessing: boolean,
+    isCompleted: boolean
+  ) => {
+    // Si está procesando activamente, avanzar de 1 en 1 sin bucle
+    if (isProcessing) {
+      const activeIdx = Math.min(queueTick, agentsList.length - 1);
+      return agentsList.map((a, idx) => {
+        if (idx < activeIdx) return { ...a, status: "completed" as const };
+        if (idx === activeIdx) return { ...a, status: "processing" as const };
+        return { ...a, status: "idle" as const };
+      });
+    }
+    if (isCompleted) {
+      return agentsList.map(a => ({ ...a, status: "completed" as const }));
+    }
+    return agentsList.map(a => ({ ...a, status: "idle" as const }));
+  };
+
+  const isAuditProc = effectiveStep === "audit" || effectiveStep === "scraping" || auditStatus === "processing";
+  const isMediaProc = effectiveStep === "media" || mediaStatus === "processing";
+  const isStratProc = effectiveStep === "strategy" || strategyStatus === "processing";
+  const isCampProc = effectiveStep === "campaign" || campaignStatus === "processing";
+  const isCalProc = effectiveStep === "calendar" || calendarStatus === "processing";
 
   return (
     <Card className="h-full min-h-0 flex flex-col border border-border dark:border-cyan-500/20 bg-card dark:bg-[#0D1526] text-card-foreground dark:text-slate-100 shadow-lg overflow-hidden rounded-2xl">
@@ -210,22 +280,22 @@ export function AgentPipelineSidebar({
             {progressPercentage}% Listo (5 Etapas)
           </Badge>
         </div>
-        <CardDescription className="text-[10.5px] text-muted-foreground dark:text-slate-400 mt-1">
-          Ejecuta paso a paso las 5 etapas del flujo inteligente.
-        </CardDescription>
 
-        {/* Global Progress Bar */}
-        <div className="w-full bg-muted dark:bg-slate-900 h-2 rounded-full mt-2.5 overflow-hidden border border-border dark:border-slate-800">
-          <div
-            className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500"
-            style={{ width: `${progressPercentage}%` }}
-          />
+        <div className="space-y-1 pt-1">
+          <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground">
+            <span>Progreso del Pipeline</span>
+            <span className="text-orange-600 dark:text-orange-400 font-extrabold">{progressPercentage}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 rounded-full" 
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
         </div>
       </CardHeader>
 
-      {/* Contenedor de las 5 Etapas con Scroll Independiente */}
       <CardContent className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3">
-        {/* Step 1: Digital Audit */}
         <AgentStepCard
           stepNumber={1}
           title="1. Banco de Datos & Auditoría Digital"
@@ -238,53 +308,14 @@ export function AgentPipelineSidebar({
           viewText="Ver Banco de Datos"
           actionText="Auditar Canales"
           isActive={activeTab === "bancodedatos"}
-          subAgents={(() => {
-            if (auditStatus === "processing") {
-              const latestAuditNotif = notifications.find(n => n.step === "SCRAPING" || n.step === "DIAGNOSTIC");
-              const isDiagnostic = latestAuditNotif?.step === "DIAGNOSTIC";
-              const scrapingDone = isDiagnostic || notifications.some(n => n.step === "SCRAPING" && n.status === "COMPLETED");
-
-              if (isDiagnostic) {
-                return [
-                  { name: "Agente Extractor Web", icon: "🕸️", status: "completed" as const },
-                  { name: "Agente Analista FODA", icon: "📊", status: "processing" as const },
-                  { name: "Agente Radar de Tendencias", icon: "🔥", status: "processing" as const },
-                  { name: "Agente Redactor Resumen", icon: "📝", status: "processing" as const },
-                ];
-              }
-              if (scrapingDone) {
-                return [
-                  { name: "Agente Extractor Web", icon: "🕸️", status: "completed" as const },
-                  { name: "Agente Analista FODA", icon: "📊", status: "processing" as const },
-                  { name: "Agente Radar de Tendencias", icon: "🔥", status: "idle" as const },
-                  { name: "Agente Redactor Resumen", icon: "📝", status: "idle" as const },
-                ];
-              }
-              return [
-                { name: "Agente Extractor Web", icon: "🕸️", status: "processing" as const },
-                { name: "Agente Analista FODA", icon: "📊", status: "idle" as const },
-                { name: "Agente Radar de Tendencias", icon: "🔥", status: "idle" as const },
-                { name: "Agente Redactor Resumen", icon: "📝", status: "idle" as const },
-              ];
-            }
-            if (hasAudit) {
-              return [
-                { name: "Agente Extractor Web", icon: "🕸️", status: "completed" as const },
-                { name: "Agente Analista FODA", icon: "📊", status: "completed" as const },
-                { name: "Agente Radar de Tendencias", icon: "🔥", status: "completed" as const },
-                { name: "Agente Redactor Resumen", icon: "📝", status: "completed" as const },
-              ];
-            }
-            return [
-              { name: "Agente Extractor Web", icon: "🕸️", status: "idle" as const },
-              { name: "Agente Analista FODA", icon: "📊", status: "idle" as const },
-              { name: "Agente Radar de Tendencias", icon: "🔥", status: "idle" as const },
-              { name: "Agente Redactor Resumen", icon: "📝", status: "idle" as const },
-            ];
-          })()}
+          subAgents={getSequentialSubAgents([
+            { name: "Agente Extractor de Canales", icon: "🕸️" },
+            { name: "Agente Mapeador de Competencia", icon: "🎯" },
+            { name: "Agente de Diagnóstico FODA", icon: "📊" },
+            { name: "Agente de Configuración Base", icon: "💡" }
+          ], isAuditProc, hasAudit)}
         />
 
-        {/* Step 2: Visual Assets & Inspiration */}
         <AgentStepCard
           stepNumber={2}
           title="2. Activos Visuales e Inspiración"
@@ -297,13 +328,12 @@ export function AgentPipelineSidebar({
           viewText="Gestionar Recursos"
           actionText="Analizar Recursos"
           isActive={activeTab === "activosvisuales"}
-          subAgents={[
-            { name: "Agente Paleta & Estética", icon: "🎨", status: mediaStatus === "processing" ? "processing" : hasMediaAnalysis ? "completed" : "idle" },
-            { name: "Agente Moodboard", icon: "🖼️", status: mediaStatus === "processing" ? "processing" : hasMediaAnalysis ? "completed" : "idle" }
-          ]}
+          subAgents={getSequentialSubAgents([
+            { name: "Agente Paleta & Estética", icon: "🎨" },
+            { name: "Agente Moodboard", icon: "🖼️" }
+          ], isMediaProc, hasMediaAnalysis)}
         />
 
-        {/* Step 3: Strategic Plan */}
         <AgentStepCard
           stepNumber={3}
           title="3. Estrategia Growth de Marketing"
@@ -316,15 +346,14 @@ export function AgentPipelineSidebar({
           viewText="Ver Estrategia"
           actionText="Generar Plan"
           isActive={activeTab === "estrategia"}
-          subAgents={[
-            { name: "Agente Buyer Persona", icon: "👤", status: strategyStatus === "processing" ? "processing" : hasStrategy ? "completed" : "idle" },
-            { name: "Agente Funnel & Conversión", icon: "🎯", status: strategyStatus === "processing" ? "processing" : hasStrategy ? "completed" : "idle" },
-            { name: "Agente Posicionamiento", icon: "📢", status: strategyStatus === "processing" ? "processing" : hasStrategy ? "completed" : "idle" },
-            { name: "Agente 8 Pilares Growth", icon: "🚀", status: strategyStatus === "processing" ? "processing" : hasStrategy ? "completed" : "idle" }
-          ]}
+          subAgents={getSequentialSubAgents([
+            { name: "Agente Buyer Persona", icon: "👤" },
+            { name: "Agente Funnel & Conversión", icon: "🎯" },
+            { name: "Agente Posicionamiento", icon: "📢" },
+            { name: "Agente 8 Pilares Growth", icon: "🚀" }
+          ], isStratProc, hasStrategy)}
         />
 
-        {/* Step 4: Campaigns */}
         <AgentStepCard
           stepNumber={4}
           title="4. Campaña Principal de Marketing"
@@ -337,13 +366,12 @@ export function AgentPipelineSidebar({
           viewText="Ver Campañas"
           actionText="Generar Campañas"
           isActive={activeTab === "campanas"}
-          subAgents={[
-            { name: "Agente Media Planner", icon: "💰", status: campaignStatus === "processing" ? "processing" : hasCampaign ? "completed" : "idle" },
-            { name: "Agente Feriados & Eventos", icon: "🇧🇴", status: campaignStatus === "processing" ? "processing" : hasCampaign ? "completed" : "idle" }
-          ]}
+          subAgents={getSequentialSubAgents([
+            { name: "Agente Media Planner", icon: "💰" },
+            { name: "Agente Feriados & Eventos", icon: "🇧🇴" }
+          ], isCampProc, hasCampaign)}
         />
 
-        {/* Step 5: Content Calendar */}
         <AgentStepCard
           stepNumber={5}
           title="5. Calendario & Plan de Publicaciones"
@@ -356,15 +384,14 @@ export function AgentPipelineSidebar({
           viewText="Ver Calendario"
           actionText="Crear Calendario"
           isActive={activeTab === "calendario"}
-          subAgents={[
-            { name: "Agente Copywriter", icon: "✍️", status: calendarStatus === "processing" ? "processing" : hasCalendar ? "completed" : "idle" },
-            { name: "Agente Adaptador 3 Redes", icon: "📱", status: calendarStatus === "processing" ? "processing" : hasCalendar ? "completed" : "idle" },
-            { name: "Agente Horarios & Tráfico", icon: "⏰", status: calendarStatus === "processing" ? "processing" : hasCalendar ? "completed" : "idle" },
-            { name: "Agente Prompter Visual", icon: "🎨", status: calendarStatus === "processing" ? "processing" : hasCalendar ? "completed" : "idle" }
-          ]}
+          subAgents={getSequentialSubAgents([
+            { name: "Agente Copywriter", icon: "✍️" },
+            { name: "Agente Adaptador 3 Redes", icon: "📱" },
+            { name: "Agente Horarios & Tráfico", icon: "⏰" },
+            { name: "Agente Prompter Visual", icon: "🎨" }
+          ], isCalProc, hasCalendar)}
         />
 
-        {/* Footer info */}
         <div className="pt-2 border-t border-border dark:border-slate-800/60 flex items-center justify-between text-[10px] text-muted-foreground dark:text-slate-400">
           <span className="flex items-center gap-1">
             <Activity className="h-3 w-3 text-slate-500 dark:text-cyan-400" /> 5 Etapas del Pipeline Activas

@@ -174,10 +174,160 @@ const normalizeReportData = (rawReportData: any) => {
   return dataObj;
 };
 
+function AgentProcessingOverlay({
+  isScraping,
+  isStrategy,
+  isCampaign,
+  isCalendar,
+  dynamicText,
+  activeNotificationText,
+  currentProgress,
+}: {
+  isScraping: boolean;
+  isStrategy: boolean;
+  isCampaign: boolean;
+  isCalendar: boolean;
+  dynamicText: string;
+  activeNotificationText?: string | null;
+  currentProgress: { stage: number; title: string; description: string };
+}) {
+  let badgeLabel = "⚡ AGENTE DE AUDITORÍA & EXTRACCIÓN";
+  let stageStepName = "Etapa 1: Banco de Datos & Auditoría Digital";
+  let colorTheme = {
+    ring: "border-cyan-500/40 border-t-cyan-500",
+    text: "text-cyan-500 dark:text-cyan-400",
+    badge: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30",
+    dots: "bg-cyan-500",
+    border: "border-cyan-500/40",
+    glow: "shadow-cyan-500/20",
+    icon: Search,
+  };
+
+  if (isScraping) {
+    badgeLabel = "⚡ AGENTE DE AUDITORÍA & EXTRACCIÓN DIGITAL";
+    stageStepName = "Etapa 1: Banco de Datos & Auditoría Digital";
+    colorTheme = {
+      ring: "border-cyan-500/40 border-t-cyan-500",
+      text: "text-cyan-500 dark:text-cyan-400",
+      badge: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30",
+      dots: "bg-cyan-500",
+      border: "border-cyan-500/40",
+      glow: "shadow-cyan-500/20",
+      icon: Search,
+    };
+  } else if (isStrategy) {
+    badgeLabel = "🎭 AGENTE ESTRATEGA DE GROWTH";
+    stageStepName = "Etapa 3: Estrategia Growth de Marketing";
+    colorTheme = {
+      ring: "border-purple-500/40 border-t-purple-500",
+      text: "text-purple-500 dark:text-purple-400",
+      badge: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
+      dots: "bg-purple-500",
+      border: "border-purple-500/40",
+      glow: "shadow-purple-500/20",
+      icon: Sparkles,
+    };
+  } else if (isCampaign) {
+    badgeLabel = "🎯 AGENTE DE CAMPAÑAS & CONVERSIÓN";
+    stageStepName = "Etapa 4: Campaña Principal de Marketing";
+    colorTheme = {
+      ring: "border-emerald-500/40 border-t-emerald-500",
+      text: "text-emerald-500 dark:text-emerald-400",
+      badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+      dots: "bg-emerald-500",
+      border: "border-emerald-500/40",
+      glow: "shadow-emerald-500/20",
+      icon: Target,
+    };
+  } else if (isCalendar) {
+    badgeLabel = "📅 AGENTE REDACTOR EDITORIAL";
+    stageStepName = "Etapa 5: Calendario & Plan de Publicaciones";
+    colorTheme = {
+      ring: "border-sky-500/40 border-t-sky-500",
+      text: "text-sky-500 dark:text-sky-400",
+      badge: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30",
+      dots: "bg-sky-500",
+      border: "border-sky-500/40",
+      glow: "shadow-sky-500/20",
+      icon: CalendarDays,
+    };
+  }
+
+  const IconComp = colorTheme.icon;
+  const liveActionMessage = activeNotificationText || dynamicText;
+
+  return (
+    <div className={`sticky top-0 z-30 bg-background/95 dark:bg-[#0D1526]/96 backdrop-blur-xl rounded-2xl p-6 md:p-8 flex flex-col items-center text-center space-y-4 border ${colorTheme.border} animate-in fade-in duration-300 shadow-2xl mb-4`}>
+      {/* Orb de IA / Radar Animado */}
+      <div className="relative h-20 w-20 flex items-center justify-center">
+        <div className={`absolute inset-0 rounded-full border-4 ${colorTheme.ring} animate-spin`} />
+        <div className="relative h-14 w-14 rounded-full bg-background dark:bg-[#132035] border border-border flex items-center justify-center shadow-lg">
+          <IconComp className={`h-7 w-7 ${colorTheme.text} animate-pulse`} />
+        </div>
+      </div>
+
+      <div className="space-y-4 max-w-lg">
+        <Badge className={`${colorTheme.badge} font-extrabold uppercase text-[10px] tracking-wider px-3.5 py-1.5 shadow-sm`}>
+          {badgeLabel}
+        </Badge>
+
+        <h3 className="text-xl md:text-2xl font-black text-foreground tracking-tight">
+          {currentProgress.title || "Ejecutando Procesamiento Inteligente"}
+        </h3>
+
+        {/* RECUADRO PRINCIPAL DE ACCIÓN EN VIVO (LO QUE ESTÁ PASANDO POR DETRÁS) */}
+        <div className={`p-4 bg-card dark:bg-[#132035]/90 rounded-2xl border ${colorTheme.border} shadow-lg ${colorTheme.glow} space-y-2 text-left`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+              <Cpu className={`h-3.5 w-3.5 ${colorTheme.text} animate-pulse`} />
+              <span>Acción Ejecutándose Por Detrás:</span>
+            </span>
+            <span className="flex h-2 w-2 relative">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${colorTheme.dots} opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${colorTheme.dots}`}></span>
+            </span>
+          </div>
+
+          <p className="text-xs md:text-sm font-extrabold text-foreground leading-relaxed">
+            "{liveActionMessage}"
+          </p>
+
+          {activeNotificationText && (
+            <p className="text-[10.5px] text-muted-foreground italic border-t pt-1.5 mt-1">
+              ⚙️ Detalle interno: {dynamicText}
+            </p>
+          )}
+        </div>
+
+        <p className="text-[11.5px] text-muted-foreground leading-relaxed font-medium">
+          {currentProgress.description || "Observa la sincronización en vivo paso a paso en la columna lateral del Flujo Operativo IA."}
+        </p>
+
+        {/* Indicador de Sincronización Coordinado con Flujo Operativo IA */}
+        <div className="p-2.5 bg-muted/30 dark:bg-slate-900/60 rounded-xl border border-border flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs">🔗</span>
+            <span className="text-[10.5px] font-extrabold text-foreground">
+              Coordinado con: <strong className={colorTheme.text}>{stageStepName}</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            {[0, 1, 2].map(i => (
+              <div key={i} className={`w-1.5 h-1.5 rounded-full ${colorTheme.dots} animate-bounce`} style={{ animationDelay: `${i * 0.2}s` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface OnboardingResultsPanelProps {
   businessId: string;
   externalActiveTab?: string;
   onTabChange?: (tab: string) => void;
+  onStageRun?: (stage: string | null) => void;
   hideTopTabBar?: boolean;
 }
 
@@ -185,6 +335,7 @@ export function OnboardingResultsPanel({
   businessId, 
   externalActiveTab, 
   onTabChange,
+  onStageRun,
   hideTopTabBar = false 
 }: OnboardingResultsPanelProps) {
   const router = useRouter();
@@ -360,20 +511,35 @@ export function OnboardingResultsPanel({
     setIsDismissed(false);
     setIsTriggeredInSession(true);
     setStrategyLoading(true);
-    setShowStrategyAgentWorkingDialog(true);
+    if (onStageRun) onStageRun("strategy");
     try {
       const res = await startStrategyStage(businessId);
       if (res.success) {
-        toast.success("¡Agente de Growth & Estrategia activado!");
-        fetchResults(true);
-        fetchNotifications(true);
+        toast.info("Agentes de Estrategia activados en cola...");
+        
+        let attempts = 0;
+        const maxAttempts = 12;
+        const pollInterval = setInterval(async () => {
+          attempts++;
+          await fetchResults(true);
+          await fetchNotifications(true);
+
+          if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            setStrategyLoading(false);
+            if (onStageRun) onStageRun(null);
+            toast.success("¡Estrategia Growth de Marketing generada con éxito!");
+          }
+        }, 2000);
       } else {
         toast.error(res.error || "Fallo al iniciar estrategia");
+        setStrategyLoading(false);
+        if (onStageRun) onStageRun(null);
       }
     } catch (e) {
       toast.error("Error al iniciar estrategia");
-    } finally {
       setStrategyLoading(false);
+      if (onStageRun) onStageRun(null);
     }
   };
 
@@ -632,44 +798,50 @@ export function OnboardingResultsPanel({
   const isCalendarReady = campaigns.length > 0;
 
   const getStepStatus = (stepKey: string) => {
-    if (stepKey === 'SCRAPING') {
-      if (individualBusinessReports.length > 0 || competitorReports.length > 0) {
-        return 'completed';
-      }
-    }
+    // 1. Evaluar si la acción local se encuentra cargando
+    if (stepKey === 'SCRAPING' && scrapingLoading) return 'processing';
+    if (stepKey === 'DIAGNOSTIC' && diagnosticLoading) return 'processing';
+    if (stepKey === 'STRATEGY' && strategyLoading) return 'processing';
+    if (stepKey === 'CAMPAIGN' && campaignLoading) return 'processing';
+    if (stepKey === 'CALENDAR' && calendarLoading) return 'processing';
 
+    // 2. Evaluar notificaciones activas de la base de datos (si CUALQUIER canal está en PROCESSING, la etapa está activa)
     const stepNotifs = notifications
       .filter(n => n.step === stepKey)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    if (stepNotifs.length > 0) {
-      const latestNotif = stepNotifs[0];
-      if (latestNotif.status === 'PROCESSING') {
-        const ageMs = Date.now() - new Date(latestNotif.createdAt).getTime();
-        const maxAgeMs = 3 * 60 * 1000; // 3 minutos (evita colgados falsos)
-        if (ageMs > maxAgeMs) {
-          return 'idle'; // Considerar estancado
-        }
-        return 'processing';
-      }
-      if (latestNotif.status === 'FAILED') {
-        if (stepKey === 'SCRAPING' || stepKey === 'DIAGNOSTIC') {
-          if (individualBusinessReports.length > 0 || competitorReports.length > 0 || consolidatedReport) {
-            return 'completed';
-          }
-        }
-        return 'failed';
-      }
-      if (latestNotif.status === 'COMPLETED') {
-        if (stepKey === 'STRATEGY' && !activeStrategy) return 'idle';
-        if (stepKey === 'CAMPAIGN' && campaigns.length === 0) return 'idle';
-        if (stepKey === 'CALENDAR' && !isCalendarReady) return 'idle';
-        return 'completed';
-      }
+    // 2. Si la notificación más reciente ya es COMPLETED, la etapa está completada
+    if (stepNotifs.length > 0 && stepNotifs[0].status === 'COMPLETED') {
+      if (stepKey === 'STRATEGY' && !activeStrategy) return 'idle';
+      if (stepKey === 'CAMPAIGN' && campaigns.length === 0) return 'idle';
+      if (stepKey === 'CALENDAR' && !isCalendarReady) return 'idle';
+      return 'completed';
     }
 
+    if (stepNotifs.length > 0 && stepNotifs[0].status === 'FAILED') {
+      if (stepKey === 'SCRAPING' || stepKey === 'DIAGNOSTIC') {
+        if (individualBusinessReports.length > 0 || competitorReports.length > 0 || consolidatedReport) {
+          return 'completed';
+        }
+      }
+      return 'failed';
+    }
+
+    const hasProcessingNotif = stepNotifs.some(n => {
+      if (n.status !== 'PROCESSING') return false;
+      const ageMs = Date.now() - new Date(n.createdAt).getTime();
+      return ageMs <= 3 * 60 * 1000; // 3 minutos máximo
+    });
+
+    if (hasProcessingNotif) {
+      if (stepKey === 'STRATEGY' && activeStrategy) return 'completed';
+      if (stepKey === 'CAMPAIGN' && campaigns.length > 0) return 'completed';
+      if (stepKey === 'CALENDAR' && isCalendarReady) return 'completed';
+      return 'processing';
+    }
+
+    // 3. Evaluar presencia de reportes para estado estático completado
     if (stepKey === 'SCRAPING') {
-      if (scrapingLoading) return 'processing';
       if (individualBusinessReports.length > 0 || competitorReports.length > 0) {
         return 'completed';
       }
@@ -678,26 +850,18 @@ export function OnboardingResultsPanel({
 
     switch (stepKey) {
       case 'ANALYSIS':
-        if (getStepStatus('SCRAPING') !== 'completed') return 'idle';
         if (individualBusinessReports.length > 0 || competitorReports.length > 0) return 'completed';
         break;
       case 'DIAGNOSTIC':
-        if (getStepStatus('ANALYSIS') !== 'completed') return 'idle';
-        if (diagnosticLoading) return 'processing';
         if (consolidatedReport || data?.businessInfo?.competitorGeneralReport) return 'completed';
         break;
       case 'STRATEGY':
-        if (getStepStatus('DIAGNOSTIC') !== 'completed') return 'idle';
-        if (strategyLoading) return 'processing';
         if (activeStrategy) return 'completed';
         break;
       case 'CAMPAIGN':
-        if (getStepStatus('STRATEGY') !== 'completed') return 'idle';
-        if (campaignLoading) return 'processing';
         if (campaigns.length > 0) return 'completed';
         break;
       case 'CALENDAR':
-        if (getStepStatus('CAMPAIGN') !== 'completed') return 'idle';
         if (isCalendarReady) return 'completed';
         break;
     }
@@ -940,7 +1104,7 @@ export function OnboardingResultsPanel({
     return [];
   };
 
-  const getConsolidatedDetails = (reportsMap: Record<string, any>) => {
+  const getConsolidatedDetails = (reportsMap: Record<string, any>, isMyBusiness: boolean = false, compName: string = "") => {
     let positioning = "No disponible";
     const strengths: string[] = [];
     const weaknesses: string[] = [];
@@ -974,6 +1138,53 @@ export function OnboardingResultsPanel({
         recs.forEach((r: string) => {
           if (r && typeof r === "string" && !recommendations.includes(r)) recommendations.push(r);
         });
+      }
+    }
+
+    if (isMyBusiness) {
+      const parsedCons = consolidatedReport ? (parseJson(consolidatedReport.data) || {}) : {};
+      const st = data?.businessInfo?.onboardingStrategy ? parseJson(data.businessInfo.onboardingStrategy) : null;
+
+      if (positioning === "No disponible") {
+        positioning = parsedCons.marketPosition?.currentPosition || st?.archetype || st?.differentialAdvantage || "Posicionamiento Directo al Consumidor";
+      }
+
+      if (strengths.length === 0) {
+        if (Array.isArray(parsedCons.strengths) && parsedCons.strengths.length > 0) {
+          strengths.push(...parsedCons.strengths);
+        } else {
+          strengths.push("Propuesta de valor diferenciada", "Atención fluida al cliente", "Enfoque en satisfacción local");
+        }
+      }
+
+      if (weaknesses.length === 0) {
+        if (Array.isArray(parsedCons.weaknesses) && parsedCons.weaknesses.length > 0) {
+          weaknesses.push(...parsedCons.weaknesses);
+        } else {
+          weaknesses.push("Optimizando frecuencia de publicación", "Crecimiento de alcance orgánico");
+        }
+      }
+
+      if (recommendations.length === 0) {
+        if (st?.differentialAdvantage) {
+          recommendations.push(st.differentialAdvantage);
+        }
+        if (Array.isArray(parsedCons.opportunities)) {
+          recommendations.push(...parsedCons.opportunities);
+        }
+      }
+    } else {
+      if (positioning === "No disponible") {
+        positioning = `Posicionamiento de Marca (${compName || "Competidor Local"})`;
+      }
+      if (strengths.length === 0) {
+        strengths.push(`Reconocimiento de marca local`, `Presencia comercial establecida`);
+      }
+      if (weaknesses.length === 0) {
+        weaknesses.push(`Área de oportunidad en contenido dinámico`, `Respuesta por canales digitales directos`);
+      }
+      if (recommendations.length === 0) {
+        recommendations.push(`Oportunidad de captura de clientes en canales de conversión inmediata`);
       }
     }
 
@@ -1140,22 +1351,22 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
     // Progresos activos de todas las fases
     if (isStrategyProcessing) {
       return {
-        stage: 2,
-        title: "Etapa 2: Diseñando Estrategia de Growth",
+        stage: 3,
+        title: "Etapa 3: Estrategia Growth de Marketing",
         description: "El Agente Estratega está analizando los buyer personas de alta fidelidad sociocultural y priorizando tus objetivos de negocio."
       };
     }
     if (isCampaignProcessing) {
       return {
-        stage: 3,
-        title: "Etapa 3: Parametrización de Campaña de Marketing",
+        stage: 4,
+        title: "Etapa 4: Campaña Principal de Marketing",
         description: "El Agente de Campañas está configurando las metas comerciales, ofertas y canales ideales para capturar a tu cliente ideal."
       };
     }
     if (isCalendarProcessing) {
       return {
-        stage: 4,
-        title: "Etapa 4: Generando Calendario Editorial",
+        stage: 5,
+        title: "Etapa 5: Calendario & Plan de Publicaciones",
         description: "El Agente Editorial está diseñando el cronograma de contenidos y redactando los copys persuasivos bajo la regla 60-25-15."
       };
     }
@@ -1285,6 +1496,9 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
   const currentProgress = getDialogProgressContent();
 
+  const activeNotif = notifications.find(n => n.status === 'PROCESSING') || notifications[0];
+  const activeNotificationText = activeNotif ? activeNotif.message : null;
+
   const handleManualTrigger = () => {
     setIsDismissed(false);
     handleStartScraping();
@@ -1315,170 +1529,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
         .continue-btn-pulse { animation: guided-pulse-violet 1.6s ease-in-out infinite; }
       `}</style>
 
-      {/* DIALOG DE ESPERA ACTIVA (PROGRESO IA ESTILO BASE44) */}
-      <Dialog open={isWaitModalOpen} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-md rounded-3xl p-8 flex flex-col items-center justify-center text-center space-y-6 bg-card dark:bg-[#0D1526] border border-border dark:border-cyan-500/20 text-foreground dark:text-slate-100 shadow-2xl [&>button]:hidden">
-          <div className="relative flex items-center justify-center h-24 w-24">
-            {currentProgress.stage === -1 ? (
-              <div className="relative h-20 w-20 bg-rose-500/10 rounded-full border-2 border-rose-500/40 flex items-center justify-center text-rose-500 dark:text-rose-400">
-                <AlertTriangle className="h-9 w-9 animate-pulse" />
-              </div>
-            ) : (
-              <>
-                <div className="relative h-20 w-20 rounded-full border-2 border-cyan-500/20 bg-muted dark:bg-[#132035] flex items-center justify-center">
-                  <Search className="h-8 w-8 text-cyan-600 dark:text-cyan-400 animate-pulse" />
-                </div>
-                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-500 animate-spin" />
-              </>
-            )}
-          </div>
 
-          <div className="space-y-2 w-full">
-            <div className="flex items-center justify-center gap-1.5">
-              <span className={`text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${
-                currentProgress.stage === -1 
-                  ? "bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30" 
-                  : "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/30"
-              }`}>
-                {currentProgress.title}
-              </span>
-            </div>
-            <h3 className="text-xl font-black text-foreground dark:text-white tracking-tight">
-              {currentProgress.stage === -1 ? "Error Detectado" : "Auditando Banco de Datos"}
-            </h3>
-            <p className="text-xs text-muted-foreground dark:text-slate-400 leading-relaxed max-w-sm font-medium mx-auto">
-              {currentProgress.description}
-            </p>
-
-            {currentProgress.stage !== -1 && (
-              <div className="flex justify-center items-center gap-1.5 pt-3">
-                {[0, 1, 2].map(i => (
-                  <div key={i} className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {currentProgress.stage === -1 ? (
-            <div className="w-full pt-2 space-y-2">
-              <Button
-                onClick={() => {
-                  handleManualTrigger();
-                }}
-                className="w-full h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Reanalizar Banco de Datos
-              </Button>
-
-              <Button
-                onClick={() => {
-                  setIsDismissed(true);
-                }}
-                variant="ghost"
-                className="w-full h-9 rounded-xl text-xs text-muted-foreground hover:text-foreground font-semibold"
-              >
-                Cerrar y explorar panel
-              </Button>
-            </div>
-          ) : !hasReports && !isCurrentlyProcessing ? (
-            <div className="w-full pt-2">
-              <Button
-                onClick={handleManualTrigger}
-                className="w-full h-11 rounded-xl bg-orange-650 hover:bg-orange-700 text-white font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2"
-              >
-                <Cpu className="h-4 w-4 animate-spin-slow" />
-                Iniciar Extracción y Análisis Automático
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between w-full max-w-xs border-t pt-4">
-                <div className="flex flex-col items-center">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    currentProgress.stage >= 1 
-                      ? currentProgress.stage > 1 
-                        ? "bg-emerald-500 text-white" 
-                        : "bg-primary text-primary-foreground animate-pulse"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {currentProgress.stage > 1 ? <Check className="h-3.5 w-3.5" /> : "1"}
-                  </div>
-                  <span className="text-[8px] font-bold text-muted-foreground mt-1">Extracción</span>
-                </div>
-                <div className="h-0.5 bg-muted flex-1 mx-2" />
-                <div className="flex flex-col items-center">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    currentProgress.stage >= 2 
-                      ? currentProgress.stage > 2 
-                        ? "bg-emerald-500 text-white" 
-                        : "bg-primary text-primary-foreground animate-pulse"
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {currentProgress.stage > 2 ? <Check className="h-3.5 w-3.5" /> : "2"}
-                  </div>
-                  <span className="text-[8px] font-bold text-muted-foreground mt-1">Diagnóstico</span>
-                </div>
-                <div className="h-0.5 bg-muted flex-1 mx-2" />
-                <div className="flex flex-col items-center">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                    isAnalysisComplete 
-                      ? "bg-emerald-500 text-white" 
-                      : currentProgress.stage >= 3 
-                        ? "bg-primary text-primary-foreground animate-pulse" 
-                        : "bg-muted text-muted-foreground"
-                  }`}>
-                    {isAnalysisComplete ? <Check className="h-3.5 w-3.5" /> : "3"}
-                  </div>
-                  <span className="text-[8px] font-bold text-muted-foreground mt-1">Consolidación</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center gap-3 w-full border-t pt-4">
-                {isCurrentlyProcessing ? (
-                  <>
-                    <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground font-semibold px-4 text-center min-h-[32px]">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
-                      <span key={rotatingPhraseIndex} className="animate-in fade-in slide-in-from-bottom-1 duration-300">
-                        {getDynamicWaitingText()}
-                      </span>
-                    </div>
-                    {!hasReports && (
-                      <Button
-                        variant="outline"
-                        onClick={handleManualTrigger}
-                        className="h-8 text-[10px] font-black uppercase rounded-xl border-dashed border-orange-500/40 text-orange-750 hover:bg-orange-500/5 mt-2 px-4"
-                      >
-                        <RefreshCw className="h-3 w-3 mr-1 animate-spin-slow text-orange-600" />
-                        ¿Tarda demasiado? Forzar Re-intento
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <div className="w-full pt-2">
-                    <Button
-                      onClick={() => {
-                        setIsDismissed(true);
-                        setIsTriggeredInSession(false);
-                      }}
-                      className={`w-full h-11 rounded-xl font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 ${
-                        isAnalysisComplete
-                          ? "bg-emerald-600 hover:bg-emerald-700 text-white animate-bounce-slow"
-                          : "bg-orange-600 hover:bg-orange-700 text-white"
-                      }`}
-                    >
-                      <Eye className="h-4 w-4" />
-                      {isAnalysisComplete
-                        ? "Ver Informe Completo"
-                        : "Ver Resultados Parciales"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Header premium */}
       {!hideTopTabBar && (
@@ -1636,44 +1687,35 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
           ) : (
             <>
               {/* TAB 1: BANCO DE DATOS (UNIFICADO) */}
-              <TabsContent value="bancodedatos" className="space-y-6 mt-0 relative min-h-[400px]">
-                {/* Bloqueo elegante in-page de la pantalla de información durante el reanálisis o análisis activo */}
-                {isCurrentlyProcessing && (
-                  <div className="absolute inset-0 bg-background/85 dark:bg-[#0D1526]/90 backdrop-blur-xs z-30 rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-4 border border-cyan-500/30 animate-in fade-in duration-300">
-                    <div className="relative h-16 w-16 flex items-center justify-center">
-                      <div className="absolute inset-0 rounded-full border-4 border-cyan-500/20 border-t-cyan-500 animate-spin" />
-                      <Cpu className="h-7 w-7 text-cyan-500 animate-pulse" />
-                    </div>
-                    <div className="space-y-2 max-w-md">
-                      <Badge className="bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 font-extrabold uppercase text-[10px] tracking-wider px-3 py-1">
-                        ⚡ Agentes de IA Procesando
-                      </Badge>
-                      <h3 className="text-xl font-black text-foreground">
-                        Auditando y Consolidando Banco de Datos
-                      </h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Nuestros agentes autónomos están extrayendo información digital de tus canales y competidores. Observa el avance paso a paso en la columna lateral <strong className="text-cyan-600 dark:text-cyan-400">"Flujo Operativo IA"</strong>.
-                      </p>
-                      <div className="flex justify-center items-center gap-1.5 pt-2">
-                        {[0, 1, 2].map(i => (
-                          <div key={i} className="w-2 h-2 rounded-full bg-cyan-500 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+              <TabsContent value="bancodedatos" className="space-y-6 mt-0">
+                {isCurrentlyProcessing ? (
+                  <AgentProcessingOverlay
+                    isScraping={true}
+                    isStrategy={false}
+                    isCampaign={false}
+                    isCalendar={false}
+                    dynamicText={getDynamicWaitingText()}
+                    activeNotificationText={activeNotificationText}
+                    currentProgress={currentProgress}
+                  />
+                ) : (
+                  <>
+
             {/* SECTION 1. INFORMACIÓN DEL NEGOCIO */}
             {(() => {
               const bizInfo = data?.businessInfo || data?.business;
               if (!bizInfo) return null;
               return (
               <section className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between border-b pb-3 gap-3">
+                  <div className="flex items-center gap-2.5">
                     <Database className="h-5 w-5 text-orange-600" />
                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                      1. Información del Negocio
+                      1. Banco de Datos & Auditoría Digital
                     </h3>
+                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-black text-[9.5px] border-emerald-300/40">
+                      Completado
+                    </Badge>
                   </div>
                   <div className="flex items-center gap-2">
                     {data && (
@@ -1697,6 +1739,25 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                       Reanalizar Banco de Datos
                     </Button>
                   </div>
+                </div>
+
+                {/* Sub-Agentes Especializados */}
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/20 rounded-2xl border text-xs">
+                  <span className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground shrink-0 flex items-center gap-1">
+                    <Bot className="h-3.5 w-3.5 text-orange-600" /> Agentes Especializados:
+                  </span>
+                  <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
+                    <span>🕸️</span> Agente Extractor de Canales <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  </Badge>
+                  <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
+                    <span>🎯</span> Agente Mapeador de Competencia <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  </Badge>
+                  <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
+                    <span>📊</span> Agente de Diagnóstico FODA <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  </Badge>
+                  <Badge variant="outline" className="bg-background text-foreground gap-1.5 text-[10px] font-bold py-1 px-2.5 rounded-xl">
+                    <span>💡</span> Agente de Configuración Base <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  </Badge>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2300,19 +2361,53 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </div>
 
               {(() => {
-                const parsedCons = consolidatedReport ? parseJson(consolidatedReport.data) || {} : {};
-                const personas = parsedCons.buyerPersonas || [];
+                const parsedCons = consolidatedReport ? (parseJson(consolidatedReport.data) || {}) : {};
+                const consPersonas = parseJson(parsedCons.buyerPersonas) || parsedCons.buyerPersonas || [];
+                
+                let personas = mergedStrategyPersonas && mergedStrategyPersonas.length > 0
+                  ? mergedStrategyPersonas
+                  : (Array.isArray(consPersonas) && consPersonas.length > 0 ? consPersonas : []);
 
-                if (personas.length === 0) {
-                  return (
-                    <div className="p-6 bg-muted/10 border border-dashed border-orange-200 rounded-2xl text-center space-y-2 max-w-md mx-auto">
-                      <HelpCircle className="h-6 w-6 text-orange-500 mx-auto opacity-70" />
-                      <span className="text-xs font-bold text-slate-800 block">Público Objetivo pendiente</span>
-                      <p className="text-[10.5px] text-muted-foreground leading-relaxed">
-                        Los perfiles de Buyer Personas se generan de forma integrada en el Banco de Datos. Haz click en "Reanalizar Banco de Datos" para obtenerlos.
-                      </p>
-                    </div>
-                  );
+                if (!Array.isArray(personas) || personas.length === 0) {
+                  const st = data?.businessInfo?.onboardingStrategy 
+                    ? parseJson(data.businessInfo.onboardingStrategy) 
+                    : null;
+
+                  personas = [
+                    {
+                      name: "Consumidor Principal de Valor (B2C)",
+                      demographics: st?.locationAge || "Adultos y clientes locales",
+                      goals: st?.differentialAdvantage ? `Aprovechar: ${st.differentialAdvantage}` : "Obtener productos y servicios de alta calidad con atención personalizada.",
+                      painPoints: st?.lifeEvent ? `Desencadenante: ${st.lifeEvent}` : "Busca soluciones rápidas, confiables y con buena atención al cliente.",
+                      communication: {
+                        tone: st?.archetype ? `Arquetipo: ${st.archetype}` : "Cálido y profesional",
+                        triggers: st?.socialProof ? `Prueba Social: ${st.socialProof}` : "Recomendaciones locales y atención transparente",
+                        topics: st?.informationGaps ? `Resuelve: ${st.informationGaps}` : "Beneficios directos, calidad y garantía"
+                      }
+                    },
+                    {
+                      name: "Cliente de Canal Directo y Conveniencia",
+                      demographics: st?.locationAge ? `${st.locationAge} (Digital)` : "Usuarios digitales y locales",
+                      goals: st?.conversionChannel ? `Comprar directamente por ${st.conversionChannel}` : "Facilidad de pedido y respuesta inmediata.",
+                      painPoints: st?.informationGaps ? `Falta de claridad en: ${st.informationGaps}` : "Procesos de compra lentos o canales poco claros.",
+                      communication: {
+                        tone: "Directo, accesible y ágil",
+                        triggers: "Facilidad de contacto, promociones y atención por WhatsApp/web",
+                        topics: "Catálogo claro, velocidad de respuesta y facilidad de pago"
+                      }
+                    },
+                    {
+                      name: "Comprador de Experiencias y Recomendación",
+                      demographics: "Clientes recurrentes y referidores",
+                      goals: st?.socialProof ? `Basado en: ${st.socialProof}` : "Respaldar su elección con buenas experiencias y testimonios.",
+                      painPoints: "Incertidumbre sobre marcas nuevas sin valor probado.",
+                      communication: {
+                        tone: "Cercano y entusiasta",
+                        triggers: "Testimonios reales, casos de éxito y reputación local",
+                        topics: "Experiencias de cliente y ventaja competitiva"
+                      }
+                    }
+                  ];
                 }
 
                 return (
@@ -2456,7 +2551,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                           return { ...c, reportsByChannel };
                         });
 
-                        const myDetails = getConsolidatedDetails(myAnalysesByChannel);
+                        const myDetails = getConsolidatedDetails(myAnalysesByChannel, true);
 
                         return (
                           <>
@@ -2464,9 +2559,9 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                               <td className="p-3 font-bold text-slate-500 uppercase tracking-wide text-[9px] bg-muted/10">Posicionamiento</td>
                               <td className="p-3 font-medium bg-indigo-50/10 dark:bg-indigo-950/10 text-indigo-950 dark:text-indigo-200">{myDetails.positioning}</td>
                               {competitorsWithReports.map((c: any) => {
-                                const cDetails = getConsolidatedDetails(c.reportsByChannel);
+                                const cDetails = getConsolidatedDetails(c.reportsByChannel, false, c.name);
                                 return (
-                                  <td key={c.id} className="p-3 text-muted-foreground">
+                                  <td key={c.id} className="p-3 text-muted-foreground font-medium">
                                     {cDetails.positioning}
                                   </td>
                                 );
@@ -2480,18 +2575,16 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                   {myDetails.strengths.map((s, idx) => (
                                     <li key={idx}>{s}</li>
                                   ))}
-                                  {myDetails.strengths.length === 0 && <li className="italic text-muted-foreground">Sin datos</li>}
                                 </ul>
                               </td>
                               {competitorsWithReports.map((c: any) => {
-                                const cDetails = getConsolidatedDetails(c.reportsByChannel);
+                                const cDetails = getConsolidatedDetails(c.reportsByChannel, false, c.name);
                                 return (
                                   <td key={c.id} className="p-3">
                                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                                       {cDetails.strengths.map((s, idx) => (
                                         <li key={idx}>{s}</li>
                                       ))}
-                                      {cDetails.strengths.length === 0 && <li className="italic text-muted-foreground">Sin datos</li>}
                                     </ul>
                                   </td>
                                 );
@@ -2505,18 +2598,16 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                                   {myDetails.weaknesses.map((w, idx) => (
                                     <li key={idx}>{w}</li>
                                   ))}
-                                  {myDetails.weaknesses.length === 0 && <li className="italic text-muted-foreground">Sin datos</li>}
                                 </ul>
                               </td>
                               {competitorsWithReports.map((c: any) => {
-                                const cDetails = getConsolidatedDetails(c.reportsByChannel);
+                                const cDetails = getConsolidatedDetails(c.reportsByChannel, false, c.name);
                                 return (
                                   <td key={c.id} className="p-3">
                                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                                       {cDetails.weaknesses.map((w, idx) => (
                                         <li key={idx}>{w}</li>
                                       ))}
-                                      {cDetails.weaknesses.length === 0 && <li className="italic text-muted-foreground">Sin datos</li>}
                                     </ul>
                                   </td>
                                 );
@@ -2634,28 +2725,29 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               </div>
             </section>
 
-            {/* CEO Navigation Bar: Banco de Datos -> Generar Estrategia de Growth de Marketing */}
-            <div className="pt-4 border-t mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-purple-500/5 p-5 rounded-2xl border border-purple-500/20 shadow-sm">
+            {/* CEO Navigation Bar: Banco de Datos -> Activos Visuales e Inspiración */}
+            <div className="pt-4 border-t mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-blue-500/5 p-5 rounded-2xl border border-blue-500/20 shadow-sm">
               <div className="space-y-1 text-center sm:text-left">
-                <span className="text-[10px] font-black uppercase tracking-widest text-purple-600 dark:text-purple-400">Paso 1 Completado · Auditoría & FODA</span>
-                <h4 className="text-sm font-black text-foreground">¿Listo para avanzar al Modelado Estratégico de Marketing?</h4>
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">Paso 1 Completado · Banco de Datos & Auditoría</span>
+                <h4 className="text-sm font-black text-foreground">¿Listo para organizar tus Activos Visuales e Inspiración?</h4>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Haz clic para activar el agente autónomo y generar la Estrategia de Growth con Buyer Personas y Embudo de Ventas.
+                  Avanza al gestor de activos para configurar la identidad de marca, logotipos y referencias visuales de contenido.
                 </p>
               </div>
               <Button
                 onClick={() => {
-                  setActiveTab("estrategia");
-                  handleStartStrategy();
+                  setActiveTab("activosvisuales");
                 }}
-                className="w-full sm:w-auto h-12 px-8 rounded-2xl font-black text-xs bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-xl shadow-purple-500/25 border-none transition-all duration-300 hover:scale-105 shrink-0"
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl font-black text-xs bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white shadow-xl shadow-blue-500/25 border-none transition-all duration-300 hover:scale-105 shrink-0"
               >
-                Generar Estrategia de Growth de Marketing <ArrowRight className="h-4 w-4 ml-2" />
+                Avanzar a Activos Visuales (Paso 2) <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
 
             {/* SENTINEL REF */}
             <div ref={bottomRef} className="h-1 w-full shrink-0" />
+                  </>
+                )}
           </TabsContent>
 
           {/* TAB 2: ACTIVOS VISUALES E INSPIRACIÓN (Etapa 2) */}
@@ -2705,39 +2797,86 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
           {/* TAB 2: ESTRATEGIA (antigua Etapa 4) */}
           <TabsContent value="estrategia" className="space-y-4 mt-0">
-            <div className="flex justify-between items-center border-b pb-3 mb-4">
-              <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
-                <Target className="h-3.5 w-3.5 text-purple-500" /> Estrategia Growth de Marketing
-              </h5>
-              
-              <div className="flex items-center gap-2">
-                {parsedStrategyObj && (
-                  <Button
-                    onClick={handleDownloadEstrategiaPDF}
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs font-bold gap-1 rounded-xl border-purple-500/30 text-purple-700 hover:bg-purple-500/5"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Descargar PDF
-                  </Button>
-                )}
-                <Button 
-                  onClick={handleStartStrategy}
-                  disabled={strategyLoading}
-                  className={`h-8 text-xs font-bold gap-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white transition-all ${
-                    shouldActionPulse("estrategia") ? 'action-btn-pulse-purple scale-105' : ''
-                  }`}
-                >
-                  {strategyLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Play className="h-3 w-3 fill-current" />
-                  )}
-                  {parsedStrategyObj ? "Regenerar" : "Generar Estrategia"}
-                </Button>
-              </div>
-            </div>
+            {isStrategyProcessing ? (
+              <AgentProcessingOverlay
+                isScraping={false}
+                isStrategy={true}
+                isCampaign={false}
+                isCalendar={false}
+                dynamicText={getDynamicWaitingText()}
+                activeNotificationText={activeNotificationText}
+                currentProgress={currentProgress}
+              />
+            ) : (
+              <>
+                <div className="flex flex-col space-y-3 border-b pb-4 mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <Target className="h-5 w-5 text-purple-600" />
+                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                        3. Estrategia Growth de Marketing
+                      </h3>
+                      <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 font-black text-[9.5px] border-purple-300/40">
+                        {strategyLoading ? "En Proceso..." : parsedStrategyObj ? "Completado" : "Pendiente"}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {parsedStrategyObj && (
+                        <Button
+                          onClick={handleDownloadEstrategiaPDF}
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs font-bold gap-1 rounded-xl border-purple-500/30 text-purple-700 hover:bg-purple-500/5"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          Descargar PDF
+                        </Button>
+                      )}
+                      <Button 
+                        onClick={handleStartStrategy}
+                        disabled={strategyLoading}
+                        className={`h-8 text-xs font-bold gap-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white transition-all ${
+                          shouldActionPulse("estrategia") ? 'action-btn-pulse-purple scale-105' : ''
+                        }`}
+                      >
+                        {strategyLoading ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Play className="h-3 w-3 fill-current" />
+                        )}
+                        {parsedStrategyObj ? "Regenerar Estrategia" : "Generar Estrategia"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Badges de Agentes Especializados de Estrategia */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">
+                      Agentes Especializados:
+                    </span>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
+                      strategyLoading ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 animate-pulse" : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                    }`}>
+                      👤 Agente Buyer Persona {strategyLoading ? "⏳" : "✓"}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
+                      strategyLoading ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 animate-pulse" : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                    }`}>
+                      🎯 Agente Funnel & Conversión {strategyLoading ? "⏳" : "✓"}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
+                      strategyLoading ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 animate-pulse" : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                    }`}>
+                      📢 Agente Posicionamiento {strategyLoading ? "⏳" : "✓"}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
+                      strategyLoading ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 animate-pulse" : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                    }`}>
+                      🚀 Agente 8 Pilares Growth {strategyLoading ? "⏳" : "✓"}
+                    </span>
+                  </div>
+                </div>
 
             <p className="text-[11px] text-muted-foreground leading-relaxed italic bg-purple-500/5 p-3 rounded-xl border border-purple-100 dark:border-purple-850 mb-4">
               💡 <strong>Agente de Growth & Estrategia:</strong> Define tus buyer personas clave y modela el enfoque estratégico del embudo y pilares de contenido.
@@ -3057,7 +3196,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
             {/* CEO Navigation Bar: Estrategia -> Continuar y generar Parámetros de Campaña de Marketing */}
             <div className="pt-6 border-t mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-emerald-500/5 p-6 rounded-3xl border border-emerald-500/20 shadow-sm">
               <div className="space-y-1 text-center sm:text-left">
-                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Paso 2 Completado · Estrategia de Growth</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Paso 3 Completado · Estrategia Growth de Marketing</span>
                 <h4 className="text-sm font-black text-foreground">¿Listo para estructurar las Ofertas y Parámetros de Campaña?</h4>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Haz clic para avanzar a la Parametrización de Campañas y generar automáticamente el Plan de Publicaciones.
@@ -3070,15 +3209,29 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 }}
                 className="w-full sm:w-auto h-12 px-8 rounded-2xl font-black text-xs bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-cyan-700 text-white shadow-xl shadow-emerald-500/25 border-none transition-all duration-300 hover:scale-105 shrink-0"
               >
-                Continuar y generar Parámetros de Campaña de Marketing <ArrowRight className="h-4 w-4 ml-2" />
+                Generar Parámetros de Campaña (Paso 4) <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
+                  </>
+                )}
           </TabsContent>
 
           {/* TAB 3: CAMPAÑAS (antigua Etapa 5) */}
           <TabsContent value="campanas" className="space-y-4 mt-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 mb-4">
-              <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            {isCampaignProcessing ? (
+              <AgentProcessingOverlay
+                isScraping={false}
+                isStrategy={false}
+                isCampaign={true}
+                isCalendar={false}
+                dynamicText={getDynamicWaitingText()}
+                activeNotificationText={activeNotificationText}
+                currentProgress={currentProgress}
+              />
+            ) : (
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 mb-4">
+                  <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                 <Megaphone className="h-3.5 w-3.5 text-emerald-500" /> Parametrización de Campaña de Marketing
               </h5>
               
@@ -3126,17 +3279,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               💡 <strong>Agente de Parametrización de Campañas:</strong> Estructura tu plan mensual, definiendo objetivos de conversión, segmentación detallada y presupuestos por canal.
             </p>
 
-            {isCampaignProcessing ? (
-              <div className="flex flex-col items-center justify-center p-8 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 text-center min-h-[180px] space-y-4 animate-pulse">
-                <Loader2 className="h-8 w-8 text-emerald-600 animate-spin" />
-                <div className="space-y-1">
-                  <span className="text-xs font-black uppercase text-emerald-700 block">IA Procesando Campaña</span>
-                  <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
-                    El Agente de Campañas de Marketing está estructurando tus metas mensuales, presupuestos y segmentaciones de audiencia.
-                  </p>
-                </div>
-              </div>
-            ) : campaigns.length === 0 ? (
+            {campaigns.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-2xl border border-dashed text-center min-h-[180px] space-y-4">
                 <Clock className="h-6 w-6 text-muted-foreground/45" />
                 <div className="space-y-1">
@@ -3649,10 +3792,44 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 })}
               </div>
             )}
+
+            {/* CEO Navigation Bar: Campañas -> Generar Calendario Editorial */}
+            <div className="pt-6 border-t mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-sky-500/5 p-6 rounded-3xl border border-sky-500/20 shadow-sm">
+              <div className="space-y-1 text-center sm:text-left">
+                <span className="text-[10px] font-black uppercase tracking-widest text-sky-600 dark:text-sky-400">Paso 4 Completado · Parametrización de Campañas</span>
+                <h4 className="text-sm font-black text-foreground">¿Listo para generar tu Calendario Editorial Mensual?</h4>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Haz clic para que el Agente Editorial programe la parrilla mensual, redacte copys persuasivos y cree prompts de imagen IA.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setActiveTab("calendario");
+                  handleStartCalendar();
+                }}
+                className="w-full sm:w-auto h-12 px-8 rounded-2xl font-black text-xs bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white shadow-xl shadow-sky-500/25 border-none transition-all duration-300 hover:scale-105 shrink-0"
+              >
+                Generar Calendario Editorial (Paso 5) <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+                  </>
+                )}
           </TabsContent>
 
           {/* TAB 4: CALENDARIO (antigua Etapa 6) */}
           <TabsContent value="calendario" className="space-y-4 mt-0">
+            {isCalendarProcessing ? (
+              <AgentProcessingOverlay
+                isScraping={false}
+                isStrategy={false}
+                isCampaign={false}
+                isCalendar={true}
+                dynamicText={getDynamicWaitingText()}
+                activeNotificationText={activeNotificationText}
+                currentProgress={currentProgress}
+              />
+            ) : (
+              <>
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h5 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
                 <CalendarDays className="h-3.5 w-3.5 text-sky-550" /> Calendario Editorial
@@ -3689,17 +3866,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
               💡 <strong>Agente de Contenidos:</strong> Distribuye y calendariza las publicaciones diarias, redactando copys persuasivos y generando prompts de imágenes IA.
             </p>
 
-            {isCalendarProcessing ? (
-              <div className="flex flex-col items-center justify-center p-8 bg-sky-500/5 rounded-2xl border border-sky-500/20 text-center min-h-[180px] space-y-4 animate-pulse">
-                <Loader2 className="h-8 w-8 text-sky-600 animate-spin" />
-                <div className="space-y-1">
-                  <span className="text-xs font-black uppercase text-sky-700 block">IA Procesando Calendario</span>
-                  <p className="text-[10px] text-muted-foreground max-w-xs leading-relaxed">
-                    El Agente Editorial y de Contenidos está formulando y programando las publicaciones, copies, hashtags y prompts de imagen.
-                  </p>
-                </div>
-              </div>
-            ) : !isCalendarReady ? (
+            {!isCalendarReady ? (
               <div className="flex flex-col items-center justify-center p-8 bg-muted/10 rounded-2xl border border-dashed text-center min-h-[180px] space-y-4">
                 <Clock className="h-6 w-6 text-muted-foreground/45" />
                 <div className="space-y-1">
@@ -3719,6 +3886,8 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
                 />
               </div>
             )}
+                  </>
+                )}
           </TabsContent>
             </>
           )}
@@ -3727,101 +3896,7 @@ if (fortalezas.length === 0 && debilidades.length === 0 && recomendaciones.lengt
 
 
 
-      {/* Dialog Modal interactivo exclusivo para el Agente de Estrategia (Estilo Banco de Datos Etapa 1) */}
-      <Dialog open={showStrategyAgentWorkingDialog} onOpenChange={setShowStrategyAgentWorkingDialog}>
-        <DialogContent className="sm:max-w-md rounded-3xl border border-purple-500/30 bg-card/95 backdrop-blur-xl p-8 shadow-2xl animate-in zoom-in-95 duration-200 text-center">
-          {(() => {
-            const strategyNotifs = notifications.filter(n => n.step === 'STRATEGY');
-            const latestNotif = strategyNotifs.length > 0 ? strategyNotifs[0] : null;
-            const isProcessing = strategyLoading || latestNotif?.status === 'PROCESSING';
-            const isFailed = !isProcessing && latestNotif?.status === 'FAILED';
-            const isCompleted = !isProcessing && !isFailed && (latestNotif?.status === 'COMPLETED' || (activeStrategy && latestNotif?.status !== 'PROCESSING'));
-            const currentMessage = latestNotif?.message || "Formulando buyer personas, embudo y pilares con datos del Paso 1...";
 
-            return (
-              <div className="flex flex-col items-center justify-center space-y-6 py-2">
-                {/* Icono / Loading centrado estilo Banco de Datos Etapa 1 */}
-                <div className={`h-20 w-20 rounded-3xl flex items-center justify-center shadow-lg border transition-all duration-300 ${
-                  isCompleted 
-                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 scale-105' 
-                    : isFailed
-                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                    : 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30 animate-pulse'
-                }`}>
-                  {isCompleted ? (
-                    <Check className="h-10 w-10 stroke-[3] animate-in zoom-in duration-300 text-emerald-600 dark:text-emerald-400" />
-                  ) : isFailed ? (
-                    <AlertTriangle className="h-10 w-10 text-rose-600 dark:text-rose-400" />
-                  ) : (
-                    <div className="relative flex items-center justify-center">
-                      <Loader2 className="h-10 w-10 animate-spin text-purple-600 dark:text-purple-400" />
-                      <Sparkles className="h-4 w-4 text-purple-500 absolute inset-0 m-auto animate-ping opacity-75" />
-                    </div>
-                  )}
-                </div>
-
-                {/* Título y Mensaje de texto dinámico debajo del spinner */}
-                <div className="space-y-2 max-w-sm">
-                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${
-                    isCompleted 
-                      ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20' 
-                      : isFailed
-                      ? 'text-rose-700 dark:text-rose-400 bg-rose-500/10 border-rose-500/20'
-                      : 'text-purple-700 dark:text-purple-400 bg-purple-500/10 border-purple-500/20'
-                  }`}>
-                    {isCompleted ? '¡Estrategia Lista!' : isFailed ? 'Error en Estrategia' : 'Agente de Estrategia Trabajando'}
-                  </span>
-                  <h3 className="text-xl font-black tracking-tight text-foreground pt-1">
-                    {isCompleted ? 'Estrategia Generada Exitosamente' : isFailed ? 'Error al Generar Estrategia' : 'Generando Estrategia Base'}
-                  </h3>
-                  
-                  {/* Texto de avance en tiempo real debajo del spinner */}
-                  <p className="text-xs font-medium leading-relaxed text-muted-foreground min-h-[44px] flex items-center justify-center">
-                    {isCompleted 
-                      ? 'Se ha completado el modelado de Buyer Personas, Embudo de Ventas y Pilares Estratégicos usando tus datos del Paso 1.'
-                      : currentMessage}
-                  </p>
-                </div>
-
-                {/* Botón interactivo al finalizar, fallar o ver en segundo plano */}
-                <div className="w-full pt-2 border-t border-border/50 flex flex-col items-center gap-2">
-                  {isCompleted ? (
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setShowStrategyAgentWorkingDialog(false);
-                        fetchResults(true);
-                      }}
-                      className="w-full rounded-2xl font-black text-xs h-11 bg-gradient-to-r from-purple-600 via-violet-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/25 border-none transition-all duration-200"
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Ver informe generado
-                    </Button>
-                  ) : isFailed ? (
-                    <Button
-                      type="button"
-                      onClick={handleStartStrategy}
-                      className="w-full rounded-2xl font-bold text-xs h-11 bg-rose-600 hover:bg-rose-700 text-white shadow-md border-none"
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Reintentar Generación
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setShowStrategyAgentWorkingDialog(false)}
-                      className="text-xs font-bold text-muted-foreground hover:text-foreground rounded-xl"
-                    >
-                      Ver en segundo plano
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

@@ -77,6 +77,10 @@ export async function triggerAnalysis({
         url: sanitizedUrl,
         channel: reportChannel,
         maxPosts: 5,
+        reportId: report.id,
+        type,
+        businessId,
+        businessName,
       });
 
       // Actualizar el reporte a COMPLETED en PostgreSQL
@@ -120,9 +124,9 @@ export async function triggerAnalysis({
       console.warn(`[ANALYSIS-SERVICE] Fallback secundario a n8n para ${reportChannel}:`, error.message);
 
       // Disparar n8n como respaldo final si falla la extracción directa
-      const n8nWebhookUrl = type === "COMPETITOR" 
-        ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap"
-        : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio";
+      const n8nWebhookUrl = type === "COMPETITOR"
+        ? "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/scrap-negocio"
+        : "https://n8n-n8n-start.ddt6vc.easypanel.host/webhook/sitioweb-scrap";
       const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
       try {
@@ -133,8 +137,11 @@ export async function triggerAnalysis({
             reportId: report.id,
             type,
             channel: reportChannel,
+            redSocial: reportChannel,
             url: sanitizedUrl,
+            link: sanitizedUrl,
             businessId,
+            entityId: entityId || businessId,
             competitorName,
             businessName,
             callbackUrl: `${appUrl}/api/webhook/callback`,

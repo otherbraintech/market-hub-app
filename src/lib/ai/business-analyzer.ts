@@ -102,8 +102,8 @@ export async function analyzeBusiness(name: string, description: string, website
     REGLA CRÍTICA DE VALIDACIÓN DE RUBRO / INDUSTRIA:
     1. Si el Nombre y la Descripción contienen texto aleatorio, incoherente, letras al azar (ej: "asdfghjk", "test 123", "qwerty"), o si la información es insuficiente para determinar objetivamente un sector comercial real:
        - El campo 'industry' DEBE SER EXACTAMENTE: "Error al identificar rubro (Descripción o datos insuficientes)".
-    2. Si el Nombre o la Descripción indican un sector o actividad económica real (ej: Restaurante, Pastelería, Clínica Dental, Boutique de Ropa, Agencia de Software, etc.):
-       - Identifica la industria precisa en español (ej: "Gastronomía y Alimentación", "Salud y Medicina", "Moda y Belleza", "Tecnología y Software", "Servicios Profesionales", etc.).
+    2. Si el Nombre o la Descripción indican un sector o actividad económica real:
+       - Identifica el rubro híper-específico en español con máxima precisión acorde a la actividad real (ejemplos: "Frigorífico", "Carnicería", "Churrasquería / Parrillada", "Avícola", "Pastelería Artesanal", "Pizzería", "Clínica Odontológica", "Boutique de Calzado", "Taller Automotriz", "Agencia de Marketing Digital", "Software SaaS", etc.). Evita categorías excesivamente genéricas si el negocio es un nicho específico.
 
     NUNCA inventes o adivines un rubro ficticio si los datos ingresados por el usuario son texto aleatorio o insuficiente.`,
     prompt: `

@@ -22,7 +22,7 @@ export function BusinessDetailClient({
   hasAudit,
   hasMediaAnalysis = false,
   hasStrategy,
-  hasCampaign,
+  hasCampaign = false,
   hasCalendar,
   auditId,
   strategyId,
@@ -30,6 +30,7 @@ export function BusinessDetailClient({
 }: BusinessDetailClientProps) {
   // Stage tabs: "bancodedatos" | "activosvisuales" | "estrategia" | "campanas" | "calendario"
   const [activeTab, setActiveTab] = useState<string>("bancodedatos");
+  const [runningStage, setRunningStage] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4.25rem)] min-h-0 overflow-hidden bg-background">
@@ -46,6 +47,7 @@ export function BusinessDetailClient({
             businessId={business.id} 
             externalActiveTab={activeTab}
             onTabChange={setActiveTab}
+            onStageRun={setRunningStage}
             hideTopTabBar={true}
           />
         </div>
@@ -64,6 +66,8 @@ export function BusinessDetailClient({
             calendarId={calendarId}
             activeTab={activeTab}
             onSelectTab={setActiveTab}
+            externalRunningStep={runningStage}
+            onRunStage={(stage) => setRunningStage(stage)}
           />
         </div>
       </div>

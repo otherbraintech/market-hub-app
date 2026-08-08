@@ -140,6 +140,9 @@ async function generateConsolidatedAnalysisWithAI(context: any) {
   try {
     const prompt = buildConsolidatedPrompt(context);
     
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -148,8 +151,9 @@ async function generateConsolidatedAnalysisWithAI(context: any) {
         'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
         'X-Title': 'MarketOps',
       },
+      signal: controller.signal,
       body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4.5',
+        model: 'google/gemini-2.5-flash',
         messages: [
           {
             role: 'system',
@@ -164,6 +168,7 @@ async function generateConsolidatedAnalysisWithAI(context: any) {
         max_tokens: 4000,
       })
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error('OpenRouter API error:', response.status, response.statusText);
@@ -178,7 +183,12 @@ async function generateConsolidatedAnalysisWithAI(context: any) {
     }
 
     try {
-      const parsed = JSON.parse(content);
+      const cleanContent = content
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+      const parsed = JSON.parse(cleanContent);
       return parsed;
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);

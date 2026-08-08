@@ -101,6 +101,8 @@ export interface CreateBusinessInput {
   settings?: BusinessSettings
   phoneNumbers?: string
   location?: string
+  branches?: any
+  catalog?: any
   socialLinks?: SocialLinks
   onboardingStrategy?: Record<string, string | undefined>
   userId?: string

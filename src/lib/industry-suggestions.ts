@@ -15,6 +15,59 @@ export interface IndustryPlaceholdersMap {
   industryLabel: string;
 }
 
+const CARNES_FRIGORIFICO_PRESETS: IndustryPlaceholdersMap = {
+  industryLabel: "Frigorífico e Industria Cárnica",
+  locationAge: {
+    placeholder: "Ej. Distribuidores, supermercados, friales y familias de 25 a 55 años a nivel nacional/local",
+    chips: ["Distribuidores y Friales Locales", "Supermercados y Canal Moderno", "Familias y Amantes del Asado 25-55 años", "Hogares y Compradores Locales"]
+  },
+  lifeEvent: {
+    placeholder: "Ej. Abastecimiento del hogar, parrilladas de fin de semana, eventos especiales o compras al por mayor para negocios",
+    chips: ["Parrilladas y Asados de Fin de Semana", "Abastecimiento Semanal del Hogar", "Compras al por Mayor para Friales/Restaurantes", "Fiestas y Eventos Especiales"]
+  },
+  archetype: {
+    placeholder: "Ej. Robusto, certificado, experto en cortes de alta calidad y de máxima confianza",
+    chips: ["Robusto y De Confianza", "Experto en Cortes de Alta Calidad", "Garantizado e Industrial", "Tradicional y Familiar"]
+  },
+  conversionChannel: {
+    placeholder: "Ej. WhatsApp directo, Apps de Delivery, Canal Moderno, Canal Tradicional o Sitio Web",
+    chips: [
+      "WhatsApp directo",
+      "Apps de Delivery (PedidosYa, Yango, etc.)",
+      "Canal Moderno",
+      "Canal Tradicional",
+      "Sitio Web / Tienda Online"
+    ]
+  },
+  informationGaps: {
+    placeholder: "Ej. Precios por kilo/corte, certificación SENASAG, empaque al vacío y pedido mínimo para envíos",
+    chips: ["Precios por kilo y lista de cortes", "Certificación de calidad y SENASAG", "Empaque al vacío y conservación", "Pedido mínimo para envíos a domicilio"]
+  },
+  socialProof: {
+    placeholder: "Ej. \"Carne tierna, fresca y con corte perfecto, la mejor calidad de la ciudad\"",
+    chips: [
+      "\"Carne tierna, fresca y con corte perfecto, la mejor calidad de la ciudad\"",
+      "\"Excelente empaque al vacío, llegó súper fresco y a tiempo para el asado\"",
+      "\"Proveedor 100% confiable, peso exacto y cortes homogéneos\"",
+      "\"Relación precio-calidad insuperable, súper recomendados\"",
+      "\"Atención impecable y carne de primera categoría garantizada\""
+    ]
+  },
+  differentialAdvantage: {
+    placeholder: "Ej. Certificación SENASAG con empaque al vacío, cadena de frío 100% garantizada y peso exacto",
+    chips: ["Cadena de frío 100% garantizada", "Cortes al vacío con certificación SENASAG", "Directo de frigorífico con peso exacto"]
+  },
+  businessHours: {
+    placeholder: "Ej. Lunes a Sábado de 06:00 a 18:00 (Despachos matutinos)",
+    chips: [
+      "Lunes a Sábado de 06:00 a 18:00",
+      "Lunes a Viernes de 07:00 a 17:00, Sábados de 07:00 a 13:00",
+      "Atención a distribuidores Lunes a Domingo",
+      "Pedidos por WhatsApp de 07:00 a 19:00"
+    ]
+  }
+};
+
 const GASTRO_PRESETS: IndustryPlaceholdersMap = {
   industryLabel: "Gastronomía y Alimentación",
   locationAge: {
@@ -399,8 +452,23 @@ export function getIndustryPlaceholders(
 
   let matchedPreset = GENERAL_PRESETS;
 
-  // 1. Gastronomía
+  // 0. Carnes, Frigoríficos y Ganadería (Prioridad absoluta para sugerencias del sector cárnico)
   if (
+    textToSearch.includes("frigorific") ||
+    textToSearch.includes("carniceri") ||
+    textToSearch.includes("churrasc") ||
+    textToSearch.includes("parrilla") ||
+    textToSearch.includes("asador") ||
+    textToSearch.includes("asado") ||
+    textToSearch.includes("faena") ||
+    textToSearch.includes("desposte") ||
+    textToSearch.includes("ganader") ||
+    textToSearch.includes("embutid") ||
+    textToSearch.includes("fiambre") ||
+    textToSearch.includes("bife")
+  ) {
+    matchedPreset = CARNES_FRIGORIFICO_PRESETS;
+  } else if (
     textToSearch.includes("gastro") ||
     textToSearch.includes("restauran") ||
     textToSearch.includes("comida") ||
@@ -440,14 +508,15 @@ export function getIndustryPlaceholders(
     textToSearch.includes("tecnolog") ||
     textToSearch.includes("software") ||
     textToSearch.includes("saas") ||
-    textToSearch.includes("app") ||
-    textToSearch.includes("digital") ||
-    textToSearch.includes("marketing") ||
-    textToSearch.includes("agencia") ||
-    textToSearch.includes("web") ||
-    textToSearch.includes("tienda online") ||
+    textToSearch.includes("desarrollo web") ||
+    textToSearch.includes("pagina web") ||
+    textToSearch.includes("sitio web empresarial") ||
+    textToSearch.includes("desarrollo de app") ||
+    textToSearch.includes("aplicacion movil") ||
+    textToSearch.includes("marketing digital") ||
+    textToSearch.includes("agencia digital") ||
     textToSearch.includes("ecommerce") ||
-    textToSearch.includes("sistem")
+    textToSearch.includes("sistema de software")
   ) {
     matchedPreset = TECH_PRESETS;
   } else if (
@@ -484,27 +553,78 @@ export function getIndustryPlaceholders(
     matchedPreset = SERVICIOS_PRESETS;
   }
 
-  // 2. Determinar la etiqueta exacta del rubro (dando prioridad al valor devuelto por la IA)
-  let exactLabel = (industry && industry.trim().length > 0 && !industry.toLowerCase().includes("error"))
-    ? industry.trim()
-    : null;
+  // 2. Determinar la etiqueta exacta del rubro (refinando categorías genéricas con coincidencia híper-específica del texto)
+  let exactLabel: string | null = null;
 
+  // Evaluador híper-específico de sub-rubro por palabras clave en el texto (descripción, nombre, industria)
+  if (textToSearch.includes("frigorific") || textToSearch.includes("faena") || textToSearch.includes("desposte")) {
+    exactLabel = "Frigorífico e Industria Cárnica";
+  } else if (textToSearch.includes("carniceri") || (textToSearch.includes("carne") && (textToSearch.includes("corte") || textToSearch.includes("venta")))) {
+    exactLabel = "Carnicería y Venta de Carnes";
+  } else if (textToSearch.includes("churrasc") || textToSearch.includes("parrilla") || textToSearch.includes("asador") || textToSearch.includes("asado")) {
+    exactLabel = "Churrasquería y Parrillada";
+  } else if (textToSearch.includes("ganader") || textToSearch.includes("ganado")) {
+    exactLabel = "Ganadería e Industria Cárnica";
+  } else if (textToSearch.includes("pollos") || textToSearch.includes("pollo") || textToSearch.includes("avicol")) {
+    exactLabel = "Avícola y Venta de Pollo";
+  } else if (textToSearch.includes("embutid") || textToSearch.includes("fiambre")) {
+    exactLabel = "Fábrica de Embutidos y Fiambres";
+  } else if (textToSearch.includes("hamburgue")) {
+    exactLabel = "Hamburguesería y Comida Rápida";
+  } else if (textToSearch.includes("pizza") || textToSearch.includes("pizzeri")) {
+    exactLabel = "Pizzería";
+  } else if (textToSearch.includes("sushi")) {
+    exactLabel = "Restaurante de Sushi y Comida Asiática";
+  } else if (textToSearch.includes("pasteler") || textToSearch.includes("reposter") || textToSearch.includes("torta") || textToSearch.includes("postre")) {
+    exactLabel = "Pastelería y Repostería";
+  } else if (textToSearch.includes("panad") || textToSearch.includes("panificad")) {
+    exactLabel = "Panadería y Masas";
+  } else if (textToSearch.includes("café") || textToSearch.includes("cafe") || textToSearch.includes("tostadur")) {
+    exactLabel = "Cafetería y Tostaduría";
+  } else if (textToSearch.includes("helad")) {
+    exactLabel = "Heladería y Postres";
+  } else if (textToSearch.includes("bar") || textToSearch.includes("licor") || textToSearch.includes("pub")) {
+    exactLabel = "Bar, Pub y Coctelería";
+  } else if (textToSearch.includes("odontol") || textToSearch.includes("dentis")) {
+    exactLabel = "Odontología y Salud Dental";
+  } else if (textToSearch.includes("gimnas") || textToSearch.includes("fitness") || textToSearch.includes("crossfit")) {
+    exactLabel = "Gimnasio y Centro Fitness";
+  } else if (textToSearch.includes("veterinar") || textToSearch.includes("pet")) {
+    exactLabel = "Veterinaria y Pet Shop";
+  } else if (textToSearch.includes("boutique") || textToSearch.includes("ropa")) {
+    exactLabel = "Boutique y Tienda de Ropa";
+  } else if (textToSearch.includes("calzado") || textToSearch.includes("zapat")) {
+    exactLabel = "Zapatería y Calzado";
+  } else if (textToSearch.includes("joya") || textToSearch.includes("reloj")) {
+    exactLabel = "Joyería y Relojería";
+  } else if (textToSearch.includes("peluquer") || textToSearch.includes("barber")) {
+    exactLabel = "Peluquería y Barbería";
+  } else if (textToSearch.includes("estétic") || textToSearch.includes("spa")) {
+    exactLabel = "Estética y Spa";
+  } else if (textToSearch.includes("software") || textToSearch.includes("saas")) {
+    exactLabel = "Software y Soluciones SaaS";
+  } else if (textToSearch.includes("marketing") || textToSearch.includes("agencia")) {
+    exactLabel = "Agencia de Marketing Digital";
+  } else if (textToSearch.includes("inmobiliari") || textToSearch.includes("bienes raíces")) {
+    exactLabel = "Inmobiliaria y Bienes Raíces";
+  } else if (textToSearch.includes("abogad") || textToSearch.includes("legal")) {
+    exactLabel = "Estudio Jurídico y Servicios Legales";
+  } else if (textToSearch.includes("contab") || textToSearch.includes("auditor")) {
+    exactLabel = "Contabilidad y Consultoría Financiera";
+  } else if (textToSearch.includes("educa") || textToSearch.includes("curso") || textToSearch.includes("academia")) {
+    exactLabel = "Educación y Capacitación";
+  } else if (textToSearch.includes("mecanic") || textToSearch.includes("taller") || textToSearch.includes("auto")) {
+    exactLabel = "Taller Mecánico y Automotriz";
+  }
+
+  // Si no hubo coincidencia híper-específica por palabras clave, usar la industria provista por IA si es válida
+  if (!exactLabel && industry && industry.trim().length > 0 && !industry.toLowerCase().includes("error") && !industry.toLowerCase().includes("no especificada")) {
+    exactLabel = industry.trim();
+  }
+
+  // Si aún sigue sin etiqueta, usar la etiqueta del preset coincidente
   if (!exactLabel) {
-    if (textToSearch.includes("pasteler") || textToSearch.includes("reposter") || textToSearch.includes("torta") || textToSearch.includes("postre")) {
-      exactLabel = "Pastelería y Repostería";
-    } else if (textToSearch.includes("panad") || textToSearch.includes("panificad")) {
-      exactLabel = "Panadería y Repostería";
-    } else if (textToSearch.includes("café") || textToSearch.includes("cafe")) {
-      exactLabel = "Cafetería y Repostería";
-    } else if (textToSearch.includes("hamburgue") || textToSearch.includes("pizza") || textToSearch.includes("sushi") || textToSearch.includes("restauran")) {
-      exactLabel = "Restaurantes y Gastronomía";
-    } else if (textToSearch.includes("odontol") || textToSearch.includes("dentis")) {
-      exactLabel = "Odontología y Salud Dental";
-    } else if (textToSearch.includes("boutique") || textToSearch.includes("ropa")) {
-      exactLabel = "Moda y Boutiques";
-    } else {
-      exactLabel = matchedPreset.industryLabel;
-    }
+    exactLabel = matchedPreset.industryLabel;
   }
 
   return {

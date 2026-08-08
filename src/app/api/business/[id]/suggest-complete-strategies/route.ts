@@ -353,26 +353,26 @@ function generatePlaceholderCompleteStrategies(context: any) {
       ],
       personas: [
         {
-          name: "Carlos El Exigente",
-          demographics: "Hombre, 30-45 años, profesional independiente, ingresos altos, local",
-          painPoints: "Baja calidad en postres genéricos, falta de opciones gourmet personalizadas",
-          goals: "Encontrar productos frescos, saludables y gourmet para ocasiones especiales",
+          name: "Cliente Frecuente B2C",
+          demographics: "Hombres y Mujeres, 25-55 años, enfocado en productos de alta calidad y servicio garantizado",
+          painPoints: "Inconsistencia en la atención o falta de velocidad en la respuesta de ventas",
+          goals: "Obtener productos premium con la mejor relación calidad-precio del mercado",
           communication: {
-            tone: "Formal y refinado",
-            topics: "Pastelería artesanal, ingredientes de calidad, origen gourmet",
-            triggers: "Imágenes de alta calidad visual y testimonios de otros profesionales"
+            tone: "Profesional, claro y directo",
+            topics: "Calidad de procesos, atención personalizada y valor diferencial",
+            triggers: "Imágenes de alta calidad visual, testimonios reales y contacto directo vía WhatsApp"
           }
         }
       ],
       funnelStages: [
         {
           name: "Atracción",
-          description: "Dar a conocer los ingredientes premium y procesos artesanales del negocio",
+          description: "Dar a conocer la propuesta de valor única y los diferenciales del negocio",
           contentTypes: ["Reels", "Stories"],
           channels: ["Instagram", "Facebook"],
           goals: ["Generar curiosidad y credibilidad inicial"],
           kpis: ["Impresiones", "Alcance"],
-          ctas: ["Ver menú", "Saber más"]
+          ctas: ["Conocer oferta", "Contactar por WhatsApp"]
         }
       ],
       channels: [

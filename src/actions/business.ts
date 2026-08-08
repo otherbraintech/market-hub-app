@@ -102,6 +102,8 @@ export async function createBusinessWithAI(data: {
   website?: string;
   phoneNumbers?: string;
   location?: string;
+  branches?: any;
+  catalog?: any;
   socialLinks?: Record<string, string | undefined>;
   onboardingStrategy?: Record<string, string | undefined>;
 }, skipAnalysis = false) {
@@ -123,6 +125,8 @@ export async function createBusinessWithAI(data: {
       targetAudience: analysis?.targetAudience || { demographics: "", psychographics: "" },
       phoneNumbers: data.phoneNumbers || "",
       location: data.location || "",
+      branches: data.branches,
+      catalog: data.catalog,
       socialLinks: data.socialLinks || { facebook: "", instagram: "", tiktok: "" },
       onboardingStrategy: data.onboardingStrategy,
     };
@@ -238,7 +242,34 @@ export async function saveOnboardingStrategyAction(businessId: string, onboardin
       return { success: false, error: "No autorizado" };
     }
 
-    const updateData: any = { onboardingStrategy };
+    const oldBiz = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { brandVoice: true }
+    });
+
+    let currentVoice: any = oldBiz?.brandVoice || {};
+    let toneList: string[] = Array.isArray(currentVoice?.tone) ? currentVoice.tone : [];
+    let personalityList: string[] = Array.isArray(currentVoice?.personality) ? currentVoice.personality : [];
+
+    if (onboardingStrategy.archetype && typeof onboardingStrategy.archetype === "string") {
+      const arch = onboardingStrategy.archetype.trim();
+      if (arch && !personalityList.includes(arch)) {
+        personalityList.push(arch);
+      }
+      if (toneList.length === 0) {
+        toneList = ["Experto", "De Confianza", "Profesional"];
+      }
+    }
+
+    const updateData: any = { 
+      onboardingStrategy,
+      brandVoice: {
+        ...currentVoice,
+        tone: toneList,
+        personality: personalityList,
+      }
+    };
+
     if (onboardingStrategy.branches || onboardingStrategy.sucursales) {
       updateData.branches = onboardingStrategy.branches || onboardingStrategy.sucursales;
     }
@@ -247,6 +278,12 @@ export async function saveOnboardingStrategyAction(businessId: string, onboardin
       where: { id: businessId },
       data: updateData
     });
+
+    // Limpiar notificaciones obsoletas de extracción para evitar que quede atascado en procesando
+    await prisma.agentNotification.updateMany({
+      where: { businessId, status: "PROCESSING" },
+      data: { status: "COMPLETED" }
+    }).catch(err => console.error("Error al actualizar notificaciones obsoletas:", err));
 
     revalidatePath(`/business/${businessId}`);
     return { success: true };
@@ -593,24 +630,29 @@ export async function startScrapingStage(businessId: string) {
       }
     }
 
+    const defaultBizWeb = business.website && business.website.trim() !== "" 
+      ? business.website 
+      : `https://www.${(business.name || "negocio").toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
+
     const myChannels = [
-      { name: "WEBSITE", url: business.website },
-      { name: "FACEBOOK", url: socialLinksObj.facebook },
-      { name: "INSTAGRAM", url: socialLinksObj.instagram },
-      { name: "TIKTOK", url: socialLinksObj.tiktok },
+      { name: "WEBSITE", url: defaultBizWeb },
+      { name: "FACEBOOK", url: socialLinksObj.facebook || socialLinksObj.facebookUrl },
+      { name: "INSTAGRAM", url: socialLinksObj.instagram || socialLinksObj.instagramUrl },
+      { name: "TIKTOK", url: socialLinksObj.tiktok || socialLinksObj.tiktokUrl },
     ];
 
     const promises = [];
 
     // Canales del propio negocio
     for (const ch of myChannels) {
-      if (ch.url && ch.url.trim() !== "") {
+      if (ch.url && String(ch.url).trim() !== "") {
+        console.log(`🚀 [START-SCRAPING-STAGE] Disparando análisis propio para canal ${ch.name}: ${ch.url}`);
         promises.push(
           triggerAnalysis({
             type: "MY_BUSINESS",
             entityId: businessId,
             channel: ch.name,
-            url: ch.url
+            url: String(ch.url).trim()
           }).catch(err => console.error("Error scraping business channel:", err))
         );
       }
@@ -618,20 +660,25 @@ export async function startScrapingStage(businessId: string) {
 
     // Canales de competidores
     for (const comp of business.competitors) {
+      const defaultCompWeb = comp.website && comp.website.trim() !== ""
+        ? comp.website
+        : `https://www.${(comp.name || "competidor").toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
+
       const compChannels = [
-        { name: "WEBSITE", url: comp.website },
+        { name: "WEBSITE", url: defaultCompWeb },
         { name: "FACEBOOK", url: comp.facebook },
         { name: "INSTAGRAM", url: comp.instagram },
         { name: "TIKTOK", url: comp.tiktok },
       ];
       for (const ch of compChannels) {
-        if (ch.url && ch.url.trim() !== "") {
+        if (ch.url && String(ch.url).trim() !== "") {
+          console.log(`🚀 [START-SCRAPING-STAGE] Disparando análisis competidor "${comp.name}" para canal ${ch.name}: ${ch.url}`);
           promises.push(
             triggerAnalysis({
               type: "COMPETITOR",
               entityId: comp.id,
               channel: ch.name,
-              url: ch.url
+              url: String(ch.url).trim()
             }).catch(err => console.error("Error scraping competitor channel:", err))
           );
         }
@@ -644,28 +691,21 @@ export async function startScrapingStage(businessId: string) {
     const fulfilledCount = results.filter(r => r.status === "fulfilled").length;
     const totalCount = promises.length;
 
-    if (totalCount > 0 && fulfilledCount > 0) {
+    // 4. Si no existen canales con URL, gatillar el diagnóstico agéntico consolidado directamente con los datos de registro
+    if (totalCount === 0) {
       await prisma.agentNotification.create({
         data: {
           businessId,
-          title: "Agente de Extracción",
-          message: fulfilledCount === totalCount
-            ? "Extracción iniciada en todos los canales configurados."
-            : `Extracción iniciada en ${fulfilledCount} de ${totalCount} canales configurados.`,
-          step: "SCRAPING",
+          title: "Agente de Diagnóstico",
+          message: "Analizando propuesta de valor y consolidando informe FODA con los datos de registro del negocio.",
+          step: "DIAGNOSTIC",
           status: "PROCESSING"
         }
       });
-    } else if (totalCount > 0 && fulfilledCount === 0) {
-      await prisma.agentNotification.create({
-        data: {
-          businessId,
-          title: "Agente de Extracción",
-          message: "Continuando diagnóstico estratégico con datos de registro del negocio.",
-          step: "SCRAPING",
-          status: "COMPLETED"
-        }
-      });
+      const { runBusinessConsolidatedAnalysis } = await import("@/app/api/business/[id]/consolidated-analysis/route");
+      const { runGenerateGeneralReport } = await import("@/app/api/competitors/[businessId]/generate-general-report/route");
+      runBusinessConsolidatedAnalysis(businessId).catch(err => console.error("Error en diagnóstico consolidado:", err));
+      runGenerateGeneralReport(businessId).catch(err => console.error("Error en reporte general de competidores:", err));
     }
 
     return { success: true };

@@ -10,6 +10,12 @@ const openrouter = createOpenAI({
 
 async function addAgentNotification(businessId: string, title: string, message: string, step: string, status: string) {
   try {
+    if (status === "COMPLETED" || status === "FAILED") {
+      await prisma.agentNotification.updateMany({
+        where: { businessId, step, status: "PROCESSING" },
+        data: { status }
+      }).catch(() => {});
+    }
     await prisma.agentNotification.create({
       data: {
         businessId,
@@ -778,167 +784,231 @@ function getFallbackCalendarContents(
 
 function getFallbackStrategies(context: CascadeContext, count: number) {
   const name = context.business.name;
+  const industry = context.business.industry || "general";
+  
+  const default6Personas = [
+    {
+      name: "Consumidor Frecuente B2C",
+      demographics: "Hombres y Mujeres, 25-50 años, enfocado en productos de alta calidad y servicio garantizado",
+      painPoints: "Falta de velocidad en la respuesta de ventas, inconsistencia en la atención o empaques inadecuados",
+      goals: "Obtener productos premium con la mejor relación calidad-precio y entrega confiable",
+      communication: {
+        tone: "Profesional, claro y transparente",
+        topics: "Calidad de procesos, atención personalizada y valor diferencial",
+        triggers: "Imágenes de alta calidad visual, testimonios reales y contacto directo vía WhatsApp"
+      }
+    },
+    {
+      name: "Comprador de Conveniencia y Canal Directo",
+      demographics: "Adultos de 20-45 años, usuarios digitales intensivos en Santa Cruz y principales ciudades",
+      painPoints: "Poco tiempo libre en rutina diaria, vacíos de información en precios o disponibilidad",
+      goals: "Comprar directamente por WhatsApp con respuesta inmediata y métodos de pago ágiles",
+      communication: {
+        tone: "Directo, dinámico y servicial",
+        topics: "Facilidad de pedido, respuestas en 1 clic y catálogo actualizado",
+        triggers: "Promociones exclusivas por WhatsApp, enlace directo a chat y delivery garantizado"
+      }
+    },
+    {
+      name: "Joven Tendencia y Experiencia Visual",
+      demographics: "Jóvenes de 18-28 años, activos en TikTok e Instagram Reels",
+      painPoints: "Aburrimiento de marcas tradicionales, busca contenido dinámico y estético",
+      goals: "Descubrir marcas recomendadas por creadores locales con excelente presentación",
+      communication: {
+        tone: "Fresco, cercano y juvenil",
+        topics: "Detrás de escena, tendencias virales y calidad estética",
+        triggers: "Videos en alta definición, audios en tendencia y UGC (contenido de usuarios)"
+      }
+    },
+    {
+      name: "Cliente Familiar de Fines de Semana",
+      demographics: "Familias de 30-55 años con compras grupales o eventos familiares",
+      painPoints: "Temor a fallas de calidad o productos sin garantía en momentos importantes",
+      goals: "Asegurar frescura, origen certificado y porciones ideales para compartir",
+      communication: {
+        tone: "Cálido, familiar y de confianza",
+        topics: "Paquetes familiares, tradiciones locales y frescura garantizada",
+        triggers: "Historias de origen, combos especiales y recomendaciones de otros clientes"
+      }
+    },
+    {
+      name: "Cliente Corporativo y Eventos B2B",
+      demographics: "Administradores, chefs y encargados de compras de 30-55 años",
+      painPoints: "Exigencia de puntualidad extrema, facturación inmediata y especificaciones exactas",
+      goals: "Abastecimiento constante, atención personalizada y precios por volumen",
+      communication: {
+        tone: "Ejecutivo, seguro y directo",
+        topics: "Catálogo mayorista, certificaciones de calidad y entrega programada",
+        triggers: "Cotizaciones rápidas, atención ejecutiva directa y facturación transparente"
+      }
+    },
+    {
+      name: "Comprador Leal y Recomendador de Marca",
+      demographics: "Clientes recurrentes de 28-60 años con hábito de consumo establecido",
+      painPoints: "Temor a cambios bruscos en la calidad habitual o atención despersonalizada",
+      goals: "Acceso preferencial, trato VIP y recompensas por recomendación boca a boca",
+      communication: {
+        tone: "Cordial, atento y de exclusividad",
+        topics: "Novedades de la marca, club de clientes VIP y preventas especiales",
+        triggers: "Mensajes personalizados, atención prioritaria y beneficios de fidelidad"
+      }
+    }
+  ];
+
+  const full4FunnelStages = [
+    {
+      name: "Atracción",
+      description: "Dar a conocer la propuesta de valor única y los diferenciales del negocio ante público nuevo",
+      contentTypes: ["Reels", "Stories", "TikToks"],
+      channels: ["Instagram", "Facebook", "TikTok"],
+      goals: ["Generar curiosidad, alcance local y credibilidad inicial"],
+      kpis: ["Impresiones", "Alcance", "Reproducciones de Video"],
+      ctas: ["Conocer propuesta", "Seguir cuenta", "Ver catálogo"]
+    },
+    {
+      name: "Consideración",
+      description: "Educar a los prospectos sobre la calidad superior, certificaciones y origen garantizado del negocio",
+      contentTypes: ["Carruseles", "Videos Demostrativos", "Detrás de Escena"],
+      channels: ["Instagram", "Facebook"],
+      goals: ["Resolver dudas frecuentes y demostrar la diferencia frente a la competencia"],
+      kpis: ["Guardados", "Comentarios", "Consultas recibidas"],
+      ctas: ["Preguntar por WhatsApp", "Ver lista de cortes/productos"]
+    },
+    {
+      name: "Decisión (Conversión)",
+      description: "Facilitar el contacto directo y cerrar pedidos inmediatos a través del canal principal de ventas",
+      contentTypes: ["Publicaciones de Oferta", "Historias con Enlace Directo", "Prueba Social"],
+      channels: ["Instagram", "Facebook", "TikTok"],
+      goals: ["Convertir el interés en ventas efectivas y pedidos por WhatsApp"],
+      kpis: ["Clicks en enlace WhatsApp", "Tasa de conversión"],
+      ctas: ["Pedir ahora por WhatsApp", "Contactar a ventas"]
+    },
+    {
+      name: "Retención y Fidelización",
+      description: "Mantener una relación constante con compradores activos fomentando la recompra periódica",
+      contentTypes: ["Mensajes Directos", "Novedades VIP", "Testimonios de Clientes"],
+      channels: ["Instagram", "Facebook"],
+      goals: ["Aumentar el valor de vida del cliente (LTV) y la frecuencia de compra"],
+      kpis: ["Tasa de recompra", "Calificaciones positivas"],
+      ctas: ["Reordenar tu pedido", "Unirte al club VIP"]
+    }
+  ];
+
   const list = [
     {
-      name: "Estrategia de Diferenciación por Autoridad y Calidad",
-      description: `Destacar los procesos de alta calidad y marca de ${name} para capturar el mercado local premium.`,
+      name: "Estrategia de Diferenciación por Autoridad y Calidad de Origen",
+      description: `Destacar la infraestructura, certificaciones y estándares superiores de ${name} para capturar la preferencia del mercado local.`,
       objectives: [
         {
-          name: "Conversión de leads por WhatsApp",
-          specific: "Generar mayor cantidad de prospectos interesados a través de un enlace directo de WhatsApp en Instagram",
-          measurable: "Aumentar en un 20% el flujo de consultas diarias",
-          achievable: "Publicando 3 historias interactivas semanales con llamadas a la acción claras",
-          relevant: "Incrementa el volumen de ventas al tener contacto directo con el comprador",
+          name: "Conversión Directa de Leads por WhatsApp",
+          specific: `Generar mayor volumen de prospectos interesados para ${name} mediante llamadas a la acción directas a WhatsApp en redes sociales`,
+          measurable: "Aumentar en un 25% el flujo de consultas de venta diarias",
+          achievable: "Publicando 4 contenidos de alta conversión por semana con botón directo a chat",
+          relevant: "Incrementa el volumen de ventas al eliminar intermediarios en el proceso de compra",
           timeBound: "Lograr la meta en un periodo de 60 días",
-          targetValue: 20,
+          targetValue: 25,
           currentValue: 0,
           unit: "%",
           deadline: "60 días",
-          status: "PENDING"
-        }
-      ],
-      personas: [
+          status: "PENDING" as const
+        },
         {
-          name: "Carlos El Exigente",
-          demographics: "Hombre, 30-45 años, profesional independiente, ingresos altos, local",
-          painPoints: "Baja calidad en postres genéricos, falta de opciones gourmet personalizadas",
-          goals: "Encontrar productos frescos, saludables y gourmet para ocasiones especiales",
-          communication: {
-            tone: "Formal y refinado",
-            topics: "Pastelería artesanal, ingredientes de calidad, origen gourmet",
-            triggers: "Imágenes de alta calidad visual y testimonios de otros profesionales"
-          }
-        }
-      ],
-      funnelStages: [
-        {
-          name: "Atracción",
-          description: "Dar a conocer los ingredientes premium y procesos artesanales del negocio",
-          contentTypes: ["Reels", "Stories"],
-          channels: ["Instagram", "Facebook"],
-          goals: ["Generar curiosidad y credibilidad inicial"],
-          kpis: ["Impresiones", "Alcance"],
-          ctas: ["Ver menú", "Saber más"]
-        }
-      ],
-      channels: [
-        {
-          name: "Instagram",
-          type: "SOCIAL" as const,
-          isActive: true,
-          frequency: "3 posts por semana",
-          audienceSize: 0
-        }
-      ],
-      contentPillars: ["Calidad de Ingredientes", "Proceso Artesanal"]
-    },
-    {
-      name: "Campaña Viral de Growth & Contenido Corto",
-      description: `Enfocada en capturar la atención de audiencias dinámicas mediante tendencias visuales en Reels y TikTok.`,
-      objectives: [
-        {
-          name: "Aumento de visibilidad en Reels",
-          specific: "Lograr mayor alcance de público local en video corto mediante tendencias del sector gastronómico",
-          measurable: "Obtener un incremento acumulado de 30 mil reproducciones",
-          achievable: "Publicando al menos 3 Reels a la semana usando audios y dinámicas virales",
-          relevant: "Mejora el reconocimiento de marca local y atrae nuevos seguidores",
-          timeBound: "Alcanzar el objetivo en 30 días",
-          targetValue: 30000,
+          name: "Posicionamiento de Marca y Alcance Local",
+          specific: `Consolidar a ${name} como la referente principal en calidad y servicio en el entorno metropolitano`,
+          measurable: "Alcanzar más de 50,000 impresiones mensuales acumuladas en Facebook e Instagram",
+          achievable: "Distribuyendo videos cortos de valor educativo y detrás de escena de la operación",
+          relevant: "Fortalece la autoridad de marca ante competidores tradicionales",
+          timeBound: "Alcanzar en los primeros 45 días",
+          targetValue: 50000,
           currentValue: 0,
-          unit: "reproducciones",
-          deadline: "30 días",
-          status: "PENDING"
-        }
-      ],
-      personas: [
+          unit: "impresiones",
+          deadline: "45 días",
+          status: "PENDING" as const
+        },
         {
-          name: "Daniela la Trendy",
-          demographics: "Mujer, 18-25 años, estudiante universitaria, activa en redes",
-          painPoints: "Aburrimiento de marcas tradicionales, busca experiencias visuales llamativas",
-          goals: "Descubrir lugares instagrameables y productos con excelente estética visual",
-          communication: {
-            tone: "Fresco, divertido y juvenil",
-            topics: "Tendencias, antojos, humor gastronómico",
-            triggers: "Videos altamente estéticos con música de moda"
-          }
-        }
-      ],
-      funnelStages: [
-        {
-          name: "Interés",
-          description: "Generar engagement masivo compartiendo dinámicas de antojo y recetas secretas",
-          contentTypes: ["Reels", "TikToks"],
-          channels: ["TikTok", "Instagram"],
-          goals: ["Crear interacción y conseguir compartidos"],
-          kpis: ["Compartidos", "Guardados"],
-          ctas: ["¡Comenta tu favorito!", "Guarda este video"]
-        }
-      ],
-      channels: [
-        {
-          name: "TikTok",
-          type: "SOCIAL" as const,
-          isActive: true,
-          frequency: "4 videos por semana",
-          audienceSize: 0
-        }
-      ],
-      contentPillars: ["Antojo Visual", "Humor en cocina"]
-    },
-    {
-      name: "Fidelización de Clientes y Suscripción VIP",
-      description: `Orientado a clientes recurrentes para generar compras programadas y dinámicas exclusivas.`,
-      objectives: [
-        {
-          name: "Fidelización de clientes recurrentes",
-          specific: "Establecer un programa de suscripción o club dulce para compras mensuales corporativas",
-          measurable: "Incrementar la tasa de recompra mensual en un 15%",
-          achievable: "Enviando ofertas exclusivas directas y opciones de pedidos recurrentes en WhatsApp",
-          relevant: "Estabiliza el flujo de caja mediante ingresos predecibles",
-          timeBound: "Lograr el objetivo en 90 días",
-          targetValue: 15,
+          name: "Fidelización y Recompra Periódica",
+          specific: "Establecer una rutina de seguimiento a clientes compradores para impulsar la segunda compra",
+          measurable: "Incrementar la tasa de recompra mensual en un 20%",
+          achievable: "Enviando ofertas exclusivas directas y catálogo actualizado cada quincena",
+          relevant: "Estabiliza el flujo de caja mediante compras recurrentes",
+          timeBound: "Cumplir la meta en 90 días",
+          targetValue: 20,
           currentValue: 0,
           unit: "%",
           deadline: "90 días",
-          status: "PENDING"
+          status: "PENDING" as const
         }
       ],
-      personas: [
-        {
-          name: "Lorena la Organizadora",
-          demographics: "Mujer, 28-40 años, Office Manager en mediana empresa",
-          painPoints: "Estrés cotizando catering a última hora, falta de proveedores confiables",
-          goals: "Tener un sistema de suscripción automatizado o menú simplificado para cumpleaños y eventos",
-          communication: {
-            tone: "Atento, corporativo y servicial",
-            topics: "Catering corporativo, planificación de eventos, promociones grupales",
-            triggers: "Facilidad de cotización por WhatsApp y facturación rápida"
-          }
-        }
-      ],
-      funnelStages: [
-        {
-          name: "Retención",
-          description: "Mantener una relación constante con clientes recurrentes ofreciendo beneficios exclusivos",
-          contentTypes: ["WhatsApp newsletters", "Mensajería directa"],
-          channels: ["WhatsApp"],
-          goals: ["Fidelizar a la base de datos de compradores activos"],
-          kpis: ["Tasa de recompra"],
-          ctas: ["Agendar pedido del mes", "Hablar con asesor"]
-        }
-      ],
+      personas: default6Personas,
+      funnelStages: full4FunnelStages,
       channels: [
+        { name: "INSTAGRAM", type: "SOCIAL" as const, isActive: true, frequency: "4 posts por semana", audienceSize: 0 },
+        { name: "FACEBOOK", type: "SOCIAL" as const, isActive: true, frequency: "4 posts por semana", audienceSize: 0 },
+        { name: "TIKTOK", type: "SOCIAL" as const, isActive: true, frequency: "3 videos por semana", audienceSize: 0 }
+      ],
+      contentPillars: [
+        `Garantía de Calidad y Procesos de ${name}`,
+        "Atención Personalizada y Experiencia de Compra",
+        "Demostración de Producto y Casos Reales",
+        "Ofertas Especiales y Beneficios Exclusivos"
+      ]
+    },
+    {
+      name: "Campaña Viral de Growth & Contenido Audiovisual",
+      description: `Enfocada en capturar la atención masiva de audiencias locales mediante tendencias visuales en Reels y TikTok.`,
+      objectives: [
         {
-          name: "WhatsApp",
-          type: "OTHER" as const,
-          isActive: true,
-          frequency: "Mensajería bajo demanda",
-          audienceSize: 0
+          name: "Alcance Masivo en Video Corto",
+          specific: "Incrementar la visibilidad de la marca mediante videos dinámicos mostrando la experiencia real del producto",
+          measurable: "Obtener un acumulado de 40,000 reproducciones en TikTok e Instagram Reels",
+          achievable: "Publicando 3 contenidos semanales adaptados a audios y formatos de tendencia",
+          relevant: "Atrae prospectos de forma orgánica sin dependencia de pauta publicitaria",
+          timeBound: "Lograr en 30 días",
+          targetValue: 40000,
+          currentValue: 0,
+          unit: "reproducciones",
+          deadline: "30 días",
+          status: "PENDING" as const
         }
       ],
-      contentPillars: ["Fidelidad VIP", "Eventos y catering"]
+      personas: default6Personas,
+      funnelStages: full4FunnelStages,
+      channels: [
+        { name: "TIKTOK", type: "SOCIAL" as const, isActive: true, frequency: "4 videos por semana", audienceSize: 0 },
+        { name: "INSTAGRAM", type: "SOCIAL" as const, isActive: true, frequency: "4 reels por semana", audienceSize: 0 },
+        { name: "FACEBOOK", type: "SOCIAL" as const, isActive: true, frequency: "3 publicaciones por semana", audienceSize: 0 }
+      ],
+      contentPillars: ["Antojo Visual & Demostración", "Detrás de Cámara & Transparencia", "Educación del Sector"]
+    },
+    {
+      name: "Estrategia de Fidelización y Captura de Mercado Corporativo",
+      description: `Orientada a construir relaciones sólidas con clientes institucionales y compradores de alto volumen.`,
+      objectives: [
+        {
+          name: "Captación de Cuentas B2B / Compradores Frecuentes",
+          specific: `Posicionar el canal institucional de ${name} para atención a empresas y compradores mayoristas`,
+          measurable: "Generar al menos 15 cotizaciones corporativas mensuales vía WhatsApp",
+          achievable: "Lanzando pauta digital segmentada y catálogo especializado en PDF",
+          relevant: "Incrementa el ticket promedio por transacción",
+          timeBound: "Alcanzar en 60 días",
+          targetValue: 15,
+          currentValue: 0,
+          unit: "cotizaciones",
+          deadline: "60 días",
+          status: "PENDING" as const
+        }
+      ],
+      personas: default6Personas,
+      funnelStages: full4FunnelStages,
+      channels: [
+        { name: "FACEBOOK", type: "SOCIAL" as const, isActive: true, frequency: "3 posts por semana", audienceSize: 0 },
+        { name: "INSTAGRAM", type: "SOCIAL" as const, isActive: true, frequency: "3 posts por semana", audienceSize: 0 },
+        { name: "TIKTOK", type: "SOCIAL" as const, isActive: true, frequency: "2 videos por semana", audienceSize: 0 }
+      ],
+      contentPillars: ["Atención Institucional & B2B", "Certificaciones & Estándares", "Soluciones a Medida"]
     }
   ];
+
   return list.slice(0, count);
 }
 

@@ -777,34 +777,14 @@ REGLAS DE CALIDAD OBLIGATORIAS PARA CADA PUBLICACIÓN:
   }
 }
 
-// Helper para detectar feriados patrios y días festivos clave según el mes
+import { getSystemHolidaysForMonth } from './constants/holidays';
+
 function getHolidaysInMonth(startDate: Date): { dateStr: string; name: string }[] {
-  const year = startDate.getFullYear();
-  const month = startDate.getMonth(); // 0-indexed
-
-  const holidayCatalog: Record<number, { day: number; name: string }[]> = {
-    0: [{ day: 1, name: "Año Nuevo" }, { day: 22, name: "Día del Estado Plurinacional (Bolivia)" }],
-    1: [{ day: 2, name: "Virgen de Candelaria" }, { day: 14, name: "Día del Amor y la Amistad (San Valentín)" }, { day: 27, name: "Carnaval" }],
-    2: [{ day: 8, name: "Día Internacional de la Mujer" }, { day: 19, name: "Día del Padre y del Artesano (Bolivia)" }, { day: 23, name: "Día del Mar (Bolivia)" }],
-    3: [{ day: 12, name: "Día del Niño (Bolivia)" }, { day: 30, name: "Viernes Santo / Semana Santa" }],
-    4: [{ day: 1, name: "Día del Trabajo" }, { day: 27, name: "Día de la Madre (Bolivia)" }],
-    5: [{ day: 21, name: "Año Nuevo Andino Amazónico (Bolivia)" }, { day: 24, name: "Noche de San Juan" }],
-    6: [{ day: 16, name: "Efeméride Departamental de La Paz" }, { day: 23, name: "Día de la Amistad" }],
-    7: [{ day: 6, name: "Día de la Patria / Independencia de Bolivia" }, { day: 17, name: "Día de la Bandera (Bolivia)" }],
-    8: [{ day: 14, name: "Efeméride Departamental de Cochabamba" }, { day: 21, name: "Día de la Primavera / Día del Estudiante / Día del Amor" }, { day: 24, name: "Efeméride Departamental de Santa Cruz" }],
-    9: [{ day: 11, name: "Día de la Mujer Boliviana" }, { day: 31, name: "Halloween / Noche de Brujas" }],
-    10: [{ day: 2, name: "Todos Santos / Día de los Difuntos" }, { day: 18, name: "Efeméride Departamental de Beni" }],
-    11: [{ day: 24, name: "Nochebuena" }, { day: 25, name: "Navidad" }, { day: 31, name: "Fin de Año" }]
-  };
-
-  const monthHolidays = holidayCatalog[month] || [];
-  return monthHolidays.map(h => {
-    const d = new Date(year, month, h.day, 10, 0, 0);
-    return {
-      dateStr: d.toISOString().split('T')[0],
-      name: h.name
-    };
-  });
+  const holidays = getSystemHolidaysForMonth(startDate.getFullYear(), startDate.getMonth());
+  return holidays.map(h => ({
+    dateStr: h.dateStr,
+    name: `${h.emoji} ${h.name}`
+  }));
 }
 
 // Regenera SOLO los contenidos/publicaciones para una campaña existente (sin tocar la campaña)

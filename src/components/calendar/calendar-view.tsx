@@ -19,7 +19,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { getSystemHolidayForDate, getSystemHolidaysForMonth } from "@/lib/constants/holidays";
 import {
   Sheet,
   SheetContent,
@@ -1154,22 +1156,14 @@ export function CalendarView({
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
-          {/* Filtro por Campaña */}
-          <div className="flex items-center gap-2 bg-card border px-3 py-1.5 rounded-xl shadow-sm h-9">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Campaña:</span>
-            <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
-              <SelectTrigger className="w-[170px] h-6 border-0 p-0 text-xs focus:ring-0 focus:ring-offset-0">
-                <SelectValue placeholder="Todas las campañas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs">Todas las campañas</SelectItem>
-                {campaigns.map((camp) => (
-                  <SelectItem key={camp.id} value={camp.id} className="text-xs">
-                    {camp.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Contador de Publicaciones del Plan (16/16) */}
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-xl shadow-xs h-9">
+            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+              Publicaciones:
+            </span>
+            <span className="text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-md">
+              {contents.length}/16
+            </span>
           </div>
 
           {/* Filtro de Rango / Vista de Fechas */}
@@ -1203,103 +1197,6 @@ export function CalendarView({
             </Button>
           </div>
 
-          {/* Botón de Modo Edición */}
-          <Button
-            variant={isEditMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => setIsEditMode(!isEditMode)}
-            className={`h-9 text-xs font-semibold gap-1.5 ${isEditMode ? "bg-red-600 hover:bg-red-700 text-white" : "border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/20"}`}
-          >
-            {isEditMode ? (
-              <>
-                <X className="h-3.5 w-3.5" />
-                Salir de Edición
-              </>
-            ) : (
-              <>
-                <Edit className="h-3.5 w-3.5" />
-                Modo Edición
-              </>
-            )}
-          </Button>
-
-          {/* Drawer de Resumen de Planificación por Campaña */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button 
-                variant="outline"
-                className="h-9 text-xs font-semibold gap-1.5 border-violet-200 text-violet-755 hover:bg-violet-50 dark:border-violet-900 dark:text-violet-305 dark:hover:bg-violet-950/20"
-              >
-                <Layers className="h-4 w-4 text-violet-650" />
-                <span>Resumen de Campañas</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[90%] sm:max-w-md md:max-w-lg overflow-y-auto flex flex-col p-0">
-              <SheetHeader className="p-6 bg-muted/5 border-b border-muted/20 shrink-0">
-                <SheetTitle className="text-base font-bold flex items-center gap-2 text-foreground">
-                  <Calendar className="h-4.5 w-4.5 text-violet-600" />
-                  <span>Resumen Editorial: {monthsSpanish[month]} {year}</span>
-                </SheetTitle>
-                <SheetDescription className="text-[11px] text-muted-foreground">
-                  Visualiza la distribución del contenido programado para cada campaña de este mes.
-                </SheetDescription>
-              </SheetHeader>
-              
-              <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                {getMonthCampaignPlans().length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-2">
-                    <Calendar className="h-8 w-8 opacity-20" />
-                    <span className="text-xs font-bold">Sin publicaciones en este mes</span>
-                    <span className="text-[10px] opacity-80 max-w-[200px]">Usa el asistente IA para generar o añade publicaciones de forma manual.</span>
-                  </div>
-                ) : (
-                  getMonthCampaignPlans().map((group) => (
-                    <div key={group.campaignId} className="space-y-3">
-                      <div className="flex items-center justify-between border-b pb-1">
-                        <span className="text-xs font-black tracking-tight text-foreground uppercase truncate max-w-[250px]">
-                          {group.campaignName}
-                        </span>
-                        <Badge variant="secondary" className="text-[9px] font-black bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300 shrink-0">
-                          {group.posts.length} {group.posts.length === 1 ? "publicación" : "publicaciones"}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2 pr-1">
-                        {group.posts.map((post) => {
-                          const ch = (post.channel || "INSTAGRAM").toUpperCase();
-                          const meta = channelMeta[ch] || channelMeta.INSTAGRAM;
-                          const pubDate = post.scheduledAt ? new Date(post.scheduledAt) : null;
-                          const formattedTime = pubDate ? format(pubDate, "d 'de' MMM, HH:mm", { locale: es }) : "Sin fecha";
-                          
-                          return (
-                            <div 
-                              key={post.id} 
-                              onClick={() => {
-                                setViewingContent(post);
-                              }}
-                              className={`flex items-center justify-between p-2.5 rounded-xl border text-[11px] font-semibold transition-all hover:scale-[1.01] hover:shadow-sm cursor-pointer ${meta.styles}`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="shrink-0">{meta.icon}</span>
-                                <div className="truncate leading-tight">
-                                  <p className="font-bold truncate">{post.title}</p>
-                                  <p className="text-[9px] opacity-80 mt-0.5">{post.type} • {post.format || "IMAGE"}</p>
-                                </div>
-                              </div>
-                              <span className="text-[9.5px] font-bold bg-black/10 dark:bg-white/10 px-2 py-0.5 rounded-md shrink-0 border border-current/20">
-                                {formattedTime}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
-
           {/* Exportar PDF del Calendario */}
           <Button
             variant="outline"
@@ -1313,17 +1210,39 @@ export function CalendarView({
             <Download className="h-3.5 w-3.5 text-violet-600" />
             <span>Descargar PDF</span>
           </Button>
-
-          {/* Planificar con IA */}
-          <Button 
-            onClick={() => setIsPlanModalOpen(true)}
-            className="gradient-primary relative overflow-hidden transition-all duration-300 hover:scale-[1.02] shadow-sm border-0 group px-4 py-2 font-semibold h-9 text-xs"
-          >
-            <Sparkles className="mr-1.5 h-3.5 w-3.5 text-amber-300 animate-pulse shrink-0" />
-            Planificar con IA
-          </Button>
         </div>
       </div>
+
+      {/* BANNER DE FECHAS FESTIVAS HABILITADAS EN EL SISTEMA */}
+      {(() => {
+        const currentMonthHolidays = getSystemHolidaysForMonth(currentDate.getFullYear(), currentDate.getMonth());
+        if (currentMonthHolidays.length === 0) return null;
+        return (
+          <div className="mb-3 p-3 bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent border border-amber-300/40 dark:border-amber-900/40 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🎉</span>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300 block">
+                  Fechas Festivas y Feriados Patrios Habilitados en el Mes
+                </span>
+                <span className="text-[11px] text-muted-foreground font-medium block">
+                  El Agente Editorial genera automáticamente publicaciones dedicadas para <strong>Facebook, Instagram y TikTok</strong> en cada festividad.
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {currentMonthHolidays.map((h, i) => (
+                <span key={i} className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-400/40 px-2.5 py-1 rounded-lg text-[10px] font-extrabold shadow-xs">
+                  <span>{h.emoji}</span>
+                  <span>{h.name}</span>
+                  <span className="text-[9px] opacity-75 font-normal">({h.day}/{h.month})</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* CONTENEDOR DEL CALENDARIO */}
       <div className="flex-1 min-h-[500px] overflow-hidden flex flex-col bg-card border rounded-2xl shadow-md card-shadow">
@@ -1364,6 +1283,7 @@ export function CalendarView({
               const isToday = format(cell.date, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
               const cellDateStr = format(cell.date, "yyyy-MM-dd");
               const formattedDayName = format(cell.date, "EEEE d", { locale: es });
+              const holiday = getSystemHolidayForDate(cell.date);
 
             const dayContents = contents.filter((item) => {
               if (!item.scheduledAt) return false;
@@ -1387,13 +1307,21 @@ export function CalendarView({
             const channelsList = ["FACEBOOK", "INSTAGRAM", "TIKTOK"];
 
             return (
-              <div key={idx} className={`grid grid-cols-12 min-h-[90px] transition-all hover:bg-muted/5 ${isToday ? "bg-blue-50/20 dark:bg-blue-950/10" : ""}`}>
+              <div key={idx} className={`grid grid-cols-12 min-h-[90px] transition-all hover:bg-muted/5 ${isToday ? "bg-blue-50/20 dark:bg-blue-950/10" : holiday ? "bg-amber-500/5 dark:bg-amber-950/10 border-l-4 border-l-amber-500" : ""}`}>
                 {/* Columna Fecha (Lado izquierdo) */}
-                <div className="col-span-3 p-4 border-r flex flex-col justify-between bg-muted/5">
+                <div className="col-span-3 p-4 border-r flex flex-col justify-between bg-muted/5 relative">
                   <div>
-                    <span className={`text-xs font-bold uppercase tracking-wider ${isToday ? "text-blue-600 font-black" : "text-foreground"}`}>
-                      {formattedDayName}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-xs font-bold uppercase tracking-wider ${isToday ? "text-blue-600 font-black" : "text-foreground"}`}>
+                        {formattedDayName}
+                      </span>
+                      {holiday && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse">
+                          <span>{holiday.emoji}</span>
+                          <span className="truncate">{holiday.name}</span>
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {totalDaysInMonth} días total
                     </p>

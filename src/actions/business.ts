@@ -1154,20 +1154,20 @@ export async function startCalendarStage(businessId: string) {
     // 3. Simular e iniciar de forma asíncrona
     (async () => {
       try {
-        await delay(2000);
+        await delay(300);
 
         // Notificación intermedia
         await prisma.agentNotification.create({
           data: {
             businessId,
             title: "Agente Editorial",
-            message: "Optimizando copies, hashtags y horas sugeridas de publicación...",
+            message: "Optimizando copies, hashtags, feriados patrios y horas sugeridas para Facebook, Instagram y TikTok...",
             step: "CALENDAR",
             status: "PROCESSING"
           }
         });
 
-        await delay(2000);
+        await delay(300);
 
         const { triggerCascadeGeneration } = await import("@/lib/cascade");
         // 'CALENDAR' regenerará SOLO el calendario de contenidos de forma aislada

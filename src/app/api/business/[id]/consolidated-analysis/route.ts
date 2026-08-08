@@ -5,7 +5,6 @@ import { runGenerateGeneralReport } from '../../../competitors/[businessId]/gene
 
 export async function runBusinessConsolidatedAnalysis(id: string) {
   try {
-
     // Get business info
     const business = await prisma.business.findUnique({
       where: { id },
@@ -63,6 +62,7 @@ export async function runBusinessConsolidatedAnalysis(id: string) {
         brandVoice: business.brandVoice,
         socialLinks: business.socialLinks,
         onboardingStrategy: business.onboardingStrategy,
+        phoneNumbers: business.phoneNumbers,
       },
       businessAnalysis: normalizedBusinessReports.map((r: any) => ({
         channel: r.channel,
@@ -88,6 +88,30 @@ export async function runBusinessConsolidatedAnalysis(id: string) {
       }
     });
 
+    // Guardar/Actualizar brandVoice en Prisma Business si se obtuvo información del análisis
+    try {
+      const voiceInfo = (analysis as any)?.strategicConfig;
+      if (voiceInfo?.brandVoice || voiceInfo?.brandPersonality) {
+        let currentVoiceObj: any = {};
+        if (business.brandVoice) {
+          try {
+            currentVoiceObj = typeof business.brandVoice === 'string' ? JSON.parse(business.brandVoice) : business.brandVoice;
+          } catch (e) {}
+        }
+        const updatedVoice = JSON.stringify({
+          tone: currentVoiceObj.tone || voiceInfo.brandVoice || "Cálido, accesible y servicial",
+          personality: currentVoiceObj.personality || voiceInfo.brandPersonality || "Artesanal, Cercano y Juvenil"
+        });
+
+        await prisma.business.update({
+          where: { id: business.id },
+          data: { brandVoice: updatedVoice }
+        });
+      }
+    } catch (e) {
+      console.error("Error al persistir brandVoice en Business:", e);
+    }
+
     // Registrar notificación en la consola del monitor
     await prisma.agentNotification.create({
       data: {
@@ -98,8 +122,6 @@ export async function runBusinessConsolidatedAnalysis(id: string) {
         status: "COMPLETED"
       }
     }).catch(e => console.error("Error creating diagnostic completed notification:", e));
-
-    // Generación en cascada desacoplada: solo se ejecuta por solicitud explícita del usuario haciendo clic en 'Generar Plan'.
 
     // Disparar regeneración del informe de competidores general directamente en código
     runGenerateGeneralReport(business.id).catch((err) => {
@@ -286,12 +308,76 @@ function buildConsolidatedPrompt(context: any) {
   prompt += `      }\n`;
   prompt += `    }\n`;
   prompt += `  ],\n`;
+  prompt += `  "strategicConfig": {\n`;
+  prompt += `    "locationAge": "Ciudad y rango etario objetivo principal (ej: Santa Cruz - 20 a 40 años)",\n`;
+  prompt += `    "lifeEvent": "Evento de vida o desencadenante principal que gatilla la compra en este negocio (ej: cumpleaños, celebraciones, antojos)",\n`;
+  prompt += `    "archetype": "Arquetipo de marca más representativo (ej: Artesanal y Apasionado, Moderno y Juvenil, Corporativo y Confiable)",\n`;
+  prompt += `    "conversionChannel": "Canal crítico de conversión principal detectado (ej: WhatsApp directo, Apps de Delivery, Tienda física)",\n`;
+  prompt += `    "informationGaps": "Brechas de información o dudas frecuentes que los clientes tienen y que el negocio no resuelve aún (ej: menú con precios, horarios de atención)",\n`;
+  prompt += `    "socialProof": ["Array de 2-3 testimonios representativos o frases de prueba social inferidos del scraping y la descripción del negocio"],\n`;
+  prompt += `    "differentialAdvantage": "Ventaja diferencial única del negocio frente a la competencia, basada en los datos del scraping",\n`;
+  prompt += `    "brandVoice": "Tono de voz detectado o recomendado para la marca (ej: Cálido, accesible y servicial)",\n`;
+  prompt += `    "brandPersonality": "Personalidad de marca detectada (ej: Artesanal, Cercano y Juvenil)"\n`;
+  prompt += `  },\n`;
+  prompt += `  "comparativeMatrix": {\n`;
+  prompt += `    "channels": ["Lista de canales digitales evaluados (Website, Instagram, Facebook, TikTok, etc.)"],\n`;
+  prompt += `    "myBusiness": {\n`;
+  prompt += `      "webQuality": "Calidad del sitio web (Alta/Media/Baja)",\n`;
+  prompt += `      "activityLevel": "Nivel de actividad e interacciones (Alta/Moderada/Baja)",\n`;
+  prompt += `      "engagementEstimate": "Engagement estimado (Alto/Medio/Bajo)",\n`;
+  prompt += `      "positioning": "Frase de posicionamiento actual",\n`;
+  prompt += `      "strengths": ["Fortalezas específicas del negocio"],\n`;
+  prompt += `      "weaknesses": ["Debilidades específicas del negocio"],\n`;
+  prompt += `      "differentiators": ["Diferenciadores clave"]\n`;
+  prompt += `    },\n`;
+  prompt += `    "competitors": [\n`;
+  prompt += `      {\n`;
+  prompt += `        "name": "Nombre del competidor",\n`;
+  prompt += `        "webQuality": "Calidad web",\n`;
+  prompt += `        "activityLevel": "Nivel de actividad",\n`;
+  prompt += `        "engagementEstimate": "Engagement",\n`;
+  prompt += `        "positioning": "Posicionamiento del competidor",\n`;
+  prompt += `        "strengths": ["Fortalezas"],\n`;
+  prompt += `        "weaknesses": ["Debilidades"],\n`;
+  prompt += `        "differentiators": ["Diferenciadores"]\n`;
+  prompt += `      }\n`;
+  prompt += `    ],\n`;
+  prompt += `    "benchmarks2026": {\n`;
+  prompt += `      "facebook": "Tasa de engagement benchmark 2026 para Facebook (ej: 0.15%)",\n`;
+  prompt += `      "instagram": "Tasa de engagement benchmark 2026 para Instagram (ej: 0.48%)",\n`;
+  prompt += `      "tiktok": "Tasa de engagement benchmark 2026 para TikTok (ej: 2.60% - 3.73%)"\n`;
+  prompt += `    },\n`;
+  prompt += `    "postingFrequency": {\n`;
+  prompt += `      "tiktok": "Frecuencia recomendada para TikTok (ej: 3x/sem)",\n`;
+  prompt += `      "instagram": "Frecuencia recomendada para Instagram (ej: 4x/sem)",\n`;
+  prompt += `      "facebook": "Frecuencia recomendada para Facebook (ej: Diarios)"\n`;
+  prompt += `    },\n`;
+  prompt += `    "conversionFunnel": "Modelo de embudo de conversión detectado (ej: WhatsApp Centric, E-commerce, Reservas Online)"\n`;
+  prompt += `  },\n`;
+  prompt += `  "brandIdentity": {\n`;
+  prompt += `    "humanRelationships": "Estrategia de relaciones humanas P2P: cómo humanizar la marca con interacciones auténticas, testimonios reales y conexiones duraderas",\n`;
+  prompt += `    "visualElements": "Elementos visuales recomendados: imágenes cálidas del equipo, behind-the-scenes, caras del negocio para humanizar la marca",\n`;
+  prompt += `    "communityBuilding": "Estrategia de comunidad: actividades de engagement, respuestas rápidas, UGC y fomento de lealtad"\n`;
+  prompt += `  },\n`;
+  prompt += `  "socioculturalAnalysis": {\n`;
+  prompt += `    "opportunityDescription": "Descripción detallada del cálculo de oportunidad masiva sociocultural basada en la demanda local real del rubro (${business.industry || 'sector'}), eventos de vida cotidianos y demografía de la ciudad de ${business.location || 'operación'}",\n`;
+  prompt += `    "dailyOpportunities": "Número estimado y realista de oportunidades o decisiones de compra diarias en el entorno (ej: 350-800 compras/decisiones diarias según el rubro)",\n`;
+  prompt += `    "captureRate": "Tasa de captura estimada del tráfico desatendido por la competencia (ej: 6%)",\n`;
+  prompt += `    "potentialConversions": "Conversiones de compra diarias estimadas dirigidas directo a canales de conversión del negocio",\n`;
+  prompt += `    "culturalInsights": ["Lista de 3 insights culturales locales específicos del rubro y hábitos de consumo en ${business.location || 'la ciudad'}"],\n`;
+  prompt += `    "trendInsights": ["Lista de 3 tendencias emergentes del mercado 2026 directamente aplicables a este negocio"]\n`;
+  prompt += `  },\n`;
   prompt += `  "nextSteps": ["pasos inmediatos a seguir"]\n`;
   prompt += `}\n\n`;
-  prompt += `PROMPT DE ANÁLISIS DE OPORTUNIDADES Y ENFOQUE SOCIOCULTURAL (MANDATORIO PARA GENERAR LAS BUYER PERSONAS):\n`;
-  prompt += `Analiza el contexto del negocio, descripción y catálogo de productos, en conjunto con las variables demográficas, nivel adquisitivo e idiosincrasia cultural de la ciudad de ${business.location || 'operación'}.\n`;
-  prompt += `Identifica patrones socioculturales específicos (hábitos de fin de semana, micro-dolores cotidianos de la población local, festividades tradicionales relevantes y modismos de consumo).\n`;
-  prompt += `Con esta base de oportunidades sociológicas, modela exactamente 6 Buyer Personas de alta fidelidad psicográfica en el array 'buyerPersonas'. Usa únicamente títulos profesionales y representativos de la audiencia objetiva del negocio (Ej. Consumidor Habitual B2C, Comprador Corporativo B2B, Cliente Familiar, etc.). Queda estrictamente prohibido usar nombres personales ficticios como "María" o "Carlos".\n\n`;
+  prompt += `INSTRUCCIONES CRÍTICAS:\n`;
+  prompt += `1. ANÁLISIS SOCIOCULTURAL SOBERANO Y ESPECÍFICO: Analiza el contexto real del negocio '${business.name}', su descripción y productos, en conjunto con las variables demográficas e idiosincrasia de ${business.location || 'la ciudad'}.\n`;
+  prompt += `2. PROHIBICIÓN DE PLANTILLAS GENÉRICAS: Queda ESTRICTAMENTE PROHIBIDO devolver valores numéricos estáticos de plantilla como '5400' u '270'. Todos los cálculos de 'dailyOpportunities', 'captureRate' y 'potentialConversions' deben ser formulados a medida para este negocio en particular.\n`;
+  prompt += `3. Identifica patrones socioculturales específicos (hábitos de fin de semana, micro-dolores cotidianos de la población local, festividades tradicionales relevantes y modismos de consumo).\n`;
+  prompt += `4. Con esta base de oportunidades sociológicas, modela exactamente 6 Buyer Personas de alta fidelidad psicográfica en el array 'buyerPersonas'. Usa únicamente títulos profesionales y representativos de la audiencia objetiva del negocio (Ej. Consumidor Habitual B2C, Comprador Corporativo B2B, Cliente Familiar, etc.). Queda estrictamente prohibido usar nombres personales ficticios como "María" o "Carlos".\n`;
+  prompt += `5. CONFIGURACIÓN ESTRATÉGICA: Genera la sección 'strategicConfig' infiriendo el perfil estratégico del negocio a partir de la información scrapeada. Incluye testimonios de prueba social inferidos de los datos disponibles.\n`;
+  prompt += `6. MATRIZ COMPARATIVA: Genera la sección 'comparativeMatrix' comparando métricas reales del negocio vs competidores basándote en los datos del scraping. Incluye benchmarks 2026 del sector y frecuencia de publicación recomendada.\n`;
+  prompt += `7. IDENTIDAD DE MARCA: Genera la sección 'brandIdentity' con estrategias People-Led Marketing específicas para este negocio.\n`;
+  prompt += `8. TENDENCIAS: En 'socioculturalAnalysis.trendInsights', incluye tendencias emergentes del mercado 2026 relevantes para el rubro (${business.industry || 'sector'}) en ${business.location || 'la ciudad'}.\n\n`;
   prompt += `Responde SOLO con el JSON, sin texto adicional. Sé específico y accionable.`;
   
   return prompt;
@@ -299,9 +385,35 @@ function buildConsolidatedPrompt(context: any) {
 
 function generatePlaceholderAnalysis(context: any) {
   const { business, businessAnalysis } = context;
+  const location = business.location || "Santa Cruz, Bolivia";
+  const industry = business.industry || "Comercial / Servicios";
   
+  const calcDailyOpps = (nameStr: string, indStr: string) => {
+    const combined = (nameStr + " " + indStr + " " + (business.description || "")).toLowerCase();
+    if (combined.includes("frigor") || combined.includes("carn") || combined.includes("alimento") || combined.includes("gastronom")) {
+      return { dailyOpps: 480, captureRate: "6%", potentialConversions: 29 };
+    }
+    if (combined.includes("torta") || combined.includes("pastel") || combined.includes("postre") || combined.includes("dulce")) {
+      return { dailyOpps: 320, captureRate: "8%", potentialConversions: 25 };
+    }
+    if (combined.includes("moda") || combined.includes("boutique") || combined.includes("ropa")) {
+      return { dailyOpps: 750, captureRate: "4%", potentialConversions: 30 };
+    }
+    let hash = 0;
+    const str = business.name || "biz";
+    for (let i = 0; i < str.length; i++) {
+      hash += str.charCodeAt(i);
+    }
+    const opps = 350 + (hash % 350);
+    const rate = 5 + (hash % 4);
+    const convs = Math.round(opps * (rate / 100));
+    return { dailyOpps: opps, captureRate: `${rate}%`, potentialConversions: convs };
+  };
+
+  const dynamicMarketCalc = calcDailyOpps(business.name || "", industry);
+
   return {
-    executiveSummary: `${business.name} tiene presencia digital en ${businessAnalysis.length} canales. El negocio tiene oportunidad de mejorar su estrategia digital mediante un enfoque más consistente en contenido de valor y engagement con la audiencia. Se recomienda fortalecer la presencia en los canales existentes y expandir a nuevos canales según el sector.`,
+    executiveSummary: `${business.name} tiene presencia digital en ${businessAnalysis.length} canales. El negocio tiene oportunidad de mejorar su estrategia digital mediante un enfoque más consistente en contenido de valor y engagement con la audiencia en ${location}. Se recomienda fortalecer la presencia en los canales existentes y expandir a nuevos canales según el sector.`,
     marketPosition: {
       currentPosition: "Presencia digital básica con potencial de expansión",
       competitiveAdvantage: "Enfoque en calidad y servicio al cliente",
@@ -358,10 +470,70 @@ function generatePlaceholderAnalysis(context: any) {
       }, {}),
       contentStrategy: "Enfocarse en contenido visual de producto, testimonios de clientes, contenido educativo del sector y promociones exclusivas"
     },
+    strategicConfig: {
+      locationAge: `${location} - 20 a 45 años`,
+      lifeEvent: "Cumpleaños, celebraciones y antojos de fin de semana",
+      archetype: "Artesanal y Apasionado, Moderno y Juvenil",
+      conversionChannel: `WhatsApp directo (${business.phoneNumbers || 'pedidos directos'}), Apps de Delivery`,
+      informationGaps: "Menú con precios y productos actualizados",
+      socialProof: [
+        "\"Excelente atención, celebramos nuestro evento y nos trataron de maravilla\"",
+        "\"Atención rápida por WhatsApp y entrega impecable en menos de 30 mins\"",
+        "\"Los mejores productos de la ciudad, 100% recomendado\""
+      ],
+      differentialAdvantage: "Ingredientes frescos, producción artesanal y personalización inmediata",
+      brandVoice: "Cálido, accesible y servicial",
+      brandPersonality: "Artesanal, Cercano y Juvenil"
+    },
+    comparativeMatrix: {
+      channels: ["Website", "Instagram", "Facebook", "TikTok"],
+      myBusiness: {
+        webQuality: business.website ? "Calidad Alta / Activa" : "Sin sitio registrado",
+        activityLevel: "Actividad Moderada",
+        engagementEstimate: "Medio",
+        positioning: "Presencia digital básica con potencial de expansión",
+        strengths: ["Presencia en múltiples canales", "Atención personalizada"],
+        weaknesses: ["Falta de consistencia en publicación", "Área de oportunidad en contenido dinámico"],
+        differentiators: ["Atención directa y respuestas inmediatas"]
+      },
+      competitors: [],
+      benchmarks2026: {
+        facebook: "0.15%",
+        instagram: "0.48%",
+        tiktok: "2.60% - 3.73%"
+      },
+      postingFrequency: {
+        tiktok: "3x/sem",
+        instagram: "4x/sem",
+        facebook: "Diarios"
+      },
+      conversionFunnel: "WhatsApp Centric (Call-to-Action Directo)"
+    },
+    brandIdentity: {
+      humanRelationships: "Priorizar interacciones auténticas P2P (Persona a Persona) y testimonios reales sobre publicaciones corporativas frías para generar conexiones duraderas.",
+      visualElements: "Uso de imágenes cálidas del equipo, detrás de escenas y caras del negocio para humanizar la marca y desmarcarse de la frialdad corporativa.",
+      communityBuilding: "Actividades periódicas de engagement, respuestas rápidas en comentarios y fomento de contenido generado por el usuario (UGC) para asegurar lealtad."
+    },
+    socioculturalAnalysis: {
+      opportunityDescription: `Basándonos en los datos del entorno y hábitos locales de ${location}, identificamos oportunidades masivas latentes en eventos de vida y celebraciones cotidianas para ${business.name}:`,
+      dailyOpportunities: dynamicMarketCalc.dailyOpps,
+      captureRate: dynamicMarketCalc.captureRate,
+      potentialConversions: dynamicMarketCalc.potentialConversions,
+      culturalInsights: [
+        "Reuniones familiares los fines de semana",
+        "Alta preferencia por pedidos inmediatos vía WhatsApp",
+        "Celebraciones de cumpleaños e hitos locales"
+      ],
+      trendInsights: [
+        "Auge de marcas con rostro humano (People-Led Marketing)",
+        "Conversión directa vía WhatsApp en lugar de formularios tradicionales",
+        "Demanda creciente por experiencias instagrameables y UGC"
+      ]
+    },
     buyerPersonas: [
       {
         "name": "Consumidor Habitual de Conveniencia (B2C)",
-        "demographics": "Adultos de 25-45 años, trabajadores activos, usuarios intensivos de WhatsApp y compras locales",
+        "demographics": `Adultos de 25-45 años, trabajadores activos en ${location}, usuarios intensivos de WhatsApp`,
         "goals": "Obtener rapidez en la atención, facilidad de pedido directo y entregas puntuales y confiables.",
         "painPoints": "Poco tiempo libre en rutina diaria, busca simplicidad de compra vía WhatsApp y atención fluida.",
         "communication": {
@@ -373,7 +545,7 @@ function generatePlaceholderAnalysis(context: any) {
       {
         "name": "Joven Buscador de Experiencias y Tendencias (B2C)",
         "demographics": "Jóvenes de 18-28 años, estudiantes y jóvenes profesionales, muy activos en TikTok e Instagram",
-        "goals": "Probar sabores y productos estéticamente atractivos para compartir en sus plataformas sociales.",
+        "goals": "Probar productos estéticamente atractivos para compartir en sus plataformas sociales.",
         "painPoints": "Aburrimiento de ofertas tradicionales, busca experiencias visuales instagrameables y novedades.",
         "communication": {
           "tone": "Fresco, dinámico y alegre",
@@ -382,21 +554,10 @@ function generatePlaceholderAnalysis(context: any) {
         }
       },
       {
-        "name": "Comprador Corporativo y Eventos (B2B)",
-        "demographics": "Administradores, gestores de talento y dueños de empresas de 30-55 años",
-        "goals": "Abastecer reuniones corporativas, eventos de equipo y festejos con productos de alta presentación.",
-        "painPoints": "Exigencia de puntualidad extrema, requiere facturación inmediata y cotizaciones sin demoras.",
-        "communication": {
-          "tone": "Profesional, ejecutivo y seguro",
-          "triggers": "Reuniones de oficina, catering corporativo y festejos de fin de año",
-          "topics": "Descuentos por volumen, facturación rápida y catálogo corporativo VIP"
-        }
-      },
-      {
         "name": "Cliente Familiar de Fines de Semana",
         "demographics": "Familias de 30-50 años con hijos, residentes locales de nivel socioeconómico medio a medio-alto",
-        "goals": "Disfrutar momentos de unión familiar y celebraciones memorables sin complicaciones de preparación.",
-        "painPoints": "Falta de tiempo para cocina compleja, temor a fallas de calidad o presentación en reuniones familiares.",
+        "goals": "Disfrutar momentos de unión familiar y celebraciones memorables sin complicaciones.",
+        "painPoints": "Falta de tiempo para cocina compleja, temor a fallas de calidad o presentación.",
         "communication": {
           "tone": "Cálido, familiar y confiable",
           "triggers": "Reuniones de fin de semana, festividades locales y compras anticipadas",
@@ -404,25 +565,36 @@ function generatePlaceholderAnalysis(context: any) {
         }
       },
       {
-        "name": "Profesional Exigente y de Alto Rendimiento",
-        "demographics": "Ejecutivos y profesionales independientes de 28-48 años con ritmo de vida acelerado",
-        "goals": "Consumir productos de la más alta calidad, ingredientes seleccionados y presentación impecable.",
-        "painPoints": "Sensible a la mala atención o productos de baja calidad, busca practicidad sin comprometer la excelencia.",
+        "name": "Comprador Corporativo & Eventos (B2B)",
+        "demographics": `Gerentes de RRHH, ejecutivos de marketing y organizadores de eventos de 30-55 años en ${location}`,
+        "goals": "Asegurar pedidos de volumen con facturación legal, puntualidad estricta y calidad garantizada para eventos de empresa.",
+        "painPoints": "Falta de respuesta profesional inmediata, lentitud en presupuestos y proveedores informales.",
         "communication": {
-          "tone": "Refinado, conciso y de alto valor",
-          "triggers": "Línea gourmet/premium, sellos de calidad e historias de origen",
-          "topics": "Ingredientes seleccionados, atención preferencial y beneficios exclusivos"
+          "tone": "Profesional, ejecutivo y eficiente",
+          "triggers": "Eventos corporativos de fin de año, aniversarios de empresa y regalos a clientes VIP",
+          "topics": "Catálogo corporativo, facturación directa y contratos de provisión"
         }
       },
       {
-        "name": "Cliente Leal Tradicional de la Marca",
-        "demographics": "Clientes frecuentes de 35-60 años que valoran la consistencia y la relación directa con el negocio",
-        "goals": "Mantener su hábito de compra regular disfrutando de un trato personalizado y reconocimiento VIP.",
-        "painPoints": "Temor a cambios bruscos en la calidad o atención despersonalizada.",
+        "name": "Planificador de Celebraciones Especiales",
+        "demographics": "Adultos de 22-45 años organizando cumpleaños, bodas, bautizos o aniversarios memorables",
+        "goals": "Conseguir un producto o servicio altamente personalizado que sorprenda a sus invitados y genere recuerdo positivo.",
+        "painPoints": "Temor a que el pedido no llegue como se prometió, falta de personalización y falta de asesoría directa.",
         "communication": {
-          "tone": "Atento, cordial y cercano",
-          "triggers": "Club de fidelidad, atención directa por WhatsApp y regalos por aniversario de cliente",
-          "topics": "Beneficios de lealtad, preventas exclusivas y novedades de la marca"
+          "tone": "Entusiasta, atento y detallista",
+          "triggers": "Hitos de vida de familiares o pareja, fechas festivas y aniversarios",
+          "topics": "Personalización exclusiva, fotos de trabajos anteriores y testimonios reales"
+        }
+      },
+      {
+        "name": "Cliente Fiel Recurrente de Tradición Local",
+        "demographics": `Residentes tradicionales de 35-65 años con alta lealtad a la marca en ${location}`,
+        "goals": "Mantener la constancia en el sabor/calidad de siempre y recibir un trato cordial y cercano.",
+        "painPoints": "Cambios inesperados en la receta o servicio, mala atención en cajas o WhatsApp.",
+        "communication": {
+          "tone": "Cálido, respetuoso y cercano",
+          "triggers": "Hábitos semanales consolidados, antojos nostálgicos y recomendaciones boca a boca",
+          "topics": "Historia del negocio, garantía de sabor artesanal y atención preferencial"
         }
       }
     ],

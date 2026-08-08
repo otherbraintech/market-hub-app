@@ -30,6 +30,7 @@ export interface ObFileUploadResponse {
 export async function uploadToObFiles(options: ObFileUploadOptions): Promise<ObFileUploadResponse> {
   const token = 
     options.projectToken || 
+    process.env.OBFILES || 
     process.env["OB-FILES"] || 
     process.env.OB_FILES_PROJECT_TOKEN || 
     "sk_77babbbac8086746d69256e3e6d9ef7df5728649a0783ea9";

@@ -84,9 +84,18 @@ export async function createBusiness(data: z.infer<typeof businessSchema>, skipA
           console.log(`[Scraping] Scraping inicial completado en segundo plano para negocio: ${business.id}`);
         });
       }
+      // Disparar precarga automática de tendencias desde OB-Tendencias API para el rubro detectado
+      if (business.industry && business.industry.trim() !== "") {
+        import("@/actions/trends-explorer").then(({ autoIngestTrendsForIndustryAction }) => {
+          autoIngestTrendsForIndustryAction(business.industry || "").catch(e => 
+            console.error("Error auto-ingesting trends for industry:", e)
+          );
+        });
+      }
     }
 
     revalidatePath("/business");
+    revalidatePath("/trends");
     revalidatePath("/");
     return { success: true, message: "Negocio creado exitosamente", data: business };
   } catch (error) {
@@ -1081,4 +1090,92 @@ export async function startCalendarStage(businessId: string) {
     return { success: false, error: "Error al iniciar calendario" };
   }
 }
+
+export async function generateDynamicOnboardingPlaceholders(
+  name: string,
+  description: string,
+  industry: string
+) {
+  try {
+    const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
+    if (!openRouterKey) {
+      return { success: false, error: "No OpenRouter key found" };
+    }
+
+    const prompt = `
+    Dado el siguiente negocio en el onboarding:
+    - Nombre del negocio: ${name}
+    - Descripción del negocio: ${description}
+    - Rubro comercial detectado: ${industry}
+
+    Genera ejemplos realistas y placeholders personalizados para las preguntas estratégicas de onboarding.
+    El resultado debe ser un JSON válido con la siguiente estructura (no agregues markdown, no agregues explicaciones, solo el JSON puro):
+    {
+      "industryLabel": "Nombre del rubro/sector formateado formalmente en español",
+      "locationAge": {
+        "placeholder": "Ejemplo corto e inspirador de ubicación y rango de edad adaptado al negocio",
+        "chips": ["Opción 1 de ejemplo (máximo 4 palabras)", "Opción 2", "Opción 3", "Opción 4"]
+      },
+      "lifeEvent": {
+        "placeholder": "Ejemplo corto de motivador o evento de vida que lleva a comprar este producto/servicio",
+        "chips": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"]
+      },
+      "archetype": {
+        "placeholder": "Ejemplo de arquetipo de cliente",
+        "chips": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"]
+      },
+      "conversionChannel": {
+        "placeholder": "Ejemplo de canales de conversión",
+        "chips": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"]
+      },
+      "informationGaps": {
+        "placeholder": "Ejemplo de dudas comunes del comprador antes de comprar",
+        "chips": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"]
+      },
+      "socialProof": {
+        "placeholder": "Ejemplo de pruebas sociales o testimonios",
+        "chips": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"]
+      },
+      "differentialAdvantage": {
+        "placeholder": "Ejemplo de ventaja diferencial o propuesta única",
+        "chips": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"]
+      },
+      "businessHours": {
+        "placeholder": "Ejemplo de horarios de atención",
+        "chips": ["Opción 1", "Opción 2", "Opción 3", "Opción 4"]
+      }
+    }
+    `;
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openRouterKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash:free',
+        messages: [
+          { role: 'system', content: 'Eres un asistente experto en marketing digital. Generas sugerencias de onboarding en formato JSON puro y válido.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.3,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter API error: ${response.statusText}`);
+    }
+
+    const resData = await response.json();
+    const content = resData.choices[0]?.message?.content || '{}';
+    const parsed = JSON.parse(content);
+    return { success: true, placeholders: parsed };
+  } catch (error: any) {
+    console.error("Error generating dynamic placeholders:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 

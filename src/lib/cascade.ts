@@ -366,15 +366,13 @@ export async function triggerCascadeGeneration(
         "PROCESSING"
       );
 
-      // Generar exactamente 1 campaña
+      // Generar exactamente 1 campaña (sin publicaciones automáticas de calendario)
       const campaignsData = await generateCampaignsCascade(business, savedStrategies, 1, requestedStartDate);
 
       for (const camp of campaignsData) {
-        // Mapear a cuál estrategia pertenece
         const matchedStrategy = savedStrategies.find(s => s.name.toLowerCase().includes((camp.strategyKeyword || '').toLowerCase()));
         const strategyId = matchedStrategy ? matchedStrategy.id : savedStrategies[0]?.id;
 
-        // Calcular fechas en base a la fecha de inicio solicitada por el usuario
         let finalStartDate: Date;
         if (requestedStartDate) {
           const [year, month, day] = requestedStartDate.split('-').map(Number);
@@ -384,7 +382,7 @@ export async function triggerCascadeGeneration(
         }
         const finalEndDate = new Date(finalStartDate.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 días
 
-        const createdCampaign = await prisma.campaign.create({
+        await prisma.campaign.create({
           data: {
             businessId,
             strategyId,
@@ -407,33 +405,8 @@ export async function triggerCascadeGeneration(
             targeting: camp.targeting || {},
           }
         });
-
-        // Crear planificación de publicaciones (Content) para todos los canales de la campaña
-        if (camp.contents && Array.isArray(camp.contents)) {
-          const campaignChannels = Array.isArray(createdCampaign.channels) 
-            ? (createdCampaign.channels as any[]).map(c => c.platform || String(c))
-            : ['INSTAGRAM'];
-
-          for (const post of camp.contents) {
-            for (const chan of campaignChannels) {
-              const normalizedChannel = String(chan).toUpperCase();
-              await prisma.content.create({
-                data: {
-                  campaignId: createdCampaign.id,
-                  type: (post.type as any) || "POST",
-                  title: post.title,
-                  body: post.body || '',
-                  caption: post.caption || '',
-                  promptUsed: post.promptUsed || '',
-                  channel: (normalizedChannel as any) || "INSTAGRAM",
-                  status: "SCHEDULED",
-                  scheduledAt: new Date(post.scheduledAt),
-                }
-              });
-            }
-          }
-        }
       }
+
       console.log(`[CASCADE] 1 campaña principal guardada exitosamente.`);
       
       await addAgentNotification(
@@ -454,15 +427,7 @@ export async function triggerCascadeGeneration(
       );
     }
 
-    await addAgentNotification(
-      businessId, 
-      "Agente Editorial de Contenido", 
-      "Publicaciones calendarizadas y distribuidas por día y red social en el Calendario Editorial.", 
-      "CALENDAR", 
-      "COMPLETED"
-    );
-
-    // Guardar fecha de última generación exitosa en settings
+    // Actualizar settings del negocio sin autoejecutar el calendario
     await prisma.business.update({
       where: { id: businessId },
       data: {
@@ -472,6 +437,8 @@ export async function triggerCascadeGeneration(
         }
       }
     });
+
+    console.log(`[CASCADE] Etapa de campaña completada. El calendario permanece inactivo hasta que el usuario lo solicite de forma manual.`);
 
   } catch (error) {
     console.error('[CASCADE] Error en el flujo de cascada:', error);
@@ -535,7 +502,7 @@ ${(context.business as any).onboardingStrategy ? `- ESTRATEGIA DIRECTA DEL CLIEN
 Analiza detalladamente los puntos anteriores. Genera las estrategias y los buyer personas basándote fielmente en la ESTRATEGIA DIRECTA DEL CLIENTE si existe. Si hay 'Buyer Personas Pre-generados', copia sus campos al pie de la letra para mantener consistencia absoluta entre la etapa de base de datos y la estrategia. Responde estrictamente con JSON en el formato especificado.`;
 
     const { object } = await generateObject({
-      model: openrouter('google/gemini-2.5-flash'),
+      model: openrouter('google/gemini-2.5-flash:free'),
       schema: z.object({
         strategies: z.array(z.object({
           name: z.string(),
@@ -606,9 +573,102 @@ Reglas clave:
   }
 }
 
+// Obtener límites y desglose de publicaciones basados en el plan de suscripción activo del usuario
+export async function getUserPlanPublicationLimits(businessIdOrUserId?: string, userIdExplicit?: string) {
+  try {
+    let userId = userIdExplicit;
+
+    if (!userId && businessIdOrUserId) {
+      const business = await prisma.business.findUnique({
+        where: { id: businessIdOrUserId },
+        select: { userId: true }
+      });
+      if (business?.userId) {
+        userId = business.userId;
+      } else {
+        userId = businessIdOrUserId;
+      }
+    }
+
+    let userPlanSlug = "free";
+    let userPlanName = "Plan Inicial";
+
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { plan: true }
+      });
+      if (user?.plan) {
+        userPlanSlug = user.plan.toLowerCase();
+        userPlanName = user.plan;
+      }
+    }
+
+    // Consultar tabla SubscriptionPlan en Prisma
+    const dbPlan = await prisma.subscriptionPlan.findFirst({
+      where: {
+        OR: [
+          { slug: userPlanSlug },
+          { name: { equals: userPlanSlug, mode: 'insensitive' } }
+        ]
+      }
+    });
+
+    let postsPerMonth = 8;
+    let postsPerWeek = "2 publicaciones/semana";
+
+    if (dbPlan) {
+      postsPerMonth = dbPlan.postsPerMonth || 8;
+      postsPerWeek = dbPlan.postsPerWeek || `${Math.round(postsPerMonth / 4)} publicaciones/semana`;
+      userPlanName = dbPlan.name;
+    } else {
+      if (userPlanSlug.includes("premium")) {
+        postsPerMonth = 22;
+        postsPerWeek = "5-6 publicaciones/semana";
+        userPlanName = "Premium";
+      } else if (userPlanSlug.includes("agencia") || userPlanSlug.includes("enterprise")) {
+        postsPerMonth = 30;
+        postsPerWeek = "7+ publicaciones/semana";
+        userPlanName = "Agencia";
+      } else if (userPlanSlug.includes("profesional") || userPlanSlug.includes("growth") || userPlanSlug.includes("starter")) {
+        postsPerMonth = 16;
+        postsPerWeek = "4 publicaciones/semana";
+        userPlanName = "Profesional";
+      } else {
+        postsPerMonth = 8;
+        postsPerWeek = "2 publicaciones/semana";
+        userPlanName = "Free (Inicial)";
+      }
+    }
+
+    const reelsCount = Math.max(1, Math.round(postsPerMonth * 0.60));
+    const carouselsCount = Math.max(1, Math.round(postsPerMonth * 0.25));
+    const staticPostsCount = Math.max(1, postsPerMonth - reelsCount - carouselsCount);
+
+    return {
+      planName: userPlanName,
+      postsPerMonth,
+      postsPerWeek,
+      reelsCount,
+      carouselsCount,
+      staticPostsCount
+    };
+  } catch (e) {
+    console.error('[CASCADE] Error en getUserPlanPublicationLimits:', e);
+    return {
+      planName: "Estándar",
+      postsPerMonth: 8,
+      postsPerWeek: "2 publicaciones/semana",
+      reelsCount: 5,
+      carouselsCount: 2,
+      staticPostsCount: 1
+    };
+  }
+}
+
 // Generar campañas adicionales basadas en las estrategias
 export async function generateCampaignsCascade(
-  business: { name: string; onboardingStrategy?: any }, 
+  business: { id?: string; name: string; onboardingStrategy?: any; userId?: string | null }, 
   strategies: Strategy[], 
   count: number,
   startDateRequested?: string
@@ -616,16 +676,19 @@ export async function generateCampaignsCascade(
   const openRouterKey = process.env.OPEN_ROUTER_KEY?.replace(/"/g, '').trim();
   if (!openRouterKey) return getFallbackCampaigns(business, strategies, count);
 
-  const baseDateStr = startDateRequested || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Mañana por defecto
+  const baseDateStr = startDateRequested || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const planLimits = await getUserPlanPublicationLimits(business.id, business.userId || undefined);
+  console.log(`[CASCADE] Generando campaña acorde al Plan de Suscripción: "${planLimits.planName}" (${planLimits.postsPerMonth} publicaciones/mes, ${planLimits.postsPerWeek})`);
 
   try {
     const { object } = await generateObject({
-      model: openrouter('google/gemini-2.5-flash'),
+      model: openrouter('google/gemini-2.5-flash:free'),
       schema: z.object({
         campaigns: z.array(z.object({
           name: z.string(),
           description: z.string(),
-          strategyKeyword: z.string(), // para asociarla a cuál estrategia pertenece
+          strategyKeyword: z.string(),
           objective: z.enum(['AWARENESS', 'ENGAGEMENT', 'TRAFFIC', 'LEADS', 'SALES', 'RETENTION']),
           startDate: z.string(),
           endDate: z.string(),
@@ -643,11 +706,19 @@ export async function generateCampaignsCascade(
             caption: z.string().describe("Copy completo e íntegro para redes sociales en español con gancho inicial, viñetas con emojis, CTA claro y hashtags"),
             promptUsed: z.string().describe("AI image generator prompt en INGLÉS hiper-detallado de al menos 25 palabras para Midjourney o Flux"),
             channel: z.enum(['FACEBOOK', 'INSTAGRAM', 'TIKTOK']),
-            scheduledAt: z.string() // fecha en ISOString
+            scheduledAt: z.string()
           }))
         }))
       }),
-      system: `Eres un Director Editorial y de Contenidos Digitales de élite. Basado en las estrategias maestras de marketing de este negocio, genera exactamente ${count} campañas de marketing altamente efectivas y detalladas. Cada campaña debe contener exactamente 8 publicaciones sugeridas de contenido planificado distribuidas a lo largo del próximo mes.
+      system: `Eres un Director Editorial y de Contenidos Digitales de élite. Basado en las estrategias maestras de marketing de este negocio y en su PLAN DE SUSCRIPCIÓN ACTIVO, genera exactamente ${count} campañas de marketing altamente efectivas y detalladas.
+
+PLAN DE SUSCRIPCIÓN ACTIVO DEL USUARIO:
+- Plan Contratado: ${planLimits.planName}
+- Cuota de Publicaciones del Plan: Exactamente ${planLimits.postsPerMonth} publicaciones en los próximos 30 días (${planLimits.postsPerWeek}).
+- Distribución Estratégica Obligatoria por Formato:
+  * ${planLimits.reelsCount} publicaciones de tipo 'REEL' o 'VIDEO' (60%)
+  * ${planLimits.carouselsCount} publicaciones de tipo 'CAROUSEL' (25%)
+  * ${planLimits.staticPostsCount} publicaciones de tipo 'POST' (15%)
 
 REGLAS DE CALIDAD OBLIGATORIAS PARA CADA PUBLICACIÓN:
 1. CANALES PERMITIDOS: Los únicos tres canales de difusión permitidos son 'FACEBOOK', 'INSTAGRAM' y 'TIKTOK'. Asigna única y exclusivamente estos tres valores en el campo 'channel'.
@@ -665,14 +736,14 @@ REGLAS DE CALIDAD OBLIGATORIAS PARA CADA PUBLICACIÓN:
    - Debe ser un prompt en INGLÉS extremadamente detallado (mínimo 25 palabras) optimizado para Midjourney v6, Flux o DALL-E 3.
    - Describe el sujeto principal, estilo fotográfico realista (ej: 8k resolution, cinematic lighting, shallow depth of field, commercial product design, vibrant colors).
 5. REGLA ESTRICTA DE NO INVENTAR PRODUCTOS: Queda terminantemente prohibido inventar o sugerir productos que no estén explícitamente declarados en la información del negocio. Promociona única y exclusivamente los productos reales dados.
-6. FRECUENCIA 60-25-15 EN 30 DÍAS: Genera exactamente 8 publicaciones por campaña distribuidas uniformemente en los 30 días siguientes a "${baseDateStr}":
-   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (60%)
-   - 2 publicaciones de tipo 'CAROUSEL' (25%)
-   - 1 publicación de tipo 'POST' (15%)`,
-      prompt: `Crea ${count} campañas para ${business.name}. Estrategias disponibles:\n` + 
+6. FRECUENCIA SEGÚN PLAN EN 30 DÍAS: Genera exactamente ${planLimits.postsPerMonth} publicaciones por campaña distribuidas uniformemente en los 30 días siguientes a "${baseDateStr}":
+   - ${planLimits.reelsCount} publicaciones de tipo 'REEL' o 'VIDEO'
+   - ${planLimits.carouselsCount} publicaciones de tipo 'CAROUSEL'
+   - ${planLimits.staticPostsCount} publicaciones de tipo 'POST'`,
+      prompt: `Crea ${count} campañas para ${business.name} acorde a su plan contratado "${planLimits.planName}" (${planLimits.postsPerMonth} publicaciones/mes). Estrategias disponibles:\n` + 
         strategies.map(s => `- Estrategia: "${s.name}". Desc: ${s.description}`).join('\n') +
         (business.onboardingStrategy ? `\nESTRATEGIA DIRECTA DEL CLIENTE (PRIORIDAD ALTA - usar como base para targeting, canales de conversión y tono de copies):\n${JSON.stringify(business.onboardingStrategy)}` : '') +
-        `\nGenera exactamente 8 publicaciones completas (5 reels, 2 carruseles y 1 post) distribuida cada 3-4 días iniciando exactamente desde "${baseDateStr}" en adelante en el año ${new Date().getFullYear()}.`,
+        `\nGenera exactamente ${planLimits.postsPerMonth} publicaciones completas (${planLimits.reelsCount} reels, ${planLimits.carouselsCount} carruseles y ${planLimits.staticPostsCount} posts) distribuida de forma constante iniciando exactamente desde "${baseDateStr}" en adelante en el año ${new Date().getFullYear()}.`,
     });
     return object.campaigns.slice(0, count);
   } catch (e) {
@@ -683,7 +754,7 @@ REGLAS DE CALIDAD OBLIGATORIAS PARA CADA PUBLICACIÓN:
 
 // Regenera SOLO los contenidos/publicaciones para una campaña existente (sin tocar la campaña)
 export async function generateCalendarContentsCascade(
-  business: { name: string; onboardingStrategy?: any },
+  business: { id?: string; name: string; onboardingStrategy?: any; userId?: string | null },
   strategies: Strategy[],
   campaign: { id: string; name: string; description: string | null; channels: any; objective: string }
 ) {
@@ -694,13 +765,15 @@ export async function generateCalendarContentsCascade(
     : ['INSTAGRAM'];
 
   if (!openRouterKey) {
-    // Fallback: generar contenidos básicos
     return getFallbackCalendarContents(business, campaign, campaignChannels);
   }
 
+  const planLimits = await getUserPlanPublicationLimits(business.id, business.userId || undefined);
+  console.log(`[CASCADE] Regenerando calendario acorde al Plan de Suscripción: "${planLimits.planName}" (${planLimits.postsPerMonth} publicaciones/mes)`);
+
   try {
     const { object } = await generateObject({
-      model: openrouter('google/gemini-2.5-flash'),
+      model: openrouter('google/gemini-2.5-flash:free'),
       schema: z.object({
         contents: z.array(z.object({
           type: z.enum(['POST', 'STORY', 'REEL', 'VIDEO', 'CAROUSEL', 'EMAIL', 'AD']),
@@ -711,7 +784,15 @@ export async function generateCalendarContentsCascade(
           scheduledAt: z.string()
         }))
       }),
-      system: `Eres un Director Editorial y de Contenidos Digitales de alto rendimiento. Tu función es generar publicaciones completas, persasivas y detalladas para la campaña de marketing del negocio.
+      system: `Eres un Director Editorial y de Contenidos Digitales de alto rendimiento. Tu función es generar publicaciones completas, persuasivas y detalladas para la campaña de marketing del negocio, ajustadas rigurosamente a su PLAN DE SUSCRIPCIÓN ACTIVO.
+
+PLAN DE SUSCRIPCIÓN ACTIVO DEL USUARIO:
+- Plan Contratado: ${planLimits.planName}
+- Total de Publicaciones permitidas: Exactamente ${planLimits.postsPerMonth} publicaciones en los próximos 30 días (${planLimits.postsPerWeek}).
+- Desglose recomendado por formato:
+  * ${planLimits.reelsCount} publicaciones de tipo 'REEL' o 'VIDEO' (60%)
+  * ${planLimits.carouselsCount} publicaciones de tipo 'CAROUSEL' (25%)
+  * ${planLimits.staticPostsCount} publicaciones de tipo 'POST' (15%)
 
 REGLAS DE CALIDAD OBLIGATORIAS:
 1. COPY COMPLETO Y LISTO PARA PUBLICAR ('caption'):
@@ -728,18 +809,17 @@ REGLAS DE CALIDAD OBLIGATORIAS:
    - Redacta un prompt en INGLÉS detallado (mínimo 25 palabras) optimizado para Midjourney v6, Flux o DALL-E 3.
    - Especifica sujeto principal, iluminación (ej. cinematic natural lighting), encuadre, texturas y paleta de colores.
 4. NO INVENTES PRODUCTOS que no existan en la información del negocio.
-5. FRECUENCIA DE 8 PUBLICACIONES EN 30 DÍAS:
-   - 5 publicaciones de tipo 'REEL' o 'VIDEO' (60%)
-   - 2 publicaciones de tipo 'CAROUSEL' (25%)
-   - 1 publicación de tipo 'POST' (15%)`,
+5. FRECUENCIA AJUSTADA AL PLAN:
+   - Genera exactamente ${planLimits.postsPerMonth} publicaciones distribuidas en los próximos 30 días (${planLimits.reelsCount} reels, ${planLimits.carouselsCount} carruseles, ${planLimits.staticPostsCount} posts estáticos).`,
       prompt: `Genera las publicaciones completas del calendario para:
 Negocio: ${business.name}
+Plan Activo del Usuario: ${planLimits.planName} (${planLimits.postsPerMonth} publicaciones en 30 días)
 Campaña: "${campaign.name}" - ${campaign.description || 'Sin descripción'}
 Objetivo de la campaña: ${campaign.objective}
 Canales activos: ${campaignChannels.join(', ')}
 ${strategies.length > 0 ? `Estrategia base: "${strategies[0].name}" - ${strategies[0].description}` : ''}
 ${business.onboardingStrategy ? `ESTRATEGIA DIRECTA DEL CLIENTE:\n${JSON.stringify(business.onboardingStrategy)}` : ''}
-Genera exactamente 8 publicaciones totalmente desarrolladas (5 reels/videos, 2 carruseles y 1 post) espaciadas en los próximos 30 días.`,
+Genera exactamente ${planLimits.postsPerMonth} publicaciones totalmente desarrolladas (${planLimits.reelsCount} reels/videos, ${planLimits.carouselsCount} carruseles y ${planLimits.staticPostsCount} posts) espaciadas en los próximos 30 días.`,
     });
     return object.contents;
   } catch (e) {

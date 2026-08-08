@@ -27,8 +27,8 @@ import {
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 import { BusinessFormValues } from "@/lib/schemas/business";
-import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction, updateBusiness, startStrategyStage } from "@/actions/business";
-import { getIndustryPlaceholders } from "@/lib/industry-suggestions";
+import { createBusinessWithAI, getUserLimits, getBusinessWithCompetitors, saveOnboardingStrategyAction, updateBusiness, startStrategyStage, generateDynamicOnboardingPlaceholders } from "@/actions/business";
+import { getIndustryPlaceholders, type IndustryPlaceholdersMap } from "@/lib/industry-suggestions";
 import { InteractiveMapPicker } from "@/components/ui/interactive-map-picker";
 
 interface MultiSelectQuestionProps {
@@ -1058,12 +1058,17 @@ export function OnboardingContent() {
   const [existingBusinessName, setExistingBusinessName] = useState<string>("");
   const [showNoStrategyDialog, setShowNoStrategyDialog] = useState(false);
   const [hasStrategyInDb, setHasStrategyInDb] = useState(false);
+  const [userRole, setUserRole] = useState<string>("USER");
 
-  const industryPlaceholders = getIndustryPlaceholders(
+  const [dynamicPlaceholders, setDynamicPlaceholders] = useState<IndustryPlaceholdersMap | null>(null);
+
+  const staticPlaceholders = getIndustryPlaceholders(
     businessFormValues?.industry,
     businessFormValues?.description,
     businessName || businessFormValues?.name
   );
+
+  const industryPlaceholders = dynamicPlaceholders || staticPlaceholders;
 
   // Sincronización e inicialización unificada de límites, negocios e hidratación de datos
   useEffect(() => {
@@ -1072,13 +1077,16 @@ export function OnboardingContent() {
     const initializeOnboarding = async () => {
       // 1. Obtener límites de usuario
       try {
-        const limitsRes = await getUserLimits();
+        const limitsRes = await getUserLimits() as any;
         if (isMounted && limitsRes.success) {
           if (typeof limitsRes.maxCompetitors === "number") {
             setMaxCompetitorsLimit(limitsRes.maxCompetitors);
           }
           if (typeof limitsRes.maxBusinesses === "number") {
             setMaxBusinessesLimit(limitsRes.maxBusinesses);
+          }
+          if (limitsRes.role) {
+            setUserRole(limitsRes.role);
           }
         }
       } catch (err) {
@@ -1379,6 +1387,73 @@ export function OnboardingContent() {
     businessHours: "",
   });
 
+  const handleSaveAndExit = async () => {
+    if (!businessId) {
+      router.push("/business");
+      return;
+    }
+    setLoading(true);
+    try {
+      if (currentStep === 1 && businessFormValues) {
+        const { onboardingStrategy, ...cleanFormValues } = businessFormValues as any;
+        await updateBusiness(businessId, cleanFormValues);
+      }
+
+      const validComps = competitors.filter(c => c.name.trim() !== "");
+      if (validComps.length > 0) {
+        await saveMultipleCompetitorsAction(businessId, validComps, false).catch(() => {});
+      }
+
+      let sanitizedConvChannel = strategyValues.conversionChannel || "";
+      if (sanitizedConvChannel.includes("Canal Moderno") && !sanitizedConvChannel.includes("Cadenas Canal Moderno:")) {
+        sanitizedConvChannel += ", Cadenas Canal Moderno: Supermercados y cadenas locales";
+      }
+      if (sanitizedConvChannel.includes("Canal Tradicional") && !sanitizedConvChannel.includes("Comercios Canal Tradicional:")) {
+        sanitizedConvChannel += ", Comercios Canal Tradicional: Friales, mercados y pulperías";
+      }
+      if (sanitizedConvChannel.includes("Apps de Delivery") && !sanitizedConvChannel.includes("Apps de Delivery:")) {
+        sanitizedConvChannel += ", Apps de Delivery: PedidosYa, Yango";
+      }
+
+      const finalStrategyValues = {
+        ...strategyValues,
+        conversionChannel: sanitizedConvChannel,
+      };
+
+      await saveOnboardingStrategyAction(businessId, finalStrategyValues);
+      toast.success("¡Cambios guardados con éxito!");
+      router.push(`/business/${businessId}?skipOnboarding=true`);
+    } catch (e) {
+      console.error("Error al guardar cambios:", e);
+      toast.error("Error al guardar los cambios.");
+      setLoading(false);
+    }
+  };
+
+  const renderSaveAndExitButton = () => {
+    if (!businessId && !isEdit) return null;
+
+    return (
+      <Button
+        type="button"
+        onClick={handleSaveAndExit}
+        disabled={loading}
+        className="rounded-xl h-11 px-5 font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20 gap-2 shrink-0"
+      >
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" /> Guardando...
+          </>
+        ) : (
+          <>
+            <CheckCircle2 className="h-4 w-4 text-emerald-100" />
+            <span>Guardar Cambios y Volver al Negocio</span>
+          </>
+        )}
+      </Button>
+    );
+  };
+
   const handleFinishCompetitors = async () => {
     const validList = competitors.filter(c => c.name.trim() !== "");
     if (validList.length === 0) {
@@ -1665,12 +1740,14 @@ export function OnboardingContent() {
                 >
                   <TrendingUp className="h-3.5 w-3.5" /> Motor de Tendencias IA
                 </Link>
-                <Link
-                  href="/business"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 transition-all shadow-sm"
-                >
-                  <Building2 className="h-3.5 w-3.5" /> Ir al Panel
-                </Link>
+                {userRole !== "USER" && (
+                  <Link
+                    href="/business"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 transition-all shadow-sm"
+                  >
+                    <Building2 className="h-3.5 w-3.5" /> Ir al Panel
+                  </Link>
+                )}
                 <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-3 py-1.5 rounded-xl border border-indigo-200/60">
                   {Math.round((currentStep / 11) * 100)}% Completado
                 </span>
@@ -1786,6 +1863,21 @@ export function OnboardingContent() {
                     }
                   }
                   goToStep(2);
+
+                  // Disparar generación dinámica de placeholders con IA en segundo plano
+                  const resolvedIndustry = (data.industry && data.industry.trim().length > 0) ? data.industry : inferredIndustry;
+                  generateDynamicOnboardingPlaceholders(
+                    data.name || "",
+                    data.description || "",
+                    resolvedIndustry
+                  ).then((res) => {
+                    if (res.success && res.placeholders) {
+                      console.log("✅ [ONBOARDING] Placeholders dinámicos generados por IA:", res.placeholders);
+                      setDynamicPlaceholders(res.placeholders);
+                    } else {
+                      console.warn("⚠️ [ONBOARDING] Fallback a placeholders estáticos:", res.error);
+                    }
+                  }).catch(err => console.error("Error en generación dinámica de placeholders:", err));
                 }}
               />
             </div>
@@ -1897,7 +1989,7 @@ export function OnboardingContent() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -1907,22 +1999,25 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button
-                    type="button"
-                    onClick={handleFinishCompetitors}
-                    disabled={loading}
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...
-                      </>
-                    ) : (
-                      <>
-                        Continuar al Diagnóstico <ArrowRight className="h-4 w-4 ml-2" />
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button
+                      type="button"
+                      onClick={handleFinishCompetitors}
+                      disabled={loading}
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Guardando...
+                        </>
+                      ) : (
+                        <>
+                          Continuar al Diagnóstico <ArrowRight className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1997,7 +2092,7 @@ export function OnboardingContent() {
                   </div>
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2007,18 +2102,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(4);
-                    }} 
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(4);
+                      }} 
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2093,7 +2191,7 @@ export function OnboardingContent() {
                   </div>
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2103,18 +2201,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(5);
-                    }} 
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(5);
+                      }} 
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2163,7 +2264,7 @@ export function OnboardingContent() {
                   />
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2173,18 +2274,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(6);
-                    }} 
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(6);
+                      }} 
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2231,7 +2335,7 @@ export function OnboardingContent() {
                   />
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2241,18 +2345,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(7);
-                    }} 
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(7);
+                      }} 
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2327,7 +2434,7 @@ export function OnboardingContent() {
                   </div>
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2337,18 +2444,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(8);
-                    }} 
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(8);
+                      }} 
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2423,7 +2533,7 @@ export function OnboardingContent() {
                   </div>
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2433,18 +2543,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(9);
-                    }} 
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(9);
+                      }} 
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2492,7 +2605,7 @@ export function OnboardingContent() {
                   />
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2502,18 +2615,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(10);
-                    }} 
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(10);
+                      }} 
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2573,7 +2689,7 @@ export function OnboardingContent() {
                   </div>
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2583,18 +2699,21 @@ export function OnboardingContent() {
                     <ArrowLeft className="h-4 w-4 mr-2" /> Atrás
                   </Button>
 
-                  <Button 
-                    type="button" 
-                    onClick={async () => {
-                      if (businessId) {
-                        await saveOnboardingStrategyAction(businessId, strategyValues);
-                      }
-                      goToStep(11);
-                    }}
-                    className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    Siguiente <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {renderSaveAndExitButton()}
+                    <Button 
+                      type="button" 
+                      onClick={async () => {
+                        if (businessId) {
+                          await saveOnboardingStrategyAction(businessId, strategyValues);
+                        }
+                        goToStep(11);
+                      }}
+                      className="rounded-xl h-11 px-8 font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Siguiente <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2656,7 +2775,7 @@ export function OnboardingContent() {
                   </div>
                 </TooltipProvider>
 
-                <div className="flex items-center justify-between mt-6 border-t pt-5">
+                <div className="flex flex-wrap items-center justify-between mt-6 border-t pt-5 gap-3">
                   <Button 
                     type="button" 
                     variant="outline" 
@@ -2679,7 +2798,8 @@ export function OnboardingContent() {
                       </>
                     ) : (
                       <>
-                        {isEdit ? "Guardar Cambios del Negocio" : "Finalizar y Guardar Negocio"} <ArrowRight className="h-4 w-4 ml-2" />
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        {isEdit ? "Guardar Cambios y Volver al Negocio" : "Finalizar y Guardar Negocio"}
                       </>
                     )}
                   </Button>

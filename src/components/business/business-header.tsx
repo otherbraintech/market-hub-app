@@ -6,6 +6,8 @@ import { Building2, Pencil, ExternalLink, Globe } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
+import { getIndustryPlaceholders } from "@/lib/industry-suggestions";
+
 interface BusinessHeaderProps {
   business: any & {
     _count?: {
@@ -35,11 +37,15 @@ export function BusinessHeader({ business }: BusinessHeaderProps) {
               <h1 className="text-lg font-black tracking-tight text-foreground dark:text-white">
                 {business.name}
               </h1>
-              {business.industry && (
-                <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
-                  {business.industry}
-                </Badge>
-              )}
+              {(() => {
+                const resolvedIndustry = business.industry || getIndustryPlaceholders(business.industry, business.description, business.name).industryLabel;
+                if (!resolvedIndustry) return null;
+                return (
+                  <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 animate-pulse">
+                    {resolvedIndustry}
+                  </Badge>
+                );
+              })()}
             </div>
           </div>
         </div>

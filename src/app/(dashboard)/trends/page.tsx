@@ -36,7 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { exploreTrendsAction } from "@/actions/trends-explorer";
+import { exploreTrendsAction, getRegisteredNichesAction } from "@/actions/trends-explorer";
 
 function formatStatusSpanish(status?: string): string {
   if (!status) return "Estado: En Auge";
@@ -55,14 +55,14 @@ export default function TrendsExplorerPage() {
   const [results, setResults] = useState<any | null>(null);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
 
-  const quickNiches = [
+  const [quickNiches, setQuickNiches] = useState<string[]>([
     "Restaurantes & Gastronomía",
     "Salud, Clínicas & Spa",
     "Moda, Ropa & Boutique",
     "Bienes Raíces & Inmobiliaria",
     "Gimnasios & Fitness",
     "Tecnología & Software"
-  ];
+  ]);
 
   const handleFetchTrends = async (targetNiche = niche, targetPlatform = platform, targetRegion = region) => {
     if (!targetNiche.trim()) {
@@ -92,7 +92,14 @@ export default function TrendsExplorerPage() {
   };
 
   useEffect(() => {
-    // Cargar tendencias iniciales de TikTok al entrar
+    // Cargar nichos dinámicos registrados en la base de datos (negocios y tendencias guardadas)
+    getRegisteredNichesAction().then((res) => {
+      if (res.success && Array.isArray(res.niches) && res.niches.length > 0) {
+        setQuickNiches(res.niches);
+      }
+    }).catch(e => console.error("Error fetching registered niches:", e));
+
+    // Cargar tendencias iniciales al entrar
     handleFetchTrends("Restaurantes & Gastronomía", "tiktok", "BO");
   }, []);
 

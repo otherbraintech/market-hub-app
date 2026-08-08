@@ -94,7 +94,7 @@ export async function analyzeBusiness(name: string, description: string, website
   }
 
   const { object } = await generateObject({
-    model: openrouter('google/gemini-2.5-flash'),
+    model: openrouter('google/gemini-2.5-flash:free'),
     schema: businessAnalysisSchema,
     system: `Eres un experto en estrategia de marca y análisis de mercado comercial. 
     Tu tarea es analizar estrictamente el Nombre, Descripción y Contenido web de un negocio para identificar su industria comercial real.

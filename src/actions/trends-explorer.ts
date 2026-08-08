@@ -285,3 +285,74 @@ Escribe 3 guiones de video cortos (15-30s) que enganchen en los primeros 1.7 seg
     };
   }
 }
+
+export async function getRegisteredNichesAction() {
+  try {
+    const defaultNiches = [
+      "Restaurantes & Gastronomía",
+      "Salud, Clínicas & Spa",
+      "Moda, Ropa & Boutique",
+      "Bienes Raíces & Inmobiliaria",
+      "Gimnasios & Fitness",
+      "Tecnología & Software"
+    ];
+
+    const [bizIndustries, trendNiches] = await Promise.all([
+      prisma.business.findMany({
+        where: { industry: { not: "" } },
+        select: { industry: true },
+        distinct: ["industry"]
+      }),
+      prisma.nicheTrend.findMany({
+        select: { niche: true },
+        distinct: ["niche"]
+      })
+    ]);
+
+    const set = new Set<string>(defaultNiches);
+
+    for (const b of bizIndustries) {
+      if (b.industry && b.industry.trim().length > 1) {
+        set.add(b.industry.trim());
+      }
+    }
+
+    for (const t of trendNiches) {
+      if (t.niche && t.niche.trim().length > 1) {
+        set.add(t.niche.trim());
+      }
+    }
+
+    return {
+      success: true,
+      niches: Array.from(set)
+    };
+  } catch (err) {
+    console.error("Error in getRegisteredNichesAction:", err);
+    return {
+      success: true,
+      niches: [
+        "Restaurantes & Gastronomía",
+        "Salud, Clínicas & Spa",
+        "Moda, Ropa & Boutique",
+        "Bienes Raíces & Inmobiliaria",
+        "Gimnasios & Fitness",
+        "Tecnología & Software"
+      ]
+    };
+  }
+}
+
+export async function autoIngestTrendsForIndustryAction(industry: string) {
+  if (!industry || typeof industry !== "string" || !industry.trim()) return;
+  try {
+    console.log(`[Auto-Ingest Trends] Pre-fetching OB-Tendencias API for industry "${industry}"...`);
+    await exploreTrendsAction({
+      niche: industry.trim(),
+      platform: "tiktok",
+      region: "BO"
+    });
+  } catch (e) {
+    console.warn(`[Auto-Ingest Trends] Could not pre-fetch for industry "${industry}":`, e);
+  }
+}

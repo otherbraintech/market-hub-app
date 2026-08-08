@@ -150,11 +150,14 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
       if (res.success) {
         toast.success(res.message);
         onSuccess?.();
-        if (res.data?.id) {
+        const targetId = res.data?.id || defaultValues?.id;
+        if (targetId) {
           if (onCreated) {
-            onCreated(res.data.id);
+            onCreated(targetId);
+          } else if (isEditing) {
+            window.location.href = `/business/${targetId}?skipOnboarding=true`;
           } else {
-            window.location.href = `/onboarding?businessId=${res.data.id}`;
+            window.location.href = `/onboarding?businessId=${targetId}`;
           }
         }
       } else {
@@ -282,7 +285,7 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <LabelHelp label="Nombre del Negocio" help="El nombre comercial oficial de tu marca." />
+                      <LabelHelp label="Nombre de tu Negocio" help="El nombre comercial oficial de tu marca." />
                       <FormControl>
                         <Input placeholder="Ej. Acme Inc." {...field} className="h-11 rounded-xl" />
                       </FormControl>
@@ -307,23 +310,7 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="industry"
-                  render={({ field }) => (
-                    <FormItem>
-                      <LabelHelp label="Rubro / Sector Comercial (Opcional)" help="Especifica tu rubro exacto (ej. Gastronomía, Moda, Software, Odontología, etc.). Si lo dejas vacío, la IA lo detectará automáticamente de la descripción." />
-                      <FormControl>
-                        <Input 
-                          placeholder="Ej. Moda y Boutiques, Software SaaS, Odontología (Opcional - Autodetectado por IA)" 
-                          {...field} 
-                          className="h-11 rounded-xl" 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+
 
                 {singleStep && (
                   <>
@@ -830,7 +817,24 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
             </TabsContent>
           </Tabs>
         )}
-        <DialogFooter className="mt-8 gap-2 sm:gap-0">
+        <DialogFooter className="mt-8 gap-2">
+          {isEditing && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                const targetId = defaultValues?.id;
+                if (targetId) {
+                  window.location.href = `/business/${targetId}?skipOnboarding=true`;
+                }
+              }} 
+              disabled={loading} 
+              className="rounded-xl h-11 px-5 border-border hover:bg-muted font-semibold"
+            >
+              Cancelar
+            </Button>
+          )}
+
           {useAI && (step === 2 || step === 3 || step === 4) && !singleStep && (
               <Button 
                 type="button" 
@@ -846,12 +850,12 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
           <Button 
             type="submit" 
             disabled={loading} 
-            className={`${useAI ? "flex-1 h-11" : "h-11 px-8"} rounded-xl font-bold`}
+            className={`${useAI && !isEditing ? "flex-1 h-11" : "h-11 px-8"} rounded-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md`}
           >
             {loading ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {useAI ? "Generando y creando..." : "Guardando..."}
+                {isEditing ? "Guardando cambios..." : useAI ? "Generando y creando..." : "Guardando..."}
               </span>
             ) : (
               <span className="flex items-center gap-2">
@@ -864,7 +868,7 @@ export function BusinessForm({ defaultValues, onSuccess, onCreated, isTutorialAc
                         <><Sparkles className="h-4 w-4" /> Generar con IA y Crear</>
                     )
                 ) : (
-                    isEditing ? "Actualizar Negocio" : "Crear Negocio"
+                    isEditing ? "Guardar Cambios y Volver al Negocio" : "Crear Negocio"
                 )}
               </span>
             )}

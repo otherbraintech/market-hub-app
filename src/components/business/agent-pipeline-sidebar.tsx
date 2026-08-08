@@ -68,9 +68,10 @@ export function AgentPipelineSidebar({
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 6000);
+    const pollTime = (runningStep || externalRunningStep) ? 2500 : 4500;
+    const interval = setInterval(fetchNotifications, pollTime);
     return () => clearInterval(interval);
-  }, [businessId]);
+  }, [businessId, runningStep, externalRunningStep]);
 
   const getStepProcessingStatus = (stepKeys: string[]) => {
     const matching = notifications.filter(n => stepKeys.includes(n.step));
@@ -182,7 +183,7 @@ export function AgentPipelineSidebar({
   const calendarProcessingMsg = getStepProcessingStatus(["CALENDAR"]);
 
   // Determinar estrictamente qué ÚNICA etapa está en procesamiento activo (1 a la vez)
-  let activeProcessingStep: "scraping" | "media" | "strategy" | "campaign" | "calendar" | null = null;
+  let activeProcessingStep: "scraping" | "diagnostic" | "media" | "strategy" | "campaign" | "calendar" | null = null;
   const effectiveStep = runningStep || externalRunningStep;
 
   if (effectiveStep) {
@@ -192,14 +193,20 @@ export function AgentPipelineSidebar({
     else if (effectiveStep === "campaign") activeProcessingStep = "campaign";
     else if (effectiveStep === "calendar") activeProcessingStep = "calendar";
   } else {
-    // Solo considerar notificaciones activas para etapas no completadas
-    const latestProcessingNotif = notifications.find(n => n.status === "PROCESSING");
-    if (latestProcessingNotif) {
-      if (latestProcessingNotif.step === "STRATEGY" && !hasStrategy) activeProcessingStep = "strategy";
-      else if (latestProcessingNotif.step === "MEDIA" && !hasMediaAnalysis) activeProcessingStep = "media";
-      else if (latestProcessingNotif.step === "CAMPAIGN" && !hasCampaign) activeProcessingStep = "campaign";
-      else if (latestProcessingNotif.step === "CALENDAR" && !hasCalendar) activeProcessingStep = "calendar";
-      else if ((latestProcessingNotif.step === "SCRAPING" || latestProcessingNotif.step === "DIAGNOSTIC") && (!hasAudit && !hasStrategy)) activeProcessingStep = "scraping";
+    // Considerar notificaciones PROCESSING recientes (< 4 min) para cualquier etapa
+    const recentProcessing = notifications.filter(n => {
+      if (n.status !== "PROCESSING") return false;
+      const ageMin = (Date.now() - new Date(n.createdAt).getTime()) / 60000;
+      return ageMin <= 4;
+    });
+
+    for (const notif of recentProcessing) {
+      if (notif.step === "SCRAPING") { activeProcessingStep = "scraping"; break; }
+      if (notif.step === "DIAGNOSTIC") { activeProcessingStep = "diagnostic"; break; }
+      if (notif.step === "STRATEGY") { activeProcessingStep = "strategy"; break; }
+      if (notif.step === "MEDIA") { activeProcessingStep = "media"; break; }
+      if (notif.step === "CAMPAIGN") { activeProcessingStep = "campaign"; break; }
+      if (notif.step === "CALENDAR") { activeProcessingStep = "calendar"; break; }
     }
   }
 
@@ -213,7 +220,7 @@ export function AgentPipelineSidebar({
     ? "processing"
     : hasMediaAnalysis ? "completed" : !hasAudit ? "locked" : "idle";
 
-  const strategyStatus: StepStatus = activeProcessingStep === "strategy"
+  const strategyStatus: StepStatus = (activeProcessingStep === "strategy" || activeProcessingStep === "diagnostic")
     ? "processing"
     : hasStrategy ? "completed" : !hasAudit ? "locked" : "idle";
 
@@ -238,6 +245,48 @@ export function AgentPipelineSidebar({
     }, 2200);
     return () => clearInterval(timer);
   }, [activeProcessingStep]);
+
+  const getRealStage1SubAgents = () => {
+    const stage1Notifs = notifications
+      .filter(n => n.step === "SCRAPING" || n.step === "DIAGNOSTIC")
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const latestNotif = stage1Notifs.length > 0 ? stage1Notifs[0] : null;
+
+    const isDiagnosticActive = (latestNotif?.step === "DIAGNOSTIC" && latestNotif?.status === "PROCESSING");
+    const isScrapingActive = (latestNotif?.step === "SCRAPING" && latestNotif?.status === "PROCESSING");
+    const isStage1Processing = isScrapingActive || isDiagnosticActive || auditStatus === "processing" || externalRunningStep === "scraping" || runningStep === "scraping";
+
+    if (!isStage1Processing) {
+      const defaultStatus = hasAudit ? ("completed" as const) : ("idle" as const);
+      return [
+        { name: "Agente Extractor", icon: "🕸️", status: defaultStatus },
+        { name: "Agente Analista FODA", icon: "📊", status: defaultStatus },
+        { name: "Agente Radar de Tendencias", icon: "🔥", status: defaultStatus },
+        { name: "Agente Redactor", icon: "📝", status: defaultStatus }
+      ];
+    }
+
+    let activeIdx = 0;
+    if (isDiagnosticActive || latestNotif?.step === "DIAGNOSTIC" || queueTick >= 2) {
+      activeIdx = queueTick >= 3 ? 3 : 2;
+    } else {
+      activeIdx = queueTick >= 1 ? 1 : 0;
+    }
+
+    const agents = [
+      { name: "Agente Extractor", icon: "🕸️" },
+      { name: "Agente Analista FODA", icon: "📊" },
+      { name: "Agente Radar de Tendencias", icon: "🔥" },
+      { name: "Agente Redactor", icon: "📝" }
+    ];
+
+    return agents.map((a, idx) => {
+      if (idx < activeIdx) return { ...a, status: "completed" as const };
+      if (idx === activeIdx) return { ...a, status: "processing" as const };
+      return { ...a, status: "idle" as const };
+    });
+  };
 
   const getSequentialSubAgents = (
     agentsList: Array<{ name: string; icon: string }>,
@@ -308,12 +357,7 @@ export function AgentPipelineSidebar({
           viewText="Ver Banco de Datos"
           actionText="Auditar Canales"
           isActive={activeTab === "bancodedatos"}
-          subAgents={getSequentialSubAgents([
-            { name: "Agente Extractor de Canales", icon: "🕸️" },
-            { name: "Agente Mapeador de Competencia", icon: "🎯" },
-            { name: "Agente de Diagnóstico FODA", icon: "📊" },
-            { name: "Agente de Configuración Base", icon: "💡" }
-          ], isAuditProc, hasAudit)}
+          subAgents={getRealStage1SubAgents()}
         />
 
         <AgentStepCard
